@@ -2535,10 +2535,12 @@ def buildParameters(page):
   def on_upload_progress(e: FilePickerUploadEvent):
     nonlocal pick_type
     if e.progress == 1:
-      if not slash in e.file_name:
-        fname = os.path.join(root_dir, e.file_name)
+      save_file(e.file_name)
+  def save_file(file_name):
+      if not slash in file_name:
+        fname = os.path.join(root_dir, file_name)
       else:
-        fname = e.file_name
+        fname = file_name
       if pick_type == "init":
         init_image.value = fname
         init_image.update()
@@ -2556,7 +2558,7 @@ def buildParameters(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
           file_picker.upload(uf)
   page.overlay.append(file_picker)
   pick_type = ""
@@ -3147,12 +3149,15 @@ def editPrompt(e):
         if e.files != None:
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
-      nonlocal pick_type
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
+        nonlocal pick_type
+        if e.progress == 1:
+          save_file(e.file_name)
+          e.page.update()
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
         else:
-          fname = e.file_name
+          fname = file_name
         if pick_type == "init":
           init_image.value = fname
           init_image.update()
@@ -3161,7 +3166,6 @@ def editPrompt(e):
           mask_image.value = fname
           mask_image.update()
           prefs['mask_image'] = fname
-        e.page.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def upload_files(e):
         uf = []
@@ -3170,7 +3174,7 @@ def editPrompt(e):
               if e.page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     e.page.overlay.append(file_picker)
     pick_type = ""
@@ -4554,10 +4558,12 @@ def buildESRGANupscaler(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
+        save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
         else:
-          fname = e.file_name
+          fname = file_name
         image_path.value = fname
         image_path.update()
         ESRGAN_prefs['image_path'] = fname
@@ -4572,7 +4578,7 @@ def buildESRGANupscaler(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     def pick_destination(e):
         alert_msg(page, "Switch to Colab tab and press Files button on the Left & Find the Path you want to Save Images into, Right Click and Copy Path, then Paste here")
@@ -4589,11 +4595,11 @@ def buildESRGANupscaler(page):
         if u['name'] == ESRGAN_prefs['upscale_model']:
           current_model = u
     model_info = Markdown(f"  [**Model Info**]({current_model['info']})", on_tap_link=lambda e: e.page.launch_url(e.data))
-
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=ESRGAN_prefs, key='enlarge_scale')
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=ESRGAN_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     image_path = TextField(label="Image File or Folder Path", value=ESRGAN_prefs['image_path'], col={'md':6}, on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path))
-    dst_image_path = TextField(label="Destination Image Path", value=ESRGAN_prefs['dst_image_path'], col={'md':6}, on_change=lambda e:changed(e,'dst_image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_destination))
+    dst_image_path = FileInput(label="Destination Image Path", pref=ESRGAN_prefs, key='dst_image_path', ftype="folder", col={'md':6}, page=page)
+    #dst_image_path = TextField(label="Destination Image Path", value=ESRGAN_prefs['dst_image_path'], col={'md':6}, on_change=lambda e:changed(e,'dst_image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_destination))
     filename_suffix = TextField(label="Optional Filename Suffix", hint_text="-big", value=ESRGAN_prefs['filename_suffix'], on_change=lambda e:changed(e,'filename_suffix'), width=260)
     download_locally = Checkbox(label="Download Images Locally", value=ESRGAN_prefs['download_locally'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'download_locally'))
     display_image = Checkbox(label="Display Upscaled Image", value=ESRGAN_prefs['display_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_image'))
@@ -4725,8 +4731,20 @@ def buildInitFolder(page):
       initfolder_output.update()
       clear_button.visible = False
       clear_button.update()
-    def pick_init(e):
-        alert_msg(page, "Switch to Colab tab and press Files button on the Left & Find the Path you want to use as Init Folder, Right Click and Copy Path, then Paste here")
+    def get_directory_result(e):
+        path = e.path
+        if path:
+            init_folder.value = path
+            init_folder.update()
+            initfolder_prefs['init_folder'] = path
+    def pick_folder(e):
+        if is_Colab:
+            alert_msg(page, "Switch to Colab tab and press Files button on the Left & Find the Path you want to use as Init Folder, Right Click and Copy Path, then Paste here")
+        else:
+            get_directory_dialog = ft.FilePicker(on_result=lambda e: get_directory_result(e))
+            page.overlay.append(get_directory_dialog)
+            page.update()
+            get_directory_dialog.get_directory_path(dialog_title="Select the folder containing Images to process")
     def toggle_strength(e):
       changed(e,'include_strength')
       strength_row.visible = e.control.value
@@ -4734,8 +4752,8 @@ def buildInitFolder(page):
     page.add_to_initfolder_output = add_to_initfolder_output
     prompt_string = TextField(label="Prompt Text", value=initfolder_prefs['prompt_string'], col={'md': 9}, on_change=lambda e:changed(e,'prompt_string'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=initfolder_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
-
-    init_folder = TextField(label="Init Image Folder Path", value=initfolder_prefs['init_folder'], on_change=lambda e:changed(e,'init_folder'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    init_folder = FileInput(label="Init Image Folder Path", pref=initfolder_prefs, key='init_folder', ftype="folder", page=page)
+    #init_folder = TextField(label="Init Image Folder Path", value=initfolder_prefs['init_folder'], on_change=lambda e:changed(e,'init_folder'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_folder))
     include_strength = Checkbox(label="Include Strength", value=initfolder_prefs['include_strength'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_strength)
     image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", round=2, value=float(initfolder_prefs['image_strength']), expand=True)
     strength_row = Row([Text("Image Strength:"), image_strength])
@@ -4798,12 +4816,14 @@ def buildInitVideo(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          init_video_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          init_video_prefs['file_name'] = file_name.rpartition('.')[0]
         else:
-          fname = e.file_name
-          init_video_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+          fname = file_name
+          init_video_prefs['file_name'] = file_name.rpartition(slash)[2].rpartition('.')[0]
         video_file.value = fname
         video_file.update()
         init_video_prefs['video_file'] = fname
@@ -4816,7 +4836,7 @@ def buildInitVideo(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     #page.overlay.append(pick_files_dialog)
@@ -4924,16 +4944,18 @@ def buildImage2Text(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
+        save_file(e.file_name)
+    def save_file(file_name):
         save_dir = os.path.join(root_dir, 'image2text')
         if not os.path.exists(save_dir):
           os.mkdir(save_dir)
         image2text_prefs['folder_path'] = save_dir
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          fpath = os.path.join(save_dir, e.file_name)
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          fpath = os.path.join(save_dir, file_name)
         else:
-          fname = e.file_name
-          fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
+          fname = file_name
+          fpath = os.path.join(save_dir, file_name.rpartition(slash)[2])
         original_img = PILImage.open(fname)
         width, height = original_img.size
         width, height = scale_dimensions(width, height, image2text_prefs['max_size'])
@@ -4958,7 +4980,7 @@ def buildImage2Text(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
                 #uf.append(FilePickerUploadFile(f.name, upload_url=f.path))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
@@ -5191,16 +5213,18 @@ def buildBLIP2Image2Text(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
+        save_file(e.file_name)
+    def save_file(file_name):
         save_dir = os.path.join(root_dir, 'BLIP2_image2text')
         if not os.path.exists(save_dir):
           os.mkdir(save_dir)
         BLIP2_image2text_prefs['folder_path'] = save_dir
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          fpath = os.path.join(save_dir, e.file_name)
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          fpath = os.path.join(save_dir, file_name)
         else:
-          fname = e.file_name
-          fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
+          fname = file_name
+          fpath = os.path.join(save_dir, file_name.rpartition(slash)[2])
         original_img = PILImage.open(fname)
         width, height = original_img.size
         width, height = scale_dimensions(width, height, BLIP2_image2text_prefs['max_size'])
@@ -5219,7 +5243,7 @@ def buildBLIP2Image2Text(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -5422,15 +5446,17 @@ def buildDanceDiffusion(page):
     save_dir = os.path.join(root_dir, 'dance-audio')
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
+          save_file(e.file_name)
+    def save_file(file_name):
           if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-          if not slash in e.file_name:
-            fname = os.path.join(root_dir, e.file_name)
-            fpath = os.path.join(save_dir, e.file_name)
+          if not slash in file_name:
+            fname = os.path.join(root_dir, file_name)
+            fpath = os.path.join(save_dir, file_name)
             shutil.move(fname, fpath)
           else:
-            fname = e.file_name
-            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
+            fname = file_name
+            fpath = os.path.join(save_dir, file_name.rpartition(slash)[2])
           add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def pick_path(e):
@@ -5442,7 +5468,7 @@ def buildDanceDiffusion(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_wav(e):
@@ -5632,17 +5658,19 @@ def buildAudioDiffusion(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-              audio_diffusion_prefs['file_name'] = e.file_name.rpartition('.')[0]
-            else:
-              fname = e.file_name
-              fpath = os.path.join(root_dir, e.file_name.rpartition(slash)[2])
-              audio_diffusion_prefs['file_name'] = e.file_name.rparition(slash)[2].rpartition('.')[0]
-            audio_file.value = fname
-            audio_file.update()
-            audio_diffusion_prefs['audio_file'] = fname
-            page.update()
+            save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          audio_diffusion_prefs['file_name'] = file_name.rpartition('.')[0]
+        else:
+          fname = file_name
+          fpath = os.path.join(root_dir, file_name.rpartition(slash)[2])
+          audio_diffusion_prefs['file_name'] = file_name.rparition(slash)[2].rpartition('.')[0]
+        audio_file.value = fname
+        audio_file.update()
+        audio_diffusion_prefs['audio_file'] = fname
+        page.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def upload_files(e):
         uf = []
@@ -5651,7 +5679,7 @@ def buildAudioDiffusion(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def pick_audio(e):
@@ -5757,36 +5785,8 @@ def buildMusicGen(page):
         page.overlay.append(music_gen_help_dlg)
         music_gen_help_dlg.open = True
         page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-              music_gen_prefs['file_name'] = e.file_name.rpartition('.')[0]
-            else:
-              fname = e.file_name
-              fpath = os.path.join(root_dir, e.file_name.rpartition(slash)[2])
-              music_gen_prefs['file_name'] = e.file_name.rparition(slash)[2].rpartition('.')[0]
-            audio_file.value = fname
-            audio_file.update()
-            music_gen_prefs['audio_file'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_audio(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp3", "wav"], dialog_title="Pick Init Audio File")
-    audio_file = TextField(label="Melody Conditioning Audio File (optional)", value=music_gen_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
+    #audio_file = TextField(label="Melody Conditioning Audio File (optional)", value=music_gen_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
+    audio_file = FileInput(label="Melody Conditioning Audio File (optional)", pref=music_gen_prefs, key='audio_file', ftype="audio", page=page)
     prompt = TextField(label="Prompt to generate a track (genre, theme, etc.)", value=music_gen_prefs['prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'))
     duration_row = SliderRow(label="Duration", min=1, max=720, divisions=718, suffix="s", expand=True, pref=music_gen_prefs, key='duration')
     #steps_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=music_gen_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -5942,37 +5942,9 @@ def buildPoint_E(page):
       page.overlay.append(df_help_dlg)
       df_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          point_e_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          point_e_prefs['file_name'] = e.file_name.rparition(slash)[2].rpartition('.')[0]
-        init_image.value = fname
-        init_image.update()
-        point_e_prefs['init_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    #page.overlay.append(pick_files_dialog)
-    def pick_original(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
     prompt_text = TextField(label="Prompt Text", value=point_e_prefs['prompt_text'], filled=True, on_change=lambda e:changed(e,'prompt_text'))
-    init_image = TextField(label="Sample Image (instead of prompt)", value=point_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    #init_image = TextField(label="Sample Image (instead of prompt)", value=point_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    init_image = FileInput(label="Sample Image (instead of prompt)", pref=point_e_prefs, key='init_image', page=page)
     base_model = Dropdown(label="Base Model", width=250, options=[dropdown.Option("base40M-imagevec"), dropdown.Option("base40M-textvec"), dropdown.Option("base40M"), dropdown.Option("base300M"), dropdown.Option("base1B")], value=point_e_prefs['base_model'], on_change=lambda e: changed(e, 'base_model'))
     batch_folder_name = TextField(label="3D Model Folder Name", value=point_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     #batch_size = TextField(label="Batch Size", value=point_e_prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'batch_size', isInt=True), width = 90)
@@ -6043,35 +6015,6 @@ def buildShap_E(page):
       page.overlay.append(df_help_dlg)
       df_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          shap_e_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          shap_e_prefs['file_name'] = e.file_name.rparition(slash)[2].rpartition('.')[0]
-        init_image.value = fname
-        init_image.update()
-        shap_e_prefs['init_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    #page.overlay.append(pick_files_dialog)
-    def pick_original(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
     def toggle_original(e):
       shap_e_prefs['use_original'] = e.control.value
       original_row.height=None if shap_e_prefs['use_original'] else 0
@@ -6082,7 +6025,8 @@ def buildShap_E(page):
       else:
         run_shap_e2(page)
     prompt_text = TextField(label="Prompt Text", value=shap_e_prefs['prompt_text'], filled=True, on_change=lambda e:changed(e,'prompt_text'))
-    init_image = TextField(label="Sample Image (optional, instead of prompt)", value=shap_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    init_image = FileInput(label="Sample Image (optional, instead of prompt)", pref=shap_e_prefs, key='init_image', page=page)
+    #init_image = TextField(label="Sample Image (optional, instead of prompt)", value=shap_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     #TODO: Add Multi-Image List
     #base_model = Dropdown(label="Base Model", width=250, options=[dropdown.Option("base40M-imagevec"), dropdown.Option("base40M-textvec"), dropdown.Option("base40M"), dropdown.Option("base300M"), dropdown.Option("base1B")], value=shap_e_prefs['base_model'], on_change=lambda e: changed(e, 'base_model'))
     render_mode = Dropdown(label="Render Mode", width=150, options=[dropdown.Option("NeRF"), dropdown.Option("STF")], value=shap_e_prefs['render_mode'], on_change=lambda e: changed(e, 'render_mode'))
@@ -6559,23 +6503,25 @@ def buildInstantNGP(page):
     save_dir = os.path.join(root_dir, 'my_ngp')
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-          if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
-          if not slash in e.file_name:
-            fname = os.path.join(root_dir, e.file_name)
-            fpath = os.path.join(save_dir, e.file_name)
-          else:
-            fname = e.file_name
-            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
-          original_img = PILImage.open(fname)
-          width, height = original_img.size
-          width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
-          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
-          original_img.save(fpath)
-          if page.web:
-            os.remove(fname)
-          #shutil.move(fname, fpath)
-          add_file(fpath)
+          save_file(e.file_name)
+    def save_file(file_name):
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          fpath = os.path.join(save_dir, file_name)
+        else:
+          fname = file_name
+          fpath = os.path.join(save_dir, file_name.rpartition(slash)[2])
+        original_img = PILImage.open(fname)
+        width, height = original_img.size
+        width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
+        original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+        original_img.save(fpath)
+        if page.web:
+          os.remove(fname)
+        #shutil.move(fname, fpath)
+        add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def pick_path(e):
         file_picker.pick_files(allow_multiple=True, allowed_extensions=["png", "PNG", "jpg", "jpeg", 'obj', 'stl', 'nvdb'], dialog_title="Pick Image File to Enlarge")
@@ -6586,7 +6532,7 @@ def buildInstantNGP(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -6896,55 +6842,13 @@ def buildRepainter(page):
       page.overlay.append(repaint_help_dlg)
       repaint_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      nonlocal pick_type
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          repaint_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          repaint_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        if pick_type == "original":
-          original_image.value = fname
-          original_image.update()
-          repaint_prefs['original_image'] = fname
-        elif pick_type == "mask":
-          mask_image.value = fname
-          mask_image.update()
-          repaint_prefs['mask_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    #page.overlay.append(pick_files_dialog)
-    def pick_original(e):
-        nonlocal pick_type
-        pick_type = "original"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
-    def pick_mask(e):
-        nonlocal pick_type
-        pick_type = "mask"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Black & White Mask Image")
     def change_eta(e):
         changed(e, 'eta', ptype="float")
         eta_value.value = f" {repaint_prefs['eta']}"
         eta_value.update()
         eta_row.update()
-    original_image = TextField(label="Original Image", value=repaint_prefs['original_image'], expand=1, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
-    mask_image = TextField(label="Mask Image", value=repaint_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
+    original_image = FileInput(label="Original Image", pref=repaint_prefs, key='original_image', expand=1, page=page)
+    mask_image = FileInput(label="Mask Image", pref=repaint_prefs, key='mask_image', expand=1, page=page)
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=repaint_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     jump_length = TextField(label="Jump Length", width=130, tooltip="The number of steps taken forward in time before going backward in time for a single jump", value=repaint_prefs['jump_length'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'jump_length', ptype='int'))
     jump_n_sample = TextField(label="Jump # of Sample", width=130, tooltip="The number of times we will make forward time jump for a given chosen time sample.", value=repaint_prefs['jump_n_sample'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'jump_n_sample', ptype='int'))
@@ -7021,35 +6925,8 @@ def buildImageVariation(page):
       page.overlay.append(image_variation_help_dlg)
       image_variation_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          image_variation_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          image_variation_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        init_image.value = fname
-        init_image.update()
-        image_variation_prefs['init_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_init(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick init Image File")
-    init_image = TextField(label="Initial Image", value=image_variation_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    #init_image = TextField(label="Initial Image", value=image_variation_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    init_image = FileInput(label="Initial Image", pref=image_variation_prefs, key='init_image', page=page)
     seed = TextField(label="Seed", width=90, value=str(image_variation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=image_variation_prefs, key='guidance_scale')
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=image_variation_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -7123,35 +7000,7 @@ def buildBackgroundRemover(page):
       page.overlay.append(background_remover_help_dlg)
       background_remover_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          background_remover_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          background_remover_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        init_image.value = fname
-        init_image.update()
-        background_remover_prefs['init_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_init(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick init Image File")
-    init_image = TextField(label="Initial Image", value=background_remover_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    init_image = FileInput(label="Initial Image", pref=background_remover_prefs, key='init_image', page=page)
     threshold = SliderRow(label="Mask Cutoff Threshold", min=0, max=250, divisions=250, round=0, pref=background_remover_prefs, key='threshold')
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=background_remover_prefs, key='max_size')
     save_mask = Switcher(label="Save B&W Mask", value=background_remover_prefs['save_mask'], tooltip="Gives you a Mask File you can reuse for Inpainting.", on_change=lambda e:changed(e,'save_mask'))
@@ -7855,41 +7704,13 @@ def buildReference(page):
       page.overlay.append(reference_help_dlg)
       reference_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          reference_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          reference_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        ref_image.value = fname
-        ref_image.update()
-        reference_prefs['ref_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_init(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
     prompt = TextField(label="Prompt Text", value=reference_prefs['prompt'], filled=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=reference_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         reference_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    ref_image = TextField(label="Reference Image", value=reference_prefs['ref_image'], on_change=lambda e:changed(e,'ref_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    ref_image = FileInput(label="Reference Image", pref=reference_prefs, key='ref_image', page=page)
     use_SDXL = Switcher(label="Use Stable Diffusion XL Reference Pipeline", value=reference_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="Otherwise use standard Model Checkpoint set in Installation.")
     seed = TextField(label="Seed", width=90, value=str(reference_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=reference_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -8014,47 +7835,6 @@ def buildControlNetQR(page):
       page.overlay.append(controlnet_qr_help_dlg)
       controlnet_qr_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-            upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        nonlocal pick_type
-        if e.progress == 1:
-            if not slash in e.file_name:
-                fname = os.path.join(root_dir, e.file_name)
-                controlnet_qr_prefs['file_name'] = e.file_name.rpartition('.')[0]
-            else:
-                fname = e.file_name
-                controlnet_qr_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-            if pick_type == "init":
-                init_image.value = fname
-                init_image.update()
-                controlnet_qr_prefs['init_image'] = fname
-            elif pick_type == "ref":
-                ref_image.value = fname
-                ref_image.update()
-                controlnet_qr_prefs['ref_image'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    def pick_ref(e):
-        nonlocal pick_type
-        pick_type = "ref"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick QR Code Image File")
-    def pick_init(e):
-        nonlocal pick_type
-        pick_type = "init"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
     prompt = TextField(label="Prompt Text", value=controlnet_qr_prefs['prompt'], filled=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_qr_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     def toggle_ESRGAN(e):
@@ -8067,7 +7847,7 @@ def buildControlNetQR(page):
         qr_generator.update()
         qr_content.visible = not e.control.value
         qr_content.update()
-        ref_image.visible = e.control.value
+        ref_image.show = e.control.value
         ref_image.update()
     def change_mode(e):
         controlnet_qr_prefs['selected_mode'] = e.data
@@ -8076,7 +7856,7 @@ def buildControlNetQR(page):
         qr_generator.update()
         qr_content.visible = not image_mode
         qr_content.update()
-        ref_image.visible = image_mode
+        ref_image.show = image_mode
         ref_image.update()
     def change_version(e):
         changed(e, 'controlnet_version')
@@ -8093,8 +7873,8 @@ def buildControlNetQR(page):
         ],
     )
     qr_content = TextField(label="QR Code Content (URL or whatever text)", value=controlnet_qr_prefs['qr_content'], expand=True, visible=not controlnet_qr_prefs['use_image'], on_change=lambda e:changed(e,'qr_content'))
-    init_image = TextField(label="Initial Image (optional)", value=controlnet_qr_prefs['init_image'], expand=True, on_change=lambda e:changed(e,'init_image'), height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
-    ref_image = TextField(label="ControlNet QR Code Image", value=controlnet_qr_prefs['ref_image'], expand=True, visible=controlnet_qr_prefs['use_image'], on_change=lambda e:changed(e,'ref_image'), height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_ref))
+    init_image = FileInput(label="Initial Image (optional)", pref=controlnet_qr_prefs, key='init_image', expand=True, page=page)
+    ref_image = FileInput(label="ControlNet QR Code Image", pref=controlnet_qr_prefs, key='ref_image', expand=True, visible=controlnet_qr_prefs['use_image'], page=page)
     use_image = Switcher(label="Use QR Image Instead", value=controlnet_qr_prefs['use_image'], tooltip="Provide your own QR Code made elsewhere, or generate here.", on_change=toggle_image)
     #use_image = Switcher(label="Use QR Image Instead", value=controlnet_qr_prefs['use_image'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_image)
     border_thickness = SliderRow(label="Border Thickness", min=0, max=20, divisions=20, round=0, pref=controlnet_qr_prefs, key='border_thickness', tooltip="The border is equal to the thickness of 5 tiny black boxes around QR.")
@@ -8226,41 +8006,13 @@ def buildControlNetSegmentAnything(page):
       page.overlay.append(controlnet_segment_help_dlg)
       controlnet_segment_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          controlnet_segment_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          controlnet_segment_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        ref_image.value = fname
-        ref_image.update()
-        controlnet_segment_prefs['ref_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_init(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
     prompt = TextField(label="Prompt Text", value=controlnet_segment_prefs['prompt'], filled=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_segment_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         controlnet_segment_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    ref_image = TextField(label="Initial Image to Segment", value=controlnet_segment_prefs['ref_image'], on_change=lambda e:changed(e,'ref_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    ref_image = FileInput(label="Initial Image to Segment", pref=controlnet_segment_prefs, key='ref_image', page=page)
     seed = TextField(label="Seed", width=90, value=str(controlnet_segment_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=controlnet_segment_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=controlnet_segment_prefs, key='guidance_scale')
@@ -8358,38 +8110,10 @@ def buildEDICT(page):
         ESRGAN_settings.height = None if e.control.value else 0
         EDICT_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          EDICT_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          EDICT_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        init_image.value = fname
-        init_image.update()
-        EDICT_prefs['init_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_init(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick init Image File")
     base_prompt = TextField(label="Base Prompt Text (describe init image)", value=EDICT_prefs['base_prompt'], col={'md': 12}, multiline=True, on_change=lambda e:changed(e,'base_prompt'))
     target_prompt = TextField(label="Target Prompt Text", value=EDICT_prefs['target_prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'target_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=EDICT_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    init_image = TextField(label="Initial Image to Edit (crops square)", value=EDICT_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    init_image = FileInput(label="Initial Image to Edit (crops square)", pref=EDICT_prefs, key='init_image', page=page)
     seed = TextField(label="Seed", width=90, value=str(EDICT_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=EDICT_prefs, key='guidance_scale')
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=EDICT_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -8484,38 +8208,10 @@ def buildDiffEdit(page):
         ESRGAN_settings.height = None if e.control.value else 0
         DiffEdit_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          DiffEdit_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          DiffEdit_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        init_image.value = fname
-        init_image.update()
-        DiffEdit_prefs['init_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_init(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick init Image File")
     source_prompt = TextField(label="Source Prompt Text (blank to auto-caption)", value=DiffEdit_prefs['source_prompt'], col={'md': 12}, multiline=True, on_change=lambda e:changed(e,'source_prompt'))
     target_prompt = TextField(label="Target Prompt Text (describe edits)", value=DiffEdit_prefs['target_prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'target_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=DiffEdit_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    init_image = TextField(label="Initial Image to Edit (crops square)", value=DiffEdit_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    init_image = FileInput(label="Initial Image to Edit (crops square)", pref=DiffEdit_prefs, key='init_image', page=page)
     seed = TextField(label="Seed", width=90, value=str(DiffEdit_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=DiffEdit_prefs, key='guidance_scale')
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=DiffEdit_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -8813,35 +8509,7 @@ def buildUnCLIP_ImageVariation(page):
       page.overlay.append(unCLIP_image_variation_help_dlg)
       unCLIP_image_variation_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          unCLIP_image_variation_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          unCLIP_image_variation_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        init_image.value = fname
-        init_image.update()
-        unCLIP_image_variation_prefs['init_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_init(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
-    init_image = TextField(label="Initial Image", value=unCLIP_image_variation_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    init_image = FileInput(label="Initial Image", pref=unCLIP_image_variation_prefs, key='init_image', page=page)
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         unCLIP_image_variation_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -9062,49 +8730,8 @@ def buildUnCLIP_ImageInterpolation(page):
       page.overlay.append(unCLIP_image_interpolation_help_dlg)
       unCLIP_image_interpolation_help_dlg.open = True
       page.update()
-    pick_type = ""
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      nonlocal pick_type
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          unCLIP_image_interpolation_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          unCLIP_image_interpolation_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        if pick_type == "init":
-            init_image.value = fname
-            init_image.update()
-            unCLIP_image_interpolation_prefs['init_image'] = fname
-        elif pick_type == "end":
-            end_image.value = fname
-            end_image.update()
-            unCLIP_image_interpolation_prefs['end_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_init(e):
-        nonlocal pick_type
-        pick_type = "init"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
-    def pick_end(e):
-        nonlocal pick_type
-        pick_type = "end"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Ending Image File")
-    init_image = TextField(label="Initial Image", value=unCLIP_image_interpolation_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
-    end_image = TextField(label="Ending Image", value=unCLIP_image_interpolation_prefs['end_image'], on_change=lambda e:changed(e,'end_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_end))
+    init_image = FileInput(label="Initial Image", pref=unCLIP_image_interpolation_prefs, key='init_image', page=page)
+    end_image = FileInput(label="Ending Image", pref=unCLIP_image_interpolation_prefs, key='end_image', page=page)
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -9215,40 +8842,12 @@ def buildMagicMix(page):
       page.overlay.append(magic_mix_help_dlg)
       magic_mix_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          magic_mix_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          magic_mix_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        init_image.value = fname
-        init_image.update()
-        magic_mix_prefs['init_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_init(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
     prompt = TextField(label="Prompt Text", value=magic_mix_prefs['prompt'], filled=True, on_change=lambda e:changed(e,'prompt'))
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         magic_mix_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    init_image = TextField(label="Initial Image", value=magic_mix_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    init_image = FileInput(label="Initial Image", pref=magic_mix_prefs, key='init_image', page=page)
     seed = TextField(label="Seed", width=90, value=str(magic_mix_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the noise", width=200,
             options=[
@@ -9347,56 +8946,6 @@ def buildPaintByExample(page):
       page.overlay.append(paint_by_example_help_dlg)
       paint_by_example_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      nonlocal pick_type
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          paint_by_example_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          paint_by_example_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        if pick_type == "original":
-          original_image.value = fname
-          original_image.update()
-          paint_by_example_prefs['original_image'] = fname
-        elif pick_type == "mask":
-          mask_image.value = fname
-          mask_image.update()
-          paint_by_example_prefs['mask_image'] = fname
-        elif pick_type == "example":
-          example_image.value = fname
-          example_image.update()
-          paint_by_example_prefs['example_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    #page.overlay.append(pick_files_dialog)
-    def pick_original(e):
-        nonlocal pick_type
-        pick_type = "original"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
-    def pick_mask(e):
-        nonlocal pick_type
-        pick_type = "mask"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Black & White Mask Image")
-    def pick_example(e):
-        nonlocal pick_type
-        pick_type = "example"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Example Style Image")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         paint_by_example_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -9406,11 +8955,11 @@ def buildPaintByExample(page):
         eta_value.value = f" {paint_by_example_prefs['eta']}"
         eta_value.update()
         eta_row.update()
-    original_image = TextField(label="Original Image", value=paint_by_example_prefs['original_image'], expand=1, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
-    mask_image = TextField(label="Mask Image", value=paint_by_example_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
+    original_image = FileInput(label="Original Image", pref=paint_by_example_prefs, key='original_image', expand=1, page=page)
+    mask_image = FileInput(label="Mask Image", pref=paint_by_example_prefs, key='mask_image', expand=1, page=page)
+    example_image = FileInput(label="Example Style Image", pref=paint_by_example_prefs, key='example_image', page=page)
     alpha_mask = Checkbox(label="Alpha Mask", value=paint_by_example_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=paint_by_example_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
-    example_image = TextField(label="Example Style Image", value=paint_by_example_prefs['example_image'], on_change=lambda e:changed(e,'example_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_example))
     seed = TextField(label="Seed", width=90, value=str(paint_by_example_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=paint_by_example_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=paint_by_example_prefs, key='guidance_scale')
@@ -9511,47 +9060,6 @@ def buildInstructPix2Pix(page):
       page.overlay.append(instruct_pix2pix_help_dlg)
       instruct_pix2pix_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      nonlocal pick_type
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          instruct_pix2pix_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          instruct_pix2pix_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        if pick_type == "image":
-          original_image.value = fname
-          original_image.update()
-          instruct_pix2pix_prefs['original_image'] = fname
-        elif pick_type == "video":
-          init_video.value = fname
-          init_video.update()
-          instruct_pix2pix_prefs['init_video'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    def pick_original(e):
-        nonlocal pick_type
-        pick_type = "image"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
-    def pick_video(e):
-        nonlocal pick_type
-        pick_type = "video"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi"], dialog_title="Pick Initial Video File")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         instruct_pix2pix_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -9572,12 +9080,12 @@ def buildInstructPix2Pix(page):
         vid_params.update()
         run_prompt_list.visible = not show
         run_prompt_list.update()
-    original_image = TextField(label="Original Image", value=instruct_pix2pix_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    original_image = FileInput(label="Original Image", pref=instruct_pix2pix_prefs, key='original_image', expand=True, page=page)
     prompt = TextField(label="Editing Instructions Prompt Text", value=instruct_pix2pix_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=instruct_pix2pix_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(instruct_pix2pix_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switcher(label="Use Init Video", value=instruct_pix2pix_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
-    init_video = TextField(label="Init Video Clip", value=instruct_pix2pix_prefs['init_video'], expand=True, visible=instruct_pix2pix_prefs['use_init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
+    init_video = FileInput(label="Init Video Clip", pref=instruct_pix2pix_prefs, key='init_video', ftype="video", expand=True, page=page)
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=instruct_pix2pix_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
     start_time = TextField(label="Start Time (s)", value=instruct_pix2pix_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
     end_time = TextField(label="End Time (0 for all)", value=instruct_pix2pix_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
@@ -9851,12 +9359,14 @@ def buildControlNet(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          controlnet_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          controlnet_prefs['file_name'] = file_name.rpartition('.')[0]
         else:
-          fname = e.file_name
-          controlnet_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+          fname = file_name
+          controlnet_prefs['file_name'] = file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "image":
           original_image.value = fname
           original_image.update()
@@ -9874,7 +9384,7 @@ def buildControlNet(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -9960,6 +9470,7 @@ def buildControlNet(page):
         ip_adapter_container.update()
         ip_adapter_model.visible = e.control.value
         ip_adapter_model.update()
+    #original_image = FileInput(label="Original Drawing", pref=controlnet_prefs, key='original_image', expand=True, page=page)
     original_image = TextField(label="Original Drawing", value=controlnet_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
@@ -9973,6 +9484,7 @@ def buildControlNet(page):
     multi_layers = Column([], spacing=0)
     seed = TextField(label="Seed", width=90, value=str(controlnet_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     #use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switcher(label="Use Init Video", value=controlnet_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
+    #init_video = FileInput(label="Init Video Clip", pref=controlnet_prefs, key='init_video', ftype="video", visible=controlnet_prefs['use_init_video'], expand=True, page=page)
     init_video = TextField(label="Init Video Clip", value=controlnet_prefs['init_video'], expand=True, visible=controlnet_prefs['use_init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=controlnet_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
     start_time = TextField(label="Start Time (s)", value=controlnet_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
@@ -10140,12 +9652,14 @@ def buildControlNetXL(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          controlnet_xl_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          controlnet_xl_prefs['file_name'] = file_name.rpartition('.')[0]
         else:
-          fname = e.file_name
-          controlnet_xl_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+          fname = file_name
+          controlnet_xl_prefs['file_name'] = file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "image":
           original_image.value = fname
           original_image.update()
@@ -10163,7 +9677,7 @@ def buildControlNetXL(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -10439,12 +9953,14 @@ def buildControlNetSD3(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          controlnet_sd3_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          controlnet_sd3_prefs['file_name'] = file_name.rpartition('.')[0]
         else:
-          fname = e.file_name
-          controlnet_sd3_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+          fname = file_name
+          controlnet_sd3_prefs['file_name'] = file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "image":
           original_image.value = fname
           original_image.update()
@@ -10462,7 +9978,7 @@ def buildControlNetSD3(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -10708,12 +10224,14 @@ def buildControlNetXS(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          controlnet_xs_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          controlnet_xs_prefs['file_name'] = file_name.rpartition('.')[0]
         else:
-          fname = e.file_name
-          controlnet_xs_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+          fname = file_name
+          controlnet_xs_prefs['file_name'] = file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "image":
           original_image.value = fname
           original_image.update()
@@ -10731,7 +10249,7 @@ def buildControlNetXS(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -10983,38 +10501,6 @@ def buildControlNet_Video2Video(page):
       page.overlay.append(controlnet_video2video_help_dlg)
       controlnet_video2video_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          controlnet_video2video_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          controlnet_video2video_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        if pick_type == "video":
-          init_video.value = fname
-          init_video.update()
-          controlnet_video2video_prefs['init_video'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    def pick_video(e):
-        nonlocal pick_type
-        pick_type = "video"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi"], dialog_title="Pick Initial Video File")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         controlnet_video2video_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -11033,7 +10519,8 @@ def buildControlNet_Video2Video(page):
     controlnet_strength = SliderRow(label="ControlNet Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_video2video_prefs, key='controlnet_strength', tooltip="How much influence the controlnet annotator's output is used to guide the denoising process.")
     init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_video2video_prefs, key='init_image_strength', tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     feedthrough_strength = SliderRow(label="Feedthrough Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_video2video_prefs, key='feedthrough_strength', tooltip="The ratio of input to motion compensated prior output to feed through to the next frame.")
-    init_video = TextField(label="Init Video Clip", value=controlnet_video2video_prefs['init_video'], expand=True, on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
+    init_video = FileInput(label="Init Video Clip", pref=controlnet_video2video_prefs, key='init_video', ftype="video", expand=True, page=page)
+    #init_video = TextField(label="Init Video Clip", value=controlnet_video2video_prefs['init_video'], expand=True, on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
     #fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=controlnet_video2video_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
     start_time = TextField(label="Start Time (s)", value=controlnet_video2video_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
     end_time = TextField(label="End Time (0 for all)", value=controlnet_video2video_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
@@ -11165,47 +10652,6 @@ def buildDeepFloyd(page):
       page.overlay.append(deepfloyd_help_dlg)
       deepfloyd_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      nonlocal pick_type
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          deepfloyd_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          deepfloyd_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        if pick_type == "image":
-          init_image.value = fname
-          init_image.update()
-          deepfloyd_prefs['init_image'] = fname
-        elif pick_type == "mask":
-          mask_image.value = fname
-          mask_image.update()
-          deepfloyd_prefs['mask_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    def pick_init(e):
-        nonlocal pick_type
-        pick_type = "image"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
-    def pick_mask(e):
-        nonlocal pick_type
-        pick_type = "mask"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Mask Image File")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         deepfloyd_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -13284,41 +12730,13 @@ Resources:
       page.overlay.append(video_to_video_help_dlg)
       video_to_video_help_dlg.open = True
       page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          video_to_video_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        else:
-          fname = e.file_name
-          video_to_video_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-        init_video.value = fname
-        init_video.update()
-        video_to_video_prefs['init_video'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_video(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["avi", "mp4", "mov"], dialog_title="Pick Video File")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         video_to_video_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
     prompt = TextField(label="Video Prompt Text", value=video_to_video_prefs['prompt'], col={'md': 9}, filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=video_to_video_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
-    init_video = TextField(label="Init Video File", value=video_to_video_prefs['init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.VIDEO_CALL, on_click=pick_video))
+    init_video = FileInput(label="Init Video Clip", pref=video_to_video_prefs, key='init_video', ftype="video", page=page)
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=video_to_video_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
     start_time = TextField(label="Start Time (s)", value=controlnet_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
     end_time = TextField(label="End Time (0 for all)", value=controlnet_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
@@ -13990,12 +13408,14 @@ def buildStableAnimation(page):
     def on_upload_progress(e: FilePickerUploadEvent):
       nonlocal pick_type
       if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          stable_animation_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          stable_animation_prefs['file_name'] = file_name.rpartition('.')[0]
         else:
-          fname = e.file_name
-          stable_animation_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+          fname = file_name
+          stable_animation_prefs['file_name'] = file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "image":
           init_image.value = fname
           init_image.update()
@@ -14017,7 +13437,7 @@ def buildStableAnimation(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -14552,12 +13972,14 @@ def buildROOP(page):
     def on_upload_progress(e: FilePickerUploadEvent):
       nonlocal pick_type
       if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
-          roop_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          roop_prefs['file_name'] = file_name.rpartition('.')[0]
         else:
-          fname = e.file_name
-          roop_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+          fname = file_name
+          roop_prefs['file_name'] = file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "source":
           source_image.value = fname
           source_image.update()
@@ -14575,7 +13997,7 @@ def buildROOP(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -17342,19 +16764,21 @@ def buildMaterialDiffusion(page):
     def on_upload_progress(e: FilePickerUploadEvent):
         nonlocal pick_type
         if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-            else:
-              fname = e.file_name
-            if pick_type == "init":
-                init_image.value = fname
-                init_image.update()
-                materialdiffusion_prefs['init_image'] = fname
-            elif pick_type == "mask":
-                mask_image.value = fname
-                mask_image.update()
-                materialdiffusion_prefs['mask_image'] = fname
-            page.update()
+            save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, file_name)
+        else:
+          fname = file_name
+        if pick_type == "init":
+            init_image.value = fname
+            init_image.update()
+            materialdiffusion_prefs['init_image'] = fname
+        elif pick_type == "mask":
+            mask_image.value = fname
+            mask_image.update()
+            materialdiffusion_prefs['mask_image'] = fname
+        page.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def upload_files(e):
         uf = []
@@ -17363,7 +16787,7 @@ def buildMaterialDiffusion(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -17411,8 +16835,8 @@ def buildMaterialDiffusion(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=materialdiffusion_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=materialdiffusion_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=materialdiffusion_prefs, key='height')
-    init_image = TextField(label="Init Image", value=materialdiffusion_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
-    mask_image = TextField(label="Mask Image", value=materialdiffusion_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
+    init_image = FileInput(label="Init Image", pref=materialdiffusion_prefs, key='init_image', page=page, expand=True, col={'xs':12, 'md':6})
+    mask_image = FileInput(label="Mask Image", pref=materialdiffusion_prefs, key='mask_image', page=page, expand=True, col={'xs':10, 'md':5})
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=materialdiffusion_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
     image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     prompt_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", round=2, value=materialdiffusion_prefs['prompt_strength'], on_change=change_strength, expand=True)
@@ -17690,68 +17114,6 @@ def buildDallE2(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def pick_files_result(e: FilePickerResultEvent):
-        if e.files:
-            img = e.files
-            dalle = []
-            fname = img[0]
-            print(", ".join(map(lambda f: f.name, e.files)))
-            src_path = page.get_upload_url(fname.name, 600)
-            dalle.append(FilePickerUploadFile(fname.name, upload_url=src_path))
-            pick_files_dialog.upload(dalle)
-            print(str(src_path))
-            #src_path = ''.join(src_path)
-            print(str(dalle[0]))
-            dst_path = os.path.join(root_dir, fname.name)
-            print(f'Copy {src_path} to {dst_path}')
-            #shutil.copy(src_path, dst_path)
-            # TODO: is init or mask?
-            init_image.value = dst_path
-
-    pick_files_dialog = FilePicker(on_result=pick_files_result)
-    page.overlay.append(pick_files_dialog)
-    #selected_files = Text()
-
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-            upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        nonlocal pick_type
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-            else:
-              fname = e.file_name
-            if pick_type == "init":
-                init_image.value = fname
-                init_image.update()
-                dall_e_2_prefs['init_image'] = fname
-            elif pick_type == "mask":
-                mask_image.value = fname
-                mask_image.update()
-                dall_e_2_prefs['mask_image'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        dalle = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                dalle.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(dalle)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    #page.overlay.append(pick_files_dialog)
-    def pick_init(e):
-        nonlocal pick_type
-        pick_type = "init"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
-    def pick_mask(e):
-        nonlocal pick_type
-        pick_type = "mask"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         dall_e_2_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -17780,15 +17142,14 @@ def buildDallE2(page):
     #seed = TextField(label="Seed", value=dall_e_2_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed', ptype="int"))
     size = Dropdown(label="Image Size", width=120, options=[dropdown.Option("256x256"), dropdown.Option("512x512"), dropdown.Option("1024x1024")], value=dall_e_2_prefs['size'], on_change=lambda e:changed(e,'size'))
     param_rows = ResponsiveRow([Row([batch_folder_name, file_prefix], col={'lg':6}), Row([size, NumberPicker(label=" Number of Images", min=1, max=10, step=1, value=dall_e_2_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))], col={'lg':6})])
-
     #width = Slider(min=128, max=1024, divisions=6, label="{value}px", value=dall_e_2_prefs['width'], on_change=change_width, expand=True)
     #width_value = Text(f" {int(dall_e_2_prefs['width'])}px", weight=FontWeight.BOLD)
     #width_slider = Row([Text(f"Width: "), width_value, width])
     #height = Slider(min=128, max=1024, divisions=6, label="{value}px", value=dall_e_2_prefs['height'], on_change=change_height, expand=True)
     #height_value = Text(f" {int(dall_e_2_prefs['height'])}px", weight=FontWeight.BOLD)
     #height_slider = Row([Text(f"Height: "), height_value, height])
-    init_image = TextField(label="Init Image (optional)", value=dall_e_2_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"*":1, "md":3}))
-    mask_image = TextField(label="Mask Image (optional)", value=dall_e_2_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
+    init_image = FileInput(label="Init Image (optional)", pref=dall_e_2_prefs, key='init_image', page=page, expand=True, col={"*":1, "md":3})
+    mask_image = FileInput(label="Mask Image (optional)", pref=dall_e_2_prefs, key='mask_image', page=page, expand=True, col={"*":1, "md":3})
     variation = Checkbox(label="Variation   ", tooltip="Creates Variation of Init Image. Disregards the Prompt and Mask.", value=dall_e_2_prefs['variation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'variation'))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=dall_e_2_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     image_pickers = Container(content=ResponsiveRow([Row([init_image, variation], col={"md":6}), Row([mask_image, invert_mask], col={"md":6})], run_spacing=2), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -17852,63 +17213,6 @@ def buildDallE3(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def pick_files_result(e: FilePickerResultEvent):
-        if e.files:
-            img = e.files
-            dalle = []
-            fname = img[0]
-            print(", ".join(map(lambda f: f.name, e.files)))
-            src_path = page.get_upload_url(fname.name, 600)
-            dalle.append(FilePickerUploadFile(fname.name, upload_url=src_path))
-            pick_files_dialog.upload(dalle)
-            print(str(src_path))
-            print(str(dalle[0]))
-            dst_path = os.path.join(root_dir, fname.name)
-            print(f'Copy {src_path} to {dst_path}')
-            init_image.value = dst_path
-
-    pick_files_dialog = FilePicker(on_result=pick_files_result)
-    page.overlay.append(pick_files_dialog)
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-            upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        nonlocal pick_type
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-            else:
-              fname = e.file_name
-            if pick_type == "init":
-                init_image.value = fname
-                init_image.update()
-                dall_e_3_prefs['init_image'] = fname
-            elif pick_type == "mask":
-                mask_image.value = fname
-                mask_image.update()
-                dall_e_3_prefs['mask_image'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        dalle = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                dalle.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(dalle)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    #page.overlay.append(pick_files_dialog)
-    def pick_init(e):
-        nonlocal pick_type
-        pick_type = "init"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
-    def pick_mask(e):
-        nonlocal pick_type
-        pick_type = "mask"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         dall_e_3_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -17933,8 +17237,8 @@ def buildDallE3(page):
     #num_images = NumberPicker(label="Num of Images", min=1, max=10, step=9, value=dall_e_3_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
     size = Dropdown(label="Image Size", width=130, options=[dropdown.Option("1024x1024"), dropdown.Option("1024x1792"), dropdown.Option("1792x1024")], value=dall_e_3_prefs['size'], on_change=lambda e:changed(e,'size'))
     param_rows = ResponsiveRow([Row([batch_folder_name, file_prefix], col={'lg':6}), Row([size], col={'lg':6})])
-    init_image = TextField(label="Init Image", value=dall_e_3_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"*":1, "md":3}))
-    mask_image = TextField(label="Mask Image", value=dall_e_3_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
+    init_image = FileInput(label="Init Image", pref=dall_e_3_prefs, key='init_image', page=page, expand=True, col={"*":1, "md":3})
+    mask_image = FileInput(label="Mask Image", pref=dall_e_3_prefs, key='mask_image', page=page, expand=True, col={"*":1, "md":3})
     variation = Checkbox(label="Variation   ", tooltip="Creates Variation of Init Image. Disregards the Prompt and Mask.", value=dall_e_3_prefs['variation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'variation'))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=dall_e_3_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     image_pickers = Container(content=ResponsiveRow([Row([init_image, variation], col={"md":6}), Row([mask_image, invert_mask], col={"md":6})], run_spacing=2), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -18138,66 +17442,6 @@ def buildKandinsky(page):
       page.overlay.append(kandinsky_help_dlg)
       kandinsky_help_dlg.open = True
       page.update()
-    def pick_files_result(e: FilePickerResultEvent):
-        if e.files:
-            img = e.files
-            uf = []
-            fname = img[0]
-            #print(", ".join(map(lambda f: f.name, e.files)))
-            src_path = page.get_upload_url(fname.name, 600)
-            uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
-            pick_files_dialog.upload(uf)
-            #print(str(src_path))
-            #src_path = ''.join(src_path)
-            #print(str(uf[0]))
-            dst_path = os.path.join(root_dir, fname.name)
-            #print(f'Copy {src_path} to {dst_path}')
-            #shutil.copy(src_path, dst_path)
-            # TODO: is init or mask?
-            init_image.value = dst_path
-    pick_files_dialog = FilePicker(on_result=pick_files_result)
-    page.overlay.append(pick_files_dialog)
-    #selected_files = Text()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-            upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        nonlocal pick_type
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-            else:
-              fname = e.file_name
-            if pick_type == "init":
-                init_image.value = fname
-                init_image.update()
-                kandinsky_prefs['init_image'] = fname
-            elif pick_type == "mask":
-                mask_image.value = fname
-                mask_image.update()
-                kandinsky_prefs['mask_image'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    #page.overlay.append(pick_files_dialog)
-    def pick_init(e):
-        nonlocal pick_type
-        pick_type = "init"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
-    def pick_mask(e):
-        nonlocal pick_type
-        pick_type = "mask"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         kandinsky_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -18249,8 +17493,8 @@ def buildKandinsky(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kandinsky_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_prefs, key='height')
-    init_image = TextField(label="Init Image", value=kandinsky_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
-    mask_image = TextField(label="Mask Image", value=kandinsky_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
+    init_image = FileInput(label="Init Image (optional)", pref=kandinsky_prefs, key='init_image', expand=True, page=page)
+    mask_image = FileInput(label="Mask Image", pref=kandinsky_prefs, key='mask_image', expand=True, page=page)
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
     image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_prefs, key='strength')
@@ -18340,66 +17584,6 @@ def buildKandinsky21(page):
       page.overlay.append(kandinsky21_help_dlg)
       kandinsky21_help_dlg.open = True
       page.update()
-    def pick_files_result(e: FilePickerResultEvent):
-        if e.files:
-            img = e.files
-            uf = []
-            fname = img[0]
-            #print(", ".join(map(lambda f: f.name, e.files)))
-            src_path = page.get_upload_url(fname.name, 600)
-            uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
-            pick_files_dialog.upload(uf)
-            #print(str(src_path))
-            #src_path = ''.join(src_path)
-            #print(str(uf[0]))
-            dst_path = os.path.join(root_dir, fname.name)
-            #print(f'Copy {src_path} to {dst_path}')
-            #shutil.copy(src_path, dst_path)
-            # TODO: is init or mask?
-            init_image.value = dst_path
-    pick_files_dialog = FilePicker(on_result=pick_files_result)
-    page.overlay.append(pick_files_dialog)
-    #selected_files = Text()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-            upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        nonlocal pick_type
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-            else:
-              fname = e.file_name
-            if pick_type == "init":
-                init_image.value = fname
-                init_image.update()
-                kandinsky21_prefs['init_image'] = fname
-            elif pick_type == "mask":
-                mask_image.value = fname
-                mask_image.update()
-                kandinsky21_prefs['mask_image'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    #page.overlay.append(pick_files_dialog)
-    def pick_init(e):
-        nonlocal pick_type
-        pick_type = "init"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
-    def pick_mask(e):
-        nonlocal pick_type
-        pick_type = "mask"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         kandinsky21_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -18450,8 +17634,8 @@ def buildKandinsky21(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kandinsky21_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky21_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky21_prefs, key='height')
-    init_image = TextField(label="Init Image", value=kandinsky21_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
-    mask_image = TextField(label="Mask Image", value=kandinsky21_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
+    init_image = FileInput(label="Init Image", pref=kandinsky21_prefs, key='init_image', expand=True, page=page)
+    mask_image = FileInput(label="Mask Image", pref=kandinsky21_prefs, key='mask_image', expand=True, page=page)
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky21_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
     image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky21_prefs, key='strength')
@@ -18521,56 +17705,6 @@ def buildKandinskyFuse(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def pick_files_result(e: FilePickerResultEvent):
-        if e.files:
-            img = e.files
-            uf = []
-            fname = img[0]
-            #print(", ".join(map(lambda f: f.name, e.files)))
-            src_path = page.get_upload_url(fname.name, 600)
-            uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
-            pick_files_dialog.upload(uf)
-            #print(str(src_path))
-            #src_path = ''.join(src_path)
-            #print(str(uf[0]))
-            dst_path = os.path.join(root_dir, fname.name)
-            #print(f'Copy {src_path} to {dst_path}')
-            #shutil.copy(src_path, dst_path)
-            init_image.value = dst_path
-    pick_files_dialog = FilePicker(on_result=pick_files_result)
-    page.overlay.append(pick_files_dialog)
-    #selected_files = Text()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-            upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        nonlocal pick_type
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-            else:
-              fname = e.file_name
-            init_image.value = fname
-            init_image.update()
-            kandinsky_fuse_prefs['init_image'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    #page.overlay.append(pick_files_dialog)
-    def pick_init(e):
-        nonlocal pick_type
-        pick_type = "init"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         kandinsky_fuse_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -18684,14 +17818,16 @@ def buildKandinskyFuse(page):
                 upload_files(e)
         def on_upload_progress(e: FilePickerUploadEvent):
             if e.progress == 1:
-                if not slash in e.file_name:
-                  fname = os.path.join(root_dir, e.file_name)
-                else:
-                  fname = e.file_name
-                image_mix.value = fname
-                image_mix.update()
-                data['init_image'] = fname
-                page.update()
+                save_file(e.file_name)
+        def save_file(file_name):
+            if not slash in file_name:
+              fname = os.path.join(root_dir, file_name)
+            else:
+              fname = file_name
+            image_mix.value = fname
+            image_mix.update()
+            data['init_image'] = fname
+            page.update()
         file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
         def upload_files(e):
             uf = []
@@ -18700,7 +17836,7 @@ def buildKandinskyFuse(page):
                   if page.web:
                     uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
                   else:
-                    on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                    save_file(f.path)
                 file_picker.upload(uf)
         page.overlay.append(file_picker)
         def pick_image(e):
@@ -18764,7 +17900,7 @@ def buildKandinskyFuse(page):
     #add_image_btn = IconButton(icons.ADD, tooltip="Add Image to Mix", on_click=add_image)
     prompt = TextField(label="Mix Prompt Text", value=kandinsky_fuse_prefs['prompt'], filled=True, expand=True, multiline=True, on_submit=add_prompt, on_change=lambda e:changed(e,'prompt'))
     prompt_row = Row([prompt, add_prompt_btn])
-    init_image = TextField(label="Mixing Image", value=kandinsky_fuse_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
+    init_image = FileInput(label="Mixing Image", pref=kandinsky_fuse_prefs, key='init_image', expand=True, page=page)
     image_row = Row([init_image, add_image_btn])
     weight_slider = SliderRow(label="Text or Image Weight", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_fuse_prefs, key='weight')
     fuse_layers = Column([], spacing=0)
@@ -18860,56 +17996,6 @@ def buildKandinsky21Fuse(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def pick_files_result(e: FilePickerResultEvent):
-        if e.files:
-            img = e.files
-            uf = []
-            fname = img[0]
-            #print(", ".join(map(lambda f: f.name, e.files)))
-            src_path = page.get_upload_url(fname.name, 600)
-            uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
-            pick_files_dialog.upload(uf)
-            #print(str(src_path))
-            #src_path = ''.join(src_path)
-            #print(str(uf[0]))
-            dst_path = os.path.join(root_dir, fname.name)
-            #print(f'Copy {src_path} to {dst_path}')
-            #shutil.copy(src_path, dst_path)
-            init_image.value = dst_path
-    pick_files_dialog = FilePicker(on_result=pick_files_result)
-    page.overlay.append(pick_files_dialog)
-    #selected_files = Text()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-            upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        nonlocal pick_type
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-            else:
-              fname = e.file_name
-            init_image.value = fname
-            init_image.update()
-            kandinsky21_fuse_prefs['init_image'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    #page.overlay.append(pick_files_dialog)
-    def pick_init(e):
-        nonlocal pick_type
-        pick_type = "init"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         kandinsky21_fuse_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -19023,14 +18109,16 @@ def buildKandinsky21Fuse(page):
                 upload_files(e)
         def on_upload_progress(e: FilePickerUploadEvent):
             if e.progress == 1:
-                if not slash in e.file_name:
-                  fname = os.path.join(root_dir, e.file_name)
-                else:
-                  fname = e.file_name
-                image_mix.value = fname
-                image_mix.update()
-                data['init_image'] = fname
-                page.update()
+                save_file(e.file_name)
+        def save_file(file_name):
+            if not slash in file_name:
+              fname = os.path.join(root_dir, file_name)
+            else:
+              fname = file_name
+            image_mix.value = fname
+            image_mix.update()
+            data['init_image'] = fname
+            page.update()
         file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
         def upload_files(e):
             uf = []
@@ -19039,7 +18127,7 @@ def buildKandinsky21Fuse(page):
                   if page.web:
                     uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
                   else:
-                    on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                    save_file(f.path)
                 file_picker.upload(uf)
         page.overlay.append(file_picker)
         def pick_image(e):
@@ -19103,7 +18191,8 @@ def buildKandinsky21Fuse(page):
     #add_image_btn = IconButton(icons.ADD, tooltip="Add Image to Mix", on_click=add_image)
     prompt = TextField(label="Mix Prompt Text", value=kandinsky21_fuse_prefs['prompt'], filled=True, expand=True, multiline=True, on_submit=add_prompt, on_change=lambda e:changed(e,'prompt'))
     prompt_row = Row([prompt, add_prompt_btn])
-    init_image = TextField(label="Mixing Image", value=kandinsky21_fuse_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
+    init_image = FileInput(label="Mixing Image", pref=kandinsky21_fuse_prefs, key='init_image', page=page)
+    #init_image = TextField(label="Mixing Image", value=kandinsky21_fuse_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
     image_row = Row([init_image, add_image_btn])
     weight_slider = SliderRow(label="Text or Image Weight", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky21_fuse_prefs, key='weight')
     fuse_layers = Column([], spacing=0)
@@ -19212,58 +18301,6 @@ def buildKandinskyControlNet(page):
       page.overlay.append(kandinsky_controlnet_help_dlg)
       kandinsky_controlnet_help_dlg.open = True
       page.update()
-    def pick_files_result(e: FilePickerResultEvent):
-        if e.files:
-            img = e.files
-            uf = []
-            fname = img[0]
-            #print(", ".join(map(lambda f: f.name, e.files)))
-            src_path = page.get_upload_url(fname.name, 600)
-            uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
-            pick_files_dialog.upload(uf)
-            #print(str(src_path))
-            #src_path = ''.join(src_path)
-            #print(str(uf[0]))
-            dst_path = os.path.join(root_dir, fname.name)
-            #print(f'Copy {src_path} to {dst_path}')
-            #shutil.copy(src_path, dst_path)
-            # TODO: is init or mask?
-            init_image.value = dst_path
-    pick_files_dialog = FilePicker(on_result=pick_files_result)
-    page.overlay.append(pick_files_dialog)
-    #selected_files = Text()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-            upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        nonlocal pick_type
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-            else:
-              fname = e.file_name
-            if pick_type == "init":
-                init_image.value = fname
-                init_image.update()
-                kandinsky_controlnet_prefs['init_image'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    #page.overlay.append(pick_files_dialog)
-    def pick_init(e):
-        nonlocal pick_type
-        pick_type = "init"
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -19288,7 +18325,8 @@ def buildKandinskyControlNet(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kandinsky_controlnet_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_controlnet_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_controlnet_prefs, key='height')
-    init_image = TextField(label="Init Image", value=kandinsky_controlnet_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
+    init_image = FileInput(label="Init Image", pref=kandinsky_controlnet_prefs, key='init_image', page=page, col={'xs':12, 'md':6})
+    #init_image = TextField(label="Init Image", value=kandinsky_controlnet_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
     #mask_image = TextField(label="Mask Image", value=kandinsky_controlnet_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
     strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_controlnet_prefs, key='strength', tooltip="Indicates how much to transform the reference image.")
     prior_strength_slider = SliderRow(label="Prior Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_controlnet_prefs, key='prior_strength', tooltip="Indicates how much to transform the reference text embeddings.")
@@ -19472,54 +18510,6 @@ def buildCLIPstyler(page):
       page.overlay.append(CLIPstyler_help_dlg)
       CLIPstyler_help_dlg.open = True
       page.update()
-    def pick_files_result(e: FilePickerResultEvent):
-        if e.files:
-            img = e.files
-            uf = []
-            fname = img[0]
-            print(", ".join(map(lambda f: f.name, e.files)))
-            src_path = page.get_upload_url(fname.name, 600)
-            uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
-            pick_files_dialog.upload(uf)
-            print(str(src_path))
-            #src_path = ''.join(src_path)
-            print(str(uf[0]))
-            dst_path = os.path.join(root_dir, fname.name)
-            print(f'Copy {src_path} to {dst_path}')
-            #shutil.copy(src_path, dst_path)
-            # TODO: is original or mask?
-            original_image.value = dst_path
-    pick_files_dialog = FilePicker(on_result=pick_files_result)
-    page.overlay.append(pick_files_dialog)
-    #selected_files = Text()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-            upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-            else:
-              fname = e.file_name
-            original_image.value = fname
-            original_image.update()
-            CLIPstyler_prefs['original_image'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    pick_type = ""
-    #page.overlay.append(pick_files_dialog)
-    def pick_original(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick original Image File")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         CLIPstyler_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -19536,7 +18526,8 @@ def buildCLIPstyler(page):
 
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=CLIPstyler_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=CLIPstyler_prefs, key='height')
-    original_image = TextField(label="Original Image", value=CLIPstyler_prefs['original_image'], on_change=lambda e:changed(e,'original_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original, col={"*":1, "md":3}))
+    original_image = FileInput(label="Original Image", pref=CLIPstyler_prefs, key='original_image', page=page, expand=True, col={"*":1, "md":3})
+    #original_image = TextField(label="Original Image", value=CLIPstyler_prefs['original_image'], on_change=lambda e:changed(e,'original_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original, col={"*":1, "md":3}))
     #mask_image = TextField(label="Mask Image", value=CLIPstyler_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
     #invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=CLIPstyler_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     image_picker = Container(content=Row([original_image]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -19887,10 +18878,12 @@ def buildDreamMask(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        if not slash in e.file_name:
-          fname = os.path.join(root_dir, e.file_name)
+        save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
         else:
-          fname = e.file_name
+          fname = file_name
         load_img = PILImage.open(fname)
         w, h = load_img.size
         bg_img.width=w
@@ -19900,7 +18893,7 @@ def buildDreamMask(page):
         bg_img.src = fname
         bg_img.update()
         stack_box.update()
-        clear_canvas(e)
+        clear_canvas(True)
         #files.current.controls.append(Row([Text(f"Done uploading {root_dir}{e.file_name}")]))
         page.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -19911,7 +18904,7 @@ def buildDreamMask(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     bg_img = Img(src="https://picsum.photos/200/300", fit=ImageFit.CONTAIN, width=1024, height=512)#float("inf")
@@ -20046,22 +19039,24 @@ def buildDreamBooth(page):
     save_dir = os.path.join(root_dir, 'my_concept')
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-          if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
-          if not slash in e.file_name:
-            fname = os.path.join(root_dir, e.file_name)
-            fpath = os.path.join(save_dir, e.file_name)
-          else:
-            fname = e.file_name
-            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
-          original_img = PILImage.open(fname)
-          width, height = original_img.size
-          width, height = scale_dimensions(width, height, dreambooth_prefs['max_size'])
-          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
-          original_img.save(fpath)
-          if page.web: os.remove(fname)
-          #shutil.move(fname, fpath)
-          add_file(fpath)
+          save_file(e.file_name)
+    def save_file(file_name):
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          fpath = os.path.join(save_dir, file_name)
+        else:
+          fname = file_name
+          fpath = os.path.join(save_dir, file_name.rpartition(slash)[2])
+        original_img = PILImage.open(fname)
+        width, height = original_img.size
+        width, height = scale_dimensions(width, height, dreambooth_prefs['max_size'])
+        original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+        original_img.save(fpath)
+        if page.web: os.remove(fname)
+        #shutil.move(fname, fpath)
+        add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def pick_path(e):
         file_picker.pick_files(allow_multiple=True, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Image File to Enlarge")
@@ -20072,7 +19067,7 @@ def buildDreamBooth(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -20254,22 +19249,24 @@ def buildTextualInversion(page):
     save_dir = os.path.join(root_dir, 'my_concept')
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-          if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
-          if not slash in e.file_name:
-            fname = os.path.join(root_dir, e.file_name)
-            fpath = os.path.join(save_dir, e.file_name)
-          else:
-            fname = e.file_name
-            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
-          original_img = PILImage.open(fname)
-          width, height = original_img.size
-          width, height = scale_dimensions(width, height, textualinversion_prefs['max_size'])
-          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
-          original_img.save(fpath)
-          if page.web: os.remove(fname)
-          #shutil.move(fname, fpath)
-          add_file(fpath)
+          save_file(e.file_name)
+    def save_file(file_name):
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          fpath = os.path.join(save_dir, file_name)
+        else:
+          fname = file_name
+          fpath = os.path.join(save_dir, file_name.rpartition(slash)[2])
+        original_img = PILImage.open(fname)
+        width, height = original_img.size
+        width, height = scale_dimensions(width, height, textualinversion_prefs['max_size'])
+        original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+        original_img.save(fpath)
+        if page.web: os.remove(fname)
+        #shutil.move(fname, fpath)
+        add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def pick_path(e):
         file_picker.pick_files(allow_multiple=True, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Image File to Enlarge")
@@ -20280,7 +19277,7 @@ def buildTextualInversion(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -20524,22 +19521,24 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     save_dir = os.path.join(root_dir, 'my_model')
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-          if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
-          if not slash in e.file_name:
-            fname = os.path.join(root_dir, e.file_name)
-            fpath = os.path.join(save_dir, e.file_name)
-          else:
-            fname = e.file_name
-            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
-          original_img = PILImage.open(fname)
-          width, height = original_img.size
-          width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
-          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
-          original_img.save(fpath)
-          if page.web: os.remove(fname)
-          #shutil.move(fname, fpath)
-          add_file(fpath)
+          save_file(e.file_name)
+    def save_file(file_name):
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          fpath = os.path.join(save_dir, file_name)
+        else:
+          fname = file_name
+          fpath = os.path.join(save_dir, file_name.rpartition(slash)[2])
+        original_img = PILImage.open(fname)
+        width, height = original_img.size
+        width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
+        original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+        original_img.save(fpath)
+        if page.web: os.remove(fname)
+        #shutil.move(fname, fpath)
+        add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def pick_path(e):
         file_picker.pick_files(allow_multiple=True, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Image File to Enlarge")
@@ -20550,7 +19549,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -20739,22 +19738,24 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     save_dir = os.path.join(root_dir, 'my_model')
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-          if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
-          if not slash in e.file_name:
-            fname = os.path.join(root_dir, e.file_name)
-            fpath = os.path.join(save_dir, e.file_name)
-          else:
-            fname = e.file_name
-            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
-          original_img = PILImage.open(fname)
-          width, height = original_img.size
-          width, height = scale_dimensions(width, height, LoRA_prefs['resolution'])
-          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
-          original_img.save(fpath)
-          if page.web: os.remove(fname)
-          #shutil.move(fname, fpath)
-          add_file(fpath)
+          save_file(e.file_name)
+    def save_file(file_name):
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          fpath = os.path.join(save_dir, file_name)
+        else:
+          fname = file_name
+          fpath = os.path.join(save_dir, file_name.rpartition(slash)[2])
+        original_img = PILImage.open(fname)
+        width, height = original_img.size
+        width, height = scale_dimensions(width, height, LoRA_prefs['resolution'])
+        original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+        original_img.save(fpath)
+        if page.web: os.remove(fname)
+        #shutil.move(fname, fpath)
+        add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def pick_path(e):
         file_picker.pick_files(allow_multiple=True, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Image File to Enlarge")
@@ -20765,7 +19766,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -21238,17 +20239,19 @@ def buildTortoiseTTS(page):
     save_dir = os.path.join(root_dir, 'tortoise-audio')
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-          if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
-          if not slash in e.file_name:
-            fname = os.path.join(root_dir, e.file_name)
-            fpath = os.path.join(save_dir, e.file_name)
-            shutil.move(fname, fpath)
-          else:
-            fname = e.file_name
-            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
-            shutil.copy(fname, fpath)
-          add_file(fpath)
+          save_file(e.file_name)
+    def save_file(file_name):
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          fpath = os.path.join(save_dir, file_name)
+          shutil.move(fname, fpath)
+        else:
+          fname = file_name
+          fpath = os.path.join(save_dir, file_name.rpartition(slash)[2])
+          shutil.copy(fname, fpath)
+        add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def pick_path(e):
         file_picker.pick_files(allow_multiple=True, allowed_extensions=["wav", "WAV", "mp3", "MP3"], dialog_title="Pick Voice WAV or MP3 Files to Train")
@@ -21259,7 +20262,7 @@ def buildTortoiseTTS(page):
               if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
               else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                save_file(f.path)
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_wav(e):
@@ -22011,36 +21014,7 @@ def buildRiffusion(page):
         page.overlay.append(riffusion_help_dlg)
         riffusion_help_dlg.open = True
         page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-            upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-              riffusion_prefs['file_name'] = e.file_name.rpartition('.')[0]
-            else:
-              fname = e.file_name
-              riffusion_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
-            audio_file.value = fname
-            audio_file.update()
-            riffusion_prefs['audio_file'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_audio(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp3", "wav"], dialog_title="Pick Init Audio File")
-    audio_file = TextField(label="Input Audio File (optional)", value=riffusion_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
-
+    audio_file = FileInput(label="Input Audio File (optional)", pref=riffusion_prefs, key='audio_file', ftype="audio", page=page)
     def change_duration(e):
         changed(e, 'duration', ptype="float")
         duration_value.value = f" {riffusion_prefs['duration']}s"
@@ -22280,36 +21254,7 @@ def buildVoiceFixer(page):
         page.overlay.append(voice_fixer_help_dlg)
         voice_fixer_help_dlg.open = True
         page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-              voice_fixer_prefs['file_name'] = e.file_name.rpartition('.')[0]
-            else:
-              fname = e.file_name
-              fpath = os.path.join(root_dir, e.file_name.rpartition(slash)[2])
-              voice_fixer_prefs['file_name'] = e.file_name.rparition(slash)[2].rpartition('.')[0]
-            audio_file.value = fname
-            audio_file.update()
-            voice_fixer_prefs['audio_file'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_audio(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["wav", "mp3", "flac"], dialog_title="Pick Init Audio File")
-    audio_file = TextField(label="Input Audio File (WAV, MP3, URL or YouTube URL)", value=voice_fixer_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
+    audio_file = FileInput(label="Input Audio File (WAV, MP3, URL or YouTube URL)", pref=voice_fixer_prefs, key='audio_file', ftype="audio", page=page)
     #model_size = Dropdown(label="VoiceFixer Model Size", width=200, options=[dropdown.Option("tiny"), dropdown.Option("base"), dropdown.Option("small"), dropdown.Option("medium"), dropdown.Option("large")], value=voice_fixer_prefs['model_size'], on_change=lambda e: changed(e, 'model_size'))
     #trim_audio = Checkbox(label="Trim Audio to 30s", value=voice_fixer_prefs['trim_audio'], tooltip="Prefers a short audio chunk", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trim_audio'))
     mode_0 = Checkbox(label="Mode 0", value=voice_fixer_prefs['mode_0'], tooltip="", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'mode_0'))
@@ -22318,7 +21263,6 @@ def buildVoiceFixer(page):
     audio_name = TextField(label="Audio File Name", value=voice_fixer_prefs['audio_name'], on_change=lambda e:changed(e,'audio_name'))
     batch_folder_name = TextField(label="Batch Folder Name", value=voice_fixer_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=voice_fixer_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
-
     page.voice_fixer_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.voice_fixer_output.controls) > 0
@@ -45687,8 +44631,8 @@ def run_pag(page, from_list=False, with_params=False):
                 new_file = available_file(os.path.join(prefs['image_output'], pag_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
                 shutil.copy(image_path, new_file)
-            if not pag_prefs['display_upscaled_image'] or not pag_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            #if not pag_prefs['display_upscaled_image'] or not pag_prefs['apply_ESRGAN_upscale']:
+            #    prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -55594,13 +54538,29 @@ class FileInput(Stack):
             model_ext = ["fbx", "obj", "stl", "gltf", "glb"]
             ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else model_ext if self.ftype == "model" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else midi_ext if self.ftype == "midi" else vid_ext+aud_ext if self.ftype == "media" else img_ext+gif_ext+vid_ext if self.ftype == "picture" else img_ext
             name = self.key.replace("_", " ").title()
-            self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
+            if self.ftype == "folder":
+                if is_Colab:
+                    alert_msg(self.page, "Switch to Colab tab and press Files button on the Left & Find the Path you want to use as Init Folder, Right Click and Copy Path, then Paste here")
+                else:
+                    self.file_picker.get_directory_path(dialog_title="Select the folder containing Images to process")
+            else:
+                self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
         def changed_path(e):
             self.pref[self.key] = e.control.value
             self.textfield.focus()
-        self.file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+        def get_directory_result(e):
+            path = e.path
+            if path:
+                self.textfield.value = path
+                self.textfield.update()
+                self.pref[self.key] = path
+        if self.ftype == "folder":
+            self.file_picker = FilePicker(on_result=get_directory_result)
+        else:
+            self.file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
         self.page.overlay.append(self.file_picker)
-        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, filled=self.filled, visible=self._visible, autofocus=False, on_change=changed_path, height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
+        icon = icons.VIDEO_CALL if self.ftype == "video" else icons.AUDIO_FILE if self.ftype == "audio" else icons.FONT_DOWNLOAD if self.ftype == "font" else icons.FOLDER_COPY if self.ftype == "folder" else icons.DRIVE_FOLDER_UPLOAD
+        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, filled=self.filled, visible=self._visible, autofocus=False, on_change=changed_path, height=60, suffix=IconButton(icon=icon, on_click=pick_file))
         return self.textfield
     @property
     def value(self):
