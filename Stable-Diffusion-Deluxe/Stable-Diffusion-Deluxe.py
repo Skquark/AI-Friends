@@ -245,6 +245,7 @@ def load_settings_file():
       'file_max_length': 220,
       'file_allowSpace': False,
       'file_datetime': False,
+      'file_from_1': False,
       'save_image_metadata': True,
       'meta_ArtistName':'',
       'meta_Copyright': '',
@@ -480,6 +481,7 @@ def load_settings_file():
 if prefs == {}:
   load_settings_file()
 #version_checker()
+
 
 
 
@@ -782,6 +784,7 @@ def buildImageAIs(page):
     page.PixArtSigma = buildPixArtSigma(page)
     page.Hunyuan = buildHunyuanDiT(page)
     page.Lumina = buildLuminaNext(page)
+    page.LayerDiffusion = buildLayerDiffusion(page)
     page.Differential_Diffusion = buildDifferential_Diffusion(page)
     page.LMD_Plus = buildLMD_Plus(page)
     page.LCM = buildLCM(page)
@@ -821,6 +824,7 @@ def buildImageAIs(page):
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="PixArt-Σ", content=page.PixArtSigma, icon=icons.FUNCTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
+            Tab(text="Layer Diffusion", content=page.LayerDiffusion, icon=icons.WINE_BAR),
             Tab(text="Differential Diffusion", content=page.Differential_Diffusion, icon=icons.SENTIMENT_NEUTRAL),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
@@ -1078,6 +1082,7 @@ def get_color(color):
 # Delete these after everyone's updated
 if 'negative_prompt' not in prefs: prefs['negative_prompt'] = ''
 if 'file_datetime' not in prefs: prefs['file_datetime'] = False
+if 'file_from_1' not in prefs: prefs['file_from_1'] = False
 if 'theme_custom_color' not in prefs: prefs['theme_custom_color'] = '#69d9ab'
 if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = False
 if 'use_conceptualizer' not in prefs: prefs['use_conceptualizer'] = False
@@ -1389,6 +1394,7 @@ def buildSettings(page):
   file_allowSpace = Checkbox(label="Filename Allow Space", tooltip="Otherwise will replace spaces with _ underscores", value=prefs['file_allowSpace'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_allowSpace'))
   file_max_length = TextField(label="Filename Max Length", tooltip="How long can the name taken from prompt text be? Max 250", value=prefs['file_max_length'], keyboard_type=KeyboardType.NUMBER, width=150, height=60, on_change=lambda e:changed(e, 'file_max_length'))
   file_datetime = Checkbox(label="Filename DateTime instead of Prompt Text", tooltip="Save File with Date-Time Stamp to protect your prompt.", value=prefs['file_datetime'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_datetime'))
+  file_from_1 = Checkbox(label="Number from 1", tooltip="Otherwise image numbering starts at -0.", value=prefs['file_from_1'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_from_1'))
   save_image_metadata = Checkbox(label="Save Image Metadata in png", tooltip="Embeds your Artist Name & Copyright in the file's EXIF", value=prefs['save_image_metadata'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'save_image_metadata'))
   meta_ArtistName = TextField(label="Artist Name Metadata", value=prefs['meta_ArtistName'], keyboard_type=KeyboardType.NAME, on_change=lambda e:changed(e, 'meta_ArtistName'))
   meta_Copyright = TextField(label="Copyright Metadata", value=prefs['meta_Copyright'], keyboard_type=KeyboardType.NAME, on_change=lambda e:changed(e, 'meta_Copyright'))
@@ -1440,7 +1446,7 @@ def buildSettings(page):
         ResponsiveRow([image_output, optional_cache_dir], run_spacing=2),
         Row([file_prefix, file_suffix_seed]) if (page.width if page.web else page.window.width) > 500 else Column([file_prefix, file_suffix_seed]),
         Row([file_max_length, file_allowSpace]),
-        file_datetime,
+        Row([file_datetime, file_from_1]),
         Row([disable_nsfw_filter, retry_attempts]),
         save_image_metadata,
         Row([meta_ArtistName, meta_Copyright]) if (page.width if page.web else page.window.width) > 712 else Column([meta_ArtistName, meta_Copyright]),
@@ -2321,6 +2327,7 @@ def buildInstallers(page):
           page.ESRGAN_block_pixart_sigma,
           page.ESRGAN_block_hunyuan,
           page.ESRGAN_block_lumina,
+          page.ESRGAN_block_layer_diffusion,
           page.ESRGAN_block_lcm,
           page.ESRGAN_block_lmd_plus,
           page.ESRGAN_block_ip_adapter,
@@ -11443,6 +11450,105 @@ def buildLuminaNext(page):
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
+
+layer_diffusion_prefs = {
+    "prompt": '',
+    "negative_prompt": 'face asymmetry, eyes asymmetry, deformed eyes, open mouth',
+    "batch_folder_name": '',
+    "file_prefix": "ld-",
+    "num_images": 1,
+    "steps":30,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":5.0,
+    'init_image': '',
+    'init_image_strength': 0.7,
+    "cpu_offload": False,
+    "seed": 0,
+    "layer_diffusion_model": "Layer Diffusion-SFT-diffusers",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildLayerDiffusion(page):
+    global prefs, layer_diffusion_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          layer_diffusion_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def layer_diffusion_help(e):
+      def close_layer_diffusion_dlg(e):
+        nonlocal layer_diffusion_help_dlg
+        layer_diffusion_help_dlg.open = False
+        page.update()
+      layer_diffusion_help_dlg = AlertDialog(title=Text("🙅   Help with LayerDiffusion Pipeline"), content=Column([
+          Text("You can see that the native transparent diffusion can process transparent glass, semi-transparent glowing effects, etc, that are not possible with simple background removal methods. Native transparent diffusion also gives you detailed fur, hair, whiskers, and detailed structure like that skeleton. SDXL models that can generate foreground and background together and SDXL's one step conditional model. (Note that all joint models for SD1.5 are already released) I put this model on hold because of these reasons: (1) the other released models can already achieve all functionalities and this model does not bring more functionalities. (2) the inference speed of this model is 3x slower than others and requires 4x more VRAM than other released model, and I am working on reducing the VRAM of this model and speed up the inference. (3) This model will involve more hyperparameters and if demanded, I will investigate the best practice for inference/training before release it."),
+          Markdown("[Project](https://github.com/layerdiffusion/sd-forge-layerdiffuse) | [Github](https://github.com/lllyasviel/LayerDiffuse_DiffusersCLI) | [Model Checkpoint](https://huggingface.co/lllyasviel/LayerDiffuse_Diffusers) | [HF Space](https://huggingface.co/spaces/radames/LayerDiffuse-gradio-unofficial)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🔦  Clear enough... ", on_click=close_layer_diffusion_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(layer_diffusion_help_dlg)
+      layer_diffusion_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        layer_diffusion_prefs['layer_diffusion_model'] = e.control.value
+        layer_diffusion_custom_model.visible = e.control.value == "Custom"
+        layer_diffusion_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        layer_diffusion_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=layer_diffusion_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=layer_diffusion_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=layer_diffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=layer_diffusion_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=layer_diffusion_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=layer_diffusion_prefs, key='steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=layer_diffusion_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=layer_diffusion_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=layer_diffusion_prefs, key='height')
+    init_image = FileInput(label="Source Image (optional)", pref=layer_diffusion_prefs, key='init_image', page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=layer_diffusion_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    layer_diffusion_model = Dropdown(label="Layer Diffusion Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("Layer Diffusion-SFT-diffusers")], value=layer_diffusion_prefs['layer_diffusion_model'], on_change=changed_model)
+    layer_diffusion_custom_model = TextField(label="Custom LayerDiffusion Model (URL or Path)", value=layer_diffusion_prefs['custom_model'], expand=True, visible=layer_diffusion_prefs['layer_diffusion_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    #cpu_offload = Switcher(label="CPU Offload", value=layer_diffusion_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
+    #distilled_model = Switcher(label="Use Distilled Model", value=layer_diffusion_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
+    seed = TextField(label="Seed", width=90, value=str(layer_diffusion_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=layer_diffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=layer_diffusion_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=layer_diffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=layer_diffusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_layer_diffusion = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_layer_diffusion.height = None if status['installed_ESRGAN'] else 0
+    if not layer_diffusion_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="💎   Run Layer Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_layer_diffusion(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_layer_diffusion(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_layer_diffusion(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.LayerDiffusion_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
+            Header("🫥  Layer Diffusion SDXL (under construction)", "Transparent Image Layer Generation using Latent Transparency...", actions=[save_default(layer_diffusion_prefs), IconButton(icon=icons.HELP, tooltip="Help with LayerDiffusion Settings", on_click=layer_diffusion_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            ResponsiveRow([init_image, init_image_strength]),
+            steps,
+            guidance, width_slider, height_slider,
+            #Row([layer_diffusion_model, layer_diffusion_custom_model]),
+            page.ESRGAN_block_layer_diffusion,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            parameters_row,
+            page.LayerDiffusion_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+
 
 
 differential_diffusion_prefs = {
@@ -21725,6 +21831,7 @@ pipe_pixart_sigma = None
 pipe_pixart_sigma_encoder = None
 pipe_hunyuan = None
 pipe_lumina = None
+pipe_layer_diffusion = None
 pipe_differential_diffusion = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
@@ -24558,6 +24665,12 @@ def clear_lumina_pipe():
     del pipe_lumina
     flush()
     pipe_lumina = None
+def clear_layer_diffusion_pipe():
+  global pipe_layer_diffusion
+  if pipe_layer_diffusion is not None:
+    del pipe_layer_diffusion
+    flush()
+    pipe_layer_diffusion = None
 def clear_differential_diffusion_pipe():
   global pipe_differential_diffusion
   if pipe_differential_diffusion is not None:
@@ -25039,6 +25152,7 @@ def clear_pipes(allbut=None):
     if not 'pixart_sigma' in but: clear_pixart_sigma_pipe()
     if not 'hunyuan' in but: clear_hunyuan_pipe()
     if not 'lumina' in but: clear_lumina_pipe()
+    if not 'layer_diffusion' in but: clear_layer_diffusion_pipe()
     if not 'differential_diffusion' in but: clear_differential_diffusion_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
@@ -25125,8 +25239,9 @@ def pil_to_base64(image):
     base64_string = base64.b64encode(image_bytes).decode('utf-8')
     return base64_string
 
-def available_file(folder, name, idx=0, ext='png', no_num=False, zfill=None):
+def available_file(folder, name, idx=None, ext='png', no_num=False, zfill=None):
   available = False
+  idx = int(idx) if idx is not None else 1 if prefs['file_from_1'] else 0
   while not available:
     # Todo, check if using PyDrive2
     if no_num:
@@ -25136,7 +25251,6 @@ def available_file(folder, name, idx=0, ext='png', no_num=False, zfill=None):
     if os.path.isfile(os.path.join(folder, f'{name}-{i}.{ext}')):
       idx += 1
     else: available = True
-    
   return os.path.join(folder, f'{name}-{i}.{ext}')
 
 def available_folder(folder, name, idx):
