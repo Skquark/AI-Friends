@@ -1080,144 +1080,143 @@ def get_color(color):
 
 
 # Delete these after everyone's updated
-if 'negative_prompt' not in prefs: prefs['negative_prompt'] = ''
-if 'file_datetime' not in prefs: prefs['file_datetime'] = False
-if 'file_from_1' not in prefs: prefs['file_from_1'] = False
-if 'theme_custom_color' not in prefs: prefs['theme_custom_color'] = '#69d9ab'
-if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = False
-if 'use_conceptualizer' not in prefs: prefs['use_conceptualizer'] = False
-if 'concepts_model' not in prefs: prefs['concepts_model'] = 'cat-toy'
-if 'memory_optimization' not in prefs: prefs['memory_optimization'] = 'None'
-if 'enable_xformers' not in prefs: prefs['enable_xformers'] = False
-if 'enable_attention_slicing' not in prefs: prefs['enable_attention_slicing'] = True
-if 'enable_bitsandbytes' not in prefs: prefs['enable_bitsandbytes'] = False
-if 'sequential_cpu_offload' not in prefs: prefs['sequential_cpu_offload'] = False
-if 'vae_slicing' not in prefs: prefs['vae_slicing'] = True
-if 'vae_tiling' not in prefs: prefs['vae_tiling'] = False
-if 'show_stats' not in prefs: prefs['show_stats'] = False
-if 'stats_used' not in prefs: prefs['stats_used'] = True
-if 'stats_update' not in prefs: prefs['stats_update'] = 5
-if 'upscale_method' not in prefs: prefs['upscale_method'] = 'Real-ESRGAN'
-if 'upscale_model' not in prefs: prefs['upscale_model'] = 'realesr-general-x4v3'
-if 'use_inpaint_model' not in prefs: prefs['use_inpaint_model'] = False
-if 'cache_dir' not in prefs: prefs['cache_dir'] = ''
-if 'Replicate_api_key' not in prefs: prefs['Replicate_api_key'] = ''
-if 'install_dreamfusion' not in prefs: prefs['install_dreamfusion'] = False
-if 'install_repaint' not in prefs: prefs['install_repaint'] = False
-if 'finetuned_model' not in prefs: prefs['finetuned_model'] = 'Midjourney v4 style'
-if 'dreambooth_model' not in prefs: prefs['dreambooth_model'] = 'disco-diffusion-style'
-if 'custom_model' not in prefs: prefs['custom_model'] = ''
-if 'custom_models' not in prefs: prefs['custom_models'] = []
-if 'start_in_installation' not in prefs: prefs['start_in_installation'] = False
-if 'install_imagic' not in prefs: prefs['install_imagic'] = False
-if 'use_imagic' not in prefs: prefs['use_imagic'] = False
-if 'install_composable' not in prefs: prefs['install_composable'] = False
-if 'use_composable' not in prefs: prefs['use_composable'] = False
-if 'install_safe' not in prefs: prefs['install_safe'] = False
-if 'use_safe' not in prefs: prefs['use_safe'] = False
-if 'safety_config' not in prefs: prefs['safety_config'] = "Strong"
-if 'install_versatile' not in prefs: prefs['install_versatile'] = False
-if 'use_versatile' not in prefs: prefs['use_versatile'] = False
-if 'install_depth2img' not in prefs: prefs['install_depth2img'] = False
-if 'use_depth2img' not in prefs: prefs['use_depth2img'] = False
-if 'install_alt_diffusion' not in prefs: prefs['install_alt_diffusion'] = False
-if 'use_alt_diffusion' not in prefs: prefs['use_alt_diffusion'] = False
-if 'install_upscale' not in prefs: prefs['install_upscale'] = False
-if 'use_upscale' not in prefs: prefs['use_upscale'] = False
-if 'upscale_noise_level' not in prefs: prefs['upscale_noise_level'] = 20
-if 'alpha_mask' not in prefs: prefs['alpha_mask'] = False
-if 'invert_mask' not in prefs: prefs['invert_mask'] = False
-if 'clip_guidance_preset' not in prefs: prefs['clip_guidance_preset'] = "FAST_BLUE"
-if 'tortoise_custom_voices' not in prefs: prefs['tortoise_custom_voices'] = []
-if 'use_LoRA_model' not in prefs: prefs['use_LoRA_model'] = False
-if 'LoRA_model' not in prefs: prefs['LoRA_model'] = "Von Platen LoRA"
-if 'active_LoRA_layers' not in prefs: prefs['active_LoRA_layers'] = []
-if 'active_SDXL_LoRA_layers' not in prefs: prefs['active_SDXL_LoRA_layers'] = []
-if 'active_SD3_LoRA_layers' not in prefs: prefs['active_SD3_LoRA_layers'] = []
-if 'custom_LoRA_models' not in prefs: prefs['custom_LoRA_models'] = []
-if 'custom_LoRA_model' not in prefs: prefs['custom_LoRA_model'] = ''
-if 'SDXL_LoRA_model' not in prefs: prefs['SDXL_LoRA_model'] = "Papercut SDXL"
-if 'custom_SDXL_LoRA_models' not in prefs: prefs['custom_SDXL_LoRA_models'] = []
-if 'custom_SDXL_LoRA_model' not in prefs: prefs['custom_SDXL_LoRA_model'] = ''
-if 'SD3_LoRA_model' not in prefs: prefs['SD3_LoRA_model'] = ""
-if 'custom_SD3_LoRA_models' not in prefs: prefs['custom_SD3_LoRA_models'] = []
-if 'custom_SD3_LoRA_model' not in prefs: prefs['custom_SD3_LoRA_model'] = ''
-if 'custom_dance_diffusion_models' not in prefs: prefs['custom_dance_diffusion_models'] = []
-if 'negative_prompt' not in prefs['prompt_writer']: prefs['prompt_writer']['negative_prompt'] = ''
-if 'install_attend_and_excite' not in prefs: prefs['install_attend_and_excite'] = False
-if 'use_attend_and_excite' not in prefs: prefs['use_attend_and_excite'] = False
-if 'max_iter_to_alter' not in prefs: prefs['max_iter_to_alter'] = 25
-if 'install_SAG' not in prefs: prefs['install_SAG'] = False
-if 'use_SAG' not in prefs: prefs['use_SAG'] = False
-if 'sag_scale' not in prefs: prefs['sag_scale'] = 0.75
-if 'SD_compel' not in prefs: prefs['SD_compel'] = False
-if 'install_SDXL' not in prefs: prefs['install_SDXL'] = True
-if 'use_SDXL' not in prefs: prefs['use_SDXL'] = False
-if 'SDXL_high_noise_frac' not in prefs: prefs['SDXL_high_noise_frac'] = 0.7
-if 'SDXL_compel' not in prefs: prefs['SDXL_compel'] = False
-if 'SDXL_negative_conditions' not in prefs: prefs['SDXL_negative_conditions'] = False
-if 'SDXL_watermark' not in prefs: prefs['SDXL_watermark'] = False
-if 'SDXL_model' not in prefs: prefs['SDXL_model'] = 'SDXL-Base v1'
-if 'SDXL_custom_model' not in prefs: prefs['SDXL_custom_model'] = ''
-if 'install_SD3' not in prefs: prefs['install_SD3'] = False
-if 'use_SD3' not in prefs: prefs['use_SD3'] = True
-if 'SD3_compel' not in prefs: prefs['SD3_compel'] = False
-if 'SD3_model' not in prefs: prefs['SD3_model'] = 'Stable Diffusion 3 Medium'
-if 'SD3_custom_model' not in prefs: prefs['SD3_custom_model'] = ''
-if 'SD3_custom_models' not in prefs: prefs['SD3_custom_models'] = []
-if 'SD3_cpu_offload' not in prefs: prefs['SD3_cpu_offload'] = True
-if 'SD3_bitsandbytes_8bit' not in prefs: prefs['SD3_bitsandbytes_8bit'] = False
-
-if 'install_panorama' not in prefs: prefs['install_panorama'] = False
-if 'use_panorama' not in prefs: prefs['use_panorama'] = False
-if 'panorama_circular_padding' not in prefs: prefs['panorama_circular_padding'] = False
-if 'panorama_width' not in prefs: prefs['panorama_width'] = 2048
-if 'AI_engine' not in prefs['prompt_generator']: prefs['prompt_generator']['AI_engine'] = 'ChatGPT-3.5 Turbo'
-if 'AI_engine' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AI_engine'] = 'ChatGPT-3.5 Turbo'
-if 'meshy_api_key' not in prefs: prefs['meshy_api_key'] = ''
-if 'luma_api_key' not in prefs: prefs['luma_api_key'] = ''
-if 'AIHorde_api_key' not in prefs: prefs['AIHorde_api_key'] = '0000000000'
-if 'install_AIHorde_api' not in prefs: prefs['install_AIHorde_api'] = False
-if 'use_AIHorde_api' not in prefs: prefs['use_AIHorde_api'] = False
-if 'AIHorde_model' not in prefs: prefs['AIHorde_model'] = 'stable_diffusion'
-if 'AIHorde_sampler' not in prefs: prefs['AIHorde_sampler'] = 'k_euler_a'
-if 'AIHorde_post_processing' not in prefs: prefs['AIHorde_post_processing'] = "None"
-if 'AIHorde_lora_layer' not in prefs: prefs['AIHorde_lora_layer'] = 'Horde Aesthetics Improver'
-if 'AIHorde_lora_layer_alpha' not in prefs: prefs['AIHorde_lora_layer_alpha'] = 1.0
-if 'AIHorde_karras' not in prefs: prefs['AIHorde_karras'] = False
-if 'AIHorde_tiling' not in prefs: prefs['AIHorde_tiling'] = False
-if 'AIHorde_transparent' not in prefs: prefs['AIHorde_transparent'] = False
-if 'AIHorde_hires_fix' not in prefs: prefs['AIHorde_hires_fix'] = False
-if 'AIHorde_strip_background' not in prefs: prefs['AIHorde_strip_background'] = False
-if 'custom_CivitAI_LoRA_models' not in prefs: prefs['custom_CivitAI_LoRA_models'] = []
-if 'AIHorde_custom_lora_layer' not in prefs: prefs['AIHorde_custom_lora_layer'] = ''
-if 'AIHorde_lora_map' not in prefs: prefs['AIHorde_lora_map'] = []
-if 'AIHorde_use_controlnet' not in prefs: prefs['AIHorde_use_controlnet'] = False
-if 'AIHorde_controlnet' not in prefs: prefs['AIHorde_controlnet'] = 'Canny'
-if 'AIHorde_model' not in prefs['prompt_generator']: prefs['prompt_generator']['AIHorde_model'] = 'Pantheon-RP-1.0-8b-Llama-3'
-if 'AIHorde_model' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AIHorde_model'] = 'Pantheon-RP-1.0-8b-Llama-3'
-if 'AIHorde_model' not in prefs['prompt_brainstormer']: prefs['prompt_brainstormer']['AIHorde_model'] = 'Pantheon-RP-1.0-8b-Llama-3'
-if 'PaLM_api_key' not in prefs: prefs['PaLM_api_key'] = ''
-if 'Anthropic_api_key' not in prefs: prefs['Anthropic_api_key'] = ''
-if 'enable_torch_compile' not in prefs: prefs['enable_torch_compile'] = False
-if 'enable_stable_fast' not in prefs: prefs['enable_stable_fast'] = False
-if 'enable_tome' not in prefs: prefs['enable_tome'] = False
-if 'tome_ratio' not in prefs: prefs['tome_ratio'] = 0.5
-if 'enable_freeu' not in prefs: prefs['enable_freeu'] = False
-if 'freeu_args' not in prefs: prefs['freeu_args'] = {'b1': 1.2, 'b2':1.4, 's1':0.9, 's2':0.2}
-if 'enable_hidiffusion' not in prefs: prefs['enable_hidiffusion'] = False
-if 'enable_deepcache' not in prefs: prefs['enable_deepcache'] = False
-if 'negatives' not in prefs: prefs['negatives'] = ['Blurry']
-if 'custom_negatives' not in prefs: prefs['custom_negatives'] = ""
-if 'prompt_style' not in prefs: prefs['prompt_style'] = "cinematic-default"
-if 'prompt_styles' not in prefs: prefs['prompt_styles'] = ["cinematic-default"]
-if 'prompt_styler' not in prefs: prefs['prompt_styler'] = ""
-if 'prompt_styler_multi' not in prefs: prefs['prompt_styler_multi'] = False
-if 'use_ip_adapter' not in prefs: prefs['use_ip_adapter'] = False
-if 'ip_adapter_image' not in prefs: prefs['ip_adapter_image'] = ""
-if 'ip_adapter_model' not in prefs: prefs['ip_adapter_model'] = "SD v1.5"
-if 'ip_adapter_SDXL_model' not in prefs: prefs['ip_adapter_SDXL_model'] = "SDXL"
-if 'ip_adapter_strength' not in prefs: prefs['ip_adapter_strength'] = 0.8
+prefs.setdefault('negative_prompt', '')
+prefs.setdefault('file_datetime', False)
+prefs.setdefault('file_from_1', False)
+prefs.setdefault('theme_custom_color', '#69d9ab')
+prefs.setdefault('install_conceptualizer', False)
+prefs.setdefault('use_conceptualizer', False)
+prefs.setdefault('concepts_model', 'cat-toy')
+prefs.setdefault('memory_optimization', 'None')
+prefs.setdefault('enable_xformers', False)
+prefs.setdefault('enable_attention_slicing', True)
+prefs.setdefault('enable_bitsandbytes', False)
+prefs.setdefault('sequential_cpu_offload', False)
+prefs.setdefault('vae_slicing', True)
+prefs.setdefault('vae_tiling', False)
+prefs.setdefault('show_stats', False)
+prefs.setdefault('stats_used', True)
+prefs.setdefault('stats_update', 5)
+prefs.setdefault('upscale_method', 'Real-ESRGAN')
+prefs.setdefault('upscale_model', 'realesr-general-x4v3')
+prefs.setdefault('use_inpaint_model', False)
+prefs.setdefault('cache_dir', '')
+prefs.setdefault('Replicate_api_key', '')
+prefs.setdefault('install_dreamfusion', False)
+prefs.setdefault('install_repaint', False)
+prefs.setdefault('finetuned_model', 'Midjourney v4 style')
+prefs.setdefault('dreambooth_model', 'disco-diffusion-style')
+prefs.setdefault('custom_model', '')
+prefs.setdefault('custom_models', [])
+prefs.setdefault('start_in_installation', False)
+prefs.setdefault('install_imagic', False)
+prefs.setdefault('use_imagic', False)
+prefs.setdefault('install_composable', False)
+prefs.setdefault('use_composable', False)
+prefs.setdefault('install_safe', False)
+prefs.setdefault('use_safe', False)
+prefs.setdefault('safety_config', "Strong")
+prefs.setdefault('install_versatile', False)
+prefs.setdefault('use_versatile', False)
+prefs.setdefault('install_depth2img', False)
+prefs.setdefault('use_depth2img', False)
+prefs.setdefault('install_alt_diffusion', False)
+prefs.setdefault('use_alt_diffusion', False)
+prefs.setdefault('install_upscale', False)
+prefs.setdefault('use_upscale', False)
+prefs.setdefault('upscale_noise_level', 20)
+prefs.setdefault('alpha_mask', False)
+prefs.setdefault('invert_mask', False)
+prefs.setdefault('clip_guidance_preset', "FAST_BLUE")
+prefs.setdefault('tortoise_custom_voices', [])
+prefs.setdefault('use_LoRA_model', False)
+prefs.setdefault('LoRA_model', "Von Platen LoRA")
+prefs.setdefault('active_LoRA_layers', [])
+prefs.setdefault('active_SDXL_LoRA_layers', [])
+prefs.setdefault('active_SD3_LoRA_layers', [])
+prefs.setdefault('custom_LoRA_models', [])
+prefs.setdefault('custom_LoRA_model', '')
+prefs.setdefault('SDXL_LoRA_model', "Papercut SDXL")
+prefs.setdefault('custom_SDXL_LoRA_models', [])
+prefs.setdefault('custom_SDXL_LoRA_model', '')
+prefs.setdefault('SD3_LoRA_model', "")
+prefs.setdefault('custom_SD3_LoRA_models', [])
+prefs.setdefault('custom_SD3_LoRA_model', '')
+prefs.setdefault('custom_dance_diffusion_models', [])
+prefs['prompt_writer'].setdefault('negative_prompt', '')
+prefs.setdefault('install_attend_and_excite', False)
+prefs.setdefault('use_attend_and_excite', False)
+prefs.setdefault('max_iter_to_alter', 25)
+prefs.setdefault('install_SAG', False)
+prefs.setdefault('use_SAG', False)
+prefs.setdefault('sag_scale', 0.75)
+prefs.setdefault('SD_compel', False)
+prefs.setdefault('install_SDXL', True)
+prefs.setdefault('use_SDXL', False)
+prefs.setdefault('SDXL_high_noise_frac', 0.7)
+prefs.setdefault('SDXL_compel', False)
+prefs.setdefault('SDXL_negative_conditions', False)
+prefs.setdefault('SDXL_watermark', False)
+prefs.setdefault('SDXL_model', 'SDXL-Base v1')
+prefs.setdefault('SDXL_custom_model', '')
+prefs.setdefault('install_SD3', False)
+prefs.setdefault('use_SD3', True)
+prefs.setdefault('SD3_compel', False)
+prefs.setdefault('SD3_model', 'Stable Diffusion 3 Medium')
+prefs.setdefault('SD3_custom_model', '')
+prefs.setdefault('SD3_custom_models', [])
+prefs.setdefault('SD3_cpu_offload', True)
+prefs.setdefault('SD3_bitsandbytes_8bit', False)
+prefs.setdefault('install_panorama', False)
+prefs.setdefault('use_panorama', False)
+prefs.setdefault('panorama_circular_padding', False)
+prefs.setdefault('panorama_width', 2048)
+prefs['prompt_generator'].setdefault('AI_engine', 'ChatGPT-3.5 Turbo')
+prefs['prompt_remixer'].setdefault('AI_engine', 'ChatGPT-3.5 Turbo')
+prefs.setdefault('meshy_api_key', '')
+prefs.setdefault('luma_api_key', '')
+prefs.setdefault('AIHorde_api_key', '0000000000')
+prefs.setdefault('install_AIHorde_api', False)
+prefs.setdefault('use_AIHorde_api', False)
+prefs.setdefault('AIHorde_model', 'stable_diffusion')
+prefs.setdefault('AIHorde_sampler', 'k_euler_a')
+prefs.setdefault('AIHorde_post_processing', "None")
+prefs.setdefault('AIHorde_lora_layer', 'Horde Aesthetics Improver')
+prefs.setdefault('AIHorde_lora_layer_alpha', 1.0)
+prefs.setdefault('AIHorde_karras', False)
+prefs.setdefault('AIHorde_tiling', False)
+prefs.setdefault('AIHorde_transparent', False)
+prefs.setdefault('AIHorde_hires_fix', False)
+prefs.setdefault('AIHorde_strip_background', False)
+prefs.setdefault('custom_CivitAI_LoRA_models', [])
+prefs.setdefault('AIHorde_custom_lora_layer', '')
+prefs.setdefault('AIHorde_lora_map', [])
+prefs.setdefault('AIHorde_use_controlnet', False)
+prefs.setdefault('AIHorde_controlnet', 'Canny')
+prefs['prompt_generator'].setdefault('AIHorde_model', 'Pantheon-RP-1.0-8b-Llama-3')
+prefs['prompt_remixer'].setdefault('AIHorde_model', 'Pantheon-RP-1.0-8b-Llama-3')
+prefs['prompt_brainstormer'].setdefault('AIHorde_model', 'Pantheon-RP-1.0-8b-Llama-3')
+prefs.setdefault('PaLM_api_key', '')
+prefs.setdefault('Anthropic_api_key', '')
+prefs.setdefault('enable_torch_compile', False)
+prefs.setdefault('enable_stable_fast', False)
+prefs.setdefault('enable_tome', False)
+prefs.setdefault('tome_ratio', 0.5)
+prefs.setdefault('enable_freeu', False)
+prefs.setdefault('freeu_args', {'b1': 1.2, 'b2':1.4, 's1':0.9, 's2':0.2})
+prefs.setdefault('enable_hidiffusion', False)
+prefs.setdefault('enable_deepcache', False)
+prefs.setdefault('negatives', ['Blurry'])
+prefs.setdefault('custom_negatives', "")
+prefs.setdefault('prompt_style', "cinematic-default")
+prefs.setdefault('prompt_styles', ["cinematic-default"])
+prefs.setdefault('prompt_styler', "")
+prefs.setdefault('prompt_styler_multi', False)
+prefs.setdefault('use_ip_adapter', False)
+prefs.setdefault('ip_adapter_image', "")
+prefs.setdefault('ip_adapter_model', "SD v1.5")
+prefs.setdefault('ip_adapter_SDXL_model', "SDXL")
+prefs.setdefault('ip_adapter_strength', 0.8)
 try:
     int(prefs['seed'])
 except ValueError:
@@ -21841,7 +21840,7 @@ pipe_pixart_sigma = None
 pipe_pixart_sigma_encoder = None
 pipe_hunyuan = None
 pipe_lumina = None
-pipe_layer_diffusion = None
+pipe_layer_diffusion, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_transparent_decoder, ld_transparent_encoder = [None] * 6
 pipe_differential_diffusion = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
@@ -24678,9 +24677,11 @@ def clear_lumina_pipe():
 def clear_layer_diffusion_pipe():
   global pipe_layer_diffusion
   if pipe_layer_diffusion is not None:
-    del pipe_layer_diffusion
+    global ld_text_encoder, ld_text_encoder_2, ld_vae, ld_transparent_decoder, ld_transparent_encoder
+    del pipe_layer_diffusion, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_transparent_decoder, ld_transparent_encoder
     flush()
     pipe_layer_diffusion = None
+    ld_text_encoder, ld_text_encoder_2, ld_vae, ld_transparent_decoder, ld_transparent_encoder = [None] * 5
 def clear_differential_diffusion_pipe():
   global pipe_differential_diffusion
   if pipe_differential_diffusion is not None:
@@ -43336,7 +43337,7 @@ def run_lumina(page, from_list=False, with_params=False):
     play_snd(Snd.ALERT, page)
 
 def run_layer_diffusion(page, from_list=False, with_params=False):
-    global layer_diffusion_prefs, pipe_layer_diffusion, prefs
+    global layer_diffusion_prefs, pipe_layer_diffusion, prefs, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_transparent_decoder, ld_transparent_encoder
     if not check_diffusers(page): return
     if int(status['cpu_memory']) <= 8:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run LayerDiffusion right now. Either Change runtime type to High-RAM mode and restart.")
@@ -43442,19 +43443,19 @@ def run_layer_diffusion(page, from_list=False, with_params=False):
             installer.status("...loading CLIP Tokenizer & Autoencoder")
             tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
             tokenizer_2 = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer_2")
-            text_encoder = CLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", torch_dtype=torch.float16, variant="fp16")
-            text_encoder_2 = CLIPTextModel.from_pretrained(model_id, subfolder="text_encoder_2", torch_dtype=torch.float16, variant="fp16")
-            vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", torch_dtype=torch.bfloat16, variant="fp16")  # bfloat16 vae
-            unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet", torch_dtype=torch.float16, variant="fp16")
-            unet.set_attn_processor(AttnProcessor2_0())
-            vae.set_attn_processor(AttnProcessor2_0())
+            ld_text_encoder = CLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", torch_dtype=torch.float16, variant="fp16")
+            ld_text_encoder_2 = CLIPTextModel.from_pretrained(model_id, subfolder="text_encoder_2", torch_dtype=torch.float16, variant="fp16")
+            ld_vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", torch_dtype=torch.bfloat16, variant="fp16")  # bfloat16 vae
+            ld_unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet", torch_dtype=torch.float16, variant="fp16")
+            ld_unet.set_attn_processor(AttnProcessor2_0())
+            ld_vae.set_attn_processor(AttnProcessor2_0())
             installer.status("...downloading Models")
             path_ld_diffusers_sdxl_attn = download_model(url='https://huggingface.co/lllyasviel/LayerDiffuse_Diffusers/resolve/main/ld_diffusers_sdxl_attn.safetensors', local_path=os.path.join(layer_diffuse_dir, 'models', 'ld_diffusers_sdxl_attn.safetensors'))
             path_ld_diffusers_sdxl_vae_transparent_encoder = download_model(url='https://huggingface.co/lllyasviel/LayerDiffuse_Diffusers/resolve/main/ld_diffusers_sdxl_vae_transparent_encoder.safetensors', local_path=os.path.join(layer_diffuse_dir, 'models', 'ld_diffusers_sdxl_vae_transparent_encoder.safetensors'))
             path_ld_diffusers_sdxl_vae_transparent_decoder = download_model(url='https://huggingface.co/lllyasviel/LayerDiffuse_Diffusers/resolve/main/ld_diffusers_sdxl_vae_transparent_decoder.safetensors', local_path=os.path.join(layer_diffuse_dir, 'models', 'ld_diffusers_sdxl_vae_transparent_decoder.safetensors'))
             installer.status("...loading unet states")
             sd_offset = sf.load_file(path_ld_diffusers_sdxl_attn)
-            sd_origin = unet.state_dict()
+            sd_origin = ld_unet.state_dict()
             keys = sd_origin.keys()
             sd_merged = {}
             for k in sd_origin.keys():
@@ -43462,18 +43463,18 @@ def run_layer_diffusion(page, from_list=False, with_params=False):
                     sd_merged[k] = sd_origin[k] + sd_offset[k]
                 else:
                     sd_merged[k] = sd_origin[k]
-            unet.load_state_dict(sd_merged, strict=True)
+            ld_unet.load_state_dict(sd_merged, strict=True)
             del sd_offset, sd_origin, sd_merged, keys, k
             installer.status("...initialize Transparent VAE Pipe")
-            transparent_encoder = TransparentVAEEncoder(path_ld_diffusers_sdxl_vae_transparent_encoder)
-            transparent_decoder = TransparentVAEDecoder(path_ld_diffusers_sdxl_vae_transparent_decoder)
+            ld_transparent_encoder = TransparentVAEEncoder(path_ld_diffusers_sdxl_vae_transparent_encoder)
+            ld_transparent_decoder = TransparentVAEDecoder(path_ld_diffusers_sdxl_vae_transparent_decoder)
             pipe_layer_diffusion = KDiffusionStableDiffusionXLPipeline(
-                vae=vae,
-                text_encoder=text_encoder,
+                vae=ld_vae,
+                text_encoder=ld_text_encoder,
                 tokenizer=tokenizer,
-                text_encoder_2=text_encoder_2,
+                text_encoder_2=ld_text_encoder_2,
                 tokenizer_2=tokenizer_2,
-                unet=unet,
+                unet=ld_unet,
                 scheduler=None,
             )
             status['loaded_layer_diffusion_model'] = model_id
@@ -43511,19 +43512,19 @@ def run_layer_diffusion(page, from_list=False, with_params=False):
             with torch.inference_mode():
                 pb.status("...loading text encoders")
                 generator = torch.Generator(device=memory_management.gpu).manual_seed(random_seed)
-                memory_management.load_models_to_gpu([text_encoder, text_encoder_2])
+                memory_management.load_models_to_gpu([ld_text_encoder, ld_text_encoder_2])
                 positive_cond, positive_pooler = pipe_layer_diffusion.encode_cropped_prompt_77tokens(pr['prompt'])
-                negative_cond, negative_pooler = pipe_layer_diffusion.encode_cropped_prompt_77tokens(pr['negatiive_prompt'])
+                negative_cond, negative_pooler = pipe_layer_diffusion.encode_cropped_prompt_77tokens(pr['negative_prompt'])
                 pb.status("...encoding transparent latents")
                 if init_img is not None:
-                    memory_management.load_models_to_gpu([vae, transparent_decoder, transparent_encoder])
+                    memory_management.load_models_to_gpu([ld_vae, ld_transparent_decoder, ld_transparent_encoder])
                     initial_latent = [np.array(init_img)]
-                    initial_latent = transparent_encoder(vae, initial_latent) * vae.config.scaling_factor
-                    memory_management.load_models_to_gpu([unet])
-                    initial_latent = initial_latent.to(dtype=unet.dtype, device=unet.device)
+                    initial_latent = ld_transparent_encoder(ld_vae, initial_latent) * ld_vae.config.scaling_factor
+                    memory_management.load_models_to_gpu([ld_unet])
+                    initial_latent = initial_latent.to(dtype=ld_unet.dtype, device=ld_unet.device)
                 else:
-                    memory_management.load_models_to_gpu([unet])
-                    initial_latent = torch.zeros(size=(1, 4, 144, 112), dtype=unet.dtype, device=unet.device)
+                    memory_management.load_models_to_gpu([ld_unet])
+                    initial_latent = torch.zeros(size=(1, 4, 144, 112), dtype=ld_unet.dtype, device=ld_unet.device)
                 pb.status("...running layer diffusion")
                 latents = pipe_layer_diffusion(
                     initial_latent=initial_latent,
@@ -43540,9 +43541,9 @@ def run_layer_diffusion(page, from_list=False, with_params=False):
                     guidance_scale=pr['guidance_scale'],
                 ).images
                 pb.status("...decoding transparent latents")
-                memory_management.load_models_to_gpu([vae, transparent_decoder, transparent_encoder])
-                latents = latents.to(dtype=vae.dtype, device=vae.device) / vae.config.scaling_factor
-                result_list, vis_list = transparent_decoder(vae, latents)
+                memory_management.load_models_to_gpu([ld_vae, ld_transparent_decoder, ld_transparent_encoder])
+                latents = latents.to(dtype=ld_vae.dtype, device=ld_vae.device) / ld_vae.config.scaling_factor
+                result_list, vis_list = ld_transparent_decoder(ld_vae, latents)
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
