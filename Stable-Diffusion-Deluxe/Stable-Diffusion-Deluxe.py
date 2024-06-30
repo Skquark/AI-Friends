@@ -43521,7 +43521,7 @@ def run_layer_diffusion(page, from_list=False, with_params=False):
                     initial_latent = initial_latent.to(dtype=ld_unet.dtype, device=ld_unet.device)
                 else:
                     memory_management.load_models_to_gpu([ld_unet])
-                    initial_latent = torch.zeros(size=(1, 4, pr['height']/8, pr['width']/8), dtype=ld_unet.dtype, device=ld_unet.device)#(1, 4, 144, 112)
+                    initial_latent = torch.zeros(size=(1, 4, int(pr['height']/8), int(pr['width']/8)), dtype=ld_unet.dtype, device=ld_unet.device)#(1, 4, 144, 112)
                 pb.status("...running layer diffusion")
                 latents = pipe_layer_diffusion(
                     initial_latent=initial_latent,
