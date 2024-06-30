@@ -11547,7 +11547,7 @@ def buildLayerDiffusion(page):
     page.LayerDiffusion_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
-            Header("🫥  Layer Diffusion SDXL (under construction)", "Transparent Image Layer Generation using Latent Transparency...", actions=[save_default(layer_diffusion_prefs), IconButton(icon=icons.HELP, tooltip="Help with LayerDiffusion Settings", on_click=layer_diffusion_help)]),
+            Header("🫥  Layer Diffusion SDXL", "Transparent Image Layer Generation using Latent Transparency...", actions=[save_default(layer_diffusion_prefs), IconButton(icon=icons.HELP, tooltip="Help with LayerDiffusion Settings", on_click=layer_diffusion_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([init_image, init_image_strength]),
             steps,
@@ -11560,9 +11560,6 @@ def buildLayerDiffusion(page):
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
-
-
-
 
 differential_diffusion_prefs = {
     "prompt": '',
@@ -21854,7 +21851,7 @@ pipe_pixart_sigma = None
 pipe_pixart_sigma_encoder = None
 pipe_hunyuan = None
 pipe_lumina = None
-pipe_layer_diffusion, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_transparent_decoder, ld_transparent_encoder = [None] * 6
+pipe_layer_diffusion, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_unet, ld_transparent_decoder, ld_transparent_encoder = [None] * 7
 pipe_differential_diffusion = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
@@ -24691,11 +24688,11 @@ def clear_lumina_pipe():
 def clear_layer_diffusion_pipe():
   global pipe_layer_diffusion
   if pipe_layer_diffusion is not None:
-    global ld_text_encoder, ld_text_encoder_2, ld_vae, ld_transparent_decoder, ld_transparent_encoder
-    del pipe_layer_diffusion, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_transparent_decoder, ld_transparent_encoder
+    global ld_text_encoder, ld_text_encoder_2, ld_vae, ld_unet, ld_transparent_decoder, ld_transparent_encoder
+    del pipe_layer_diffusion, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_unet, ld_transparent_decoder, ld_transparent_encoder
     flush()
     pipe_layer_diffusion = None
-    ld_text_encoder, ld_text_encoder_2, ld_vae, ld_transparent_decoder, ld_transparent_encoder = [None] * 5
+    ld_text_encoder, ld_text_encoder_2, ld_vae, ld_unet, ld_transparent_decoder, ld_transparent_encoder = [None] * 6
 def clear_differential_diffusion_pipe():
   global pipe_differential_diffusion
   if pipe_differential_diffusion is not None:
@@ -38435,7 +38432,7 @@ def run_ledits(page, from_list=False):
       if ledits_prefs['use_SDXL']:
         from diffusers import LEditsPPPipelineStableDiffusionXL
         pipe_ledits = LEditsPPPipelineStableDiffusionXL.from_pretrained(model_id_SDXL, torch_dtype=torch.float16, add_watermarker=prefs['SDXL_watermark'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
-        pipe_ledits = optimize_SDXL(pipe_ledits, freeu=False)
+        pipe_ledits = optimize_SDXL(pipe_ledits, freeu=False, vae_tiling=False)
         status['loaded_ledits'] = model_id_SDXL
       else:
         from diffusers import LEditsPPPipelineStableDiffusion
@@ -41195,11 +41192,11 @@ def run_deepfloyd(page, from_list=False):
         page.DeepFloyd.controls.append(line)
         if update:
           page.DeepFloyd.update()
-    def clear_last(lines=1):
+    def clear_last(lines=1, update=True):
       if from_list:
-        clear_line(page.imageColumn, lines=lines)
+        clear_line(page.imageColumn, lines, update)
       else:
-        clear_line(page.DeepFloyd, lines=lines)
+        clear_line(page.DeepFloyd, lines, update)
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -43351,7 +43348,7 @@ def run_lumina(page, from_list=False, with_params=False):
     play_snd(Snd.ALERT, page)
 
 def run_layer_diffusion(page, from_list=False, with_params=False):
-    global layer_diffusion_prefs, pipe_layer_diffusion, prefs, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_transparent_decoder, ld_transparent_encoder
+    global layer_diffusion_prefs, pipe_layer_diffusion, prefs, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_unet, ld_transparent_decoder, ld_transparent_encoder
     if not check_diffusers(page): return
     if int(status['cpu_memory']) <= 8:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run LayerDiffusion right now. Either Change runtime type to High-RAM mode and restart.")
@@ -43538,7 +43535,7 @@ def run_layer_diffusion(page, from_list=False, with_params=False):
                     initial_latent = initial_latent.to(dtype=ld_unet.dtype, device=ld_unet.device)
                 else:
                     memory_management.load_models_to_gpu([ld_unet])
-                    initial_latent = torch.zeros(size=(1, 4, 144, 112), dtype=ld_unet.dtype, device=ld_unet.device)
+                    initial_latent = torch.zeros(size=(1, 4, pr['height']/8, pr['width']/8), dtype=ld_unet.dtype, device=ld_unet.device)#(1, 4, 144, 112)
                 pb.status("...running layer diffusion")
                 latents = pipe_layer_diffusion(
                     initial_latent=initial_latent,
@@ -43579,14 +43576,14 @@ def run_layer_diffusion(page, from_list=False, with_params=False):
             fname = f'{layer_diffusion_prefs["file_prefix"]}{fname}'
             image_path = available_file(txt2img_output, fname, i)
             new_file = available_file(os.path.join(prefs['image_output'], layer_diffusion_prefs['batch_folder_name']), fname, i)
-            vis_path = available_file(os.path.join(prefs['image_output'], layer_diffusion_prefs['batch_folder_name']), fname + "-vis", i)
+            #vis_path = available_file(os.path.join(prefs['image_output'], layer_diffusion_prefs['batch_folder_name']), fname + "-vis", i)
             img = PILImage.fromarray(image)
             w, h = img.size
             img.save(image_path, format='PNG')
-            PILImage.fromarray(vis_list[i]).save(vis_path, format='PNG')
+            #PILImage.fromarray(vis_list[i]).save(vis_path, format='PNG')
             output_file = image_path.rpartition(slash)[2]
             if not layer_diffusion_prefs['display_upscaled_image'] or not layer_diffusion_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=vis_path, width=w, height=h, data=vis_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([ImageButton(src=vis_path, width=w, height=h, data=vis_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 save_metadata(image_path, layer_diffusion_prefs, f"Layer Diffusion", model_id, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=w, height=h, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], layer_diffusion_prefs['batch_folder_name'])
@@ -51162,8 +51159,8 @@ def run_shap_e(page):
         nonlocal status_txt
         status_txt.value = text
         status_txt.update()
-    def clear_last(lines=1):
-      clear_line(page.shap_e_output, lines=lines)
+    def clear_last(lines=1, update=True):
+      clear_line(page.shap_e_output, lines, update)
     if not bool(shap_e_prefs["prompt_text"].strip()):
       alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
       return
@@ -51339,8 +51336,8 @@ def run_shap_e2(page):
         nonlocal status_txt
         status_txt.value = text
         status_txt.update()
-    def clear_last(lines=1):
-      clear_line(page.shap_e_output, lines=lines)
+    def clear_last(lines=1, update=True):
+      clear_line(page.shap_e_output, lines, update)
     if not bool(shap_e_prefs["prompt_text"].strip()):
       alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
       return
