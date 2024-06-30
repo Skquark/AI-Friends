@@ -11581,6 +11581,7 @@ differential_diffusion_prefs = {
     'init_image_strength': 0.9,
     "differential_diffusion_model": "stabilityai/stable-diffusion-2-inpainting",
     "custom_model": "",
+    'use_SD3': False,
     'use_ip_adapter': False,
     'ip_adapter_image': '',
     'ip_adapter_model': 'SDXL',
@@ -11607,7 +11608,6 @@ def buildDifferential_Diffusion(page):
         page.update()
       differential_diffusion_help_dlg = AlertDialog(title=Text("🙅   Help with Differential Diffusion Pipeline"), content=Column([
           Text("Diffusion models have revolutionized image generation and editing, producing state-of-the-art results in conditioned and unconditioned image synthesis. While current techniques enable user control over the degree of change in an image edit, the controllability is limited to global changes over an entire edited region. This paper introduces a novel framework that enables customization of the amount of change per pixel or per image region. Our framework can be integrated into any existing diffusion model, enhancing it with this capability. Such granular control on the quantity of change opens up a diverse array of new editing capabilities, such as control of the extent to which individual objects are modified, or the ability to introduce gradual spatial changes. Furthermore, we showcase the framework's effectiveness in soft-inpainting---the completion of portions of an image while subtly adjusting the surrounding areas to ensure seamless integration. Additionally, we introduce a new tool for exploring the effects of different change quantities. Our framework operates solely during inference, requiring no model training or fine-tuning. We demonstrate our method with the current open state-of-the-art models, and validate it via both quantitative and qualitative comparisons, and a user study."),
-          #Text(""),
           Markdown("[Project Page](https://differential-diffusion.github.io/) | [Github](https://github.com/exx8/differential-diffusion) | [Paper](https://differential-diffusion.github.io/paper.pdf) | [HuggingFace Space](https://huggingface.co/spaces/exx8/differential-diffusion) | [Colab Notebook](https://colab.research.google.com/github/exx8/differential-diffusion/blob/main/examples/SD2.ipynb)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("Contributors include [Eran Levin](https://github.com/exx8), [Ohad Fried](https://www.ohadf.com/), Tel Aviv University, Reichman University", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🐻  That Different...", on_click=close_differential_diffusion_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -11634,6 +11634,15 @@ def buildDifferential_Diffusion(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=differential_diffusion_prefs, key='guidance_scale')
     eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=20, round=2, pref=differential_diffusion_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
     max_row = SliderRow(label="Max Resolution Size", min=256, max=2048, divisions=112, multiple=16, suffix="px", pref=differential_diffusion_prefs, key='max_size', tooltip="Resizes your Init and Mask Image to save memory.")
+    def toggle_SD3(e):
+        differential_diffusion_prefs['use_SD3'] = e.control.value
+        use_ip_adapter.visible = not differential_diffusion_prefs['use_SD3']
+        use_ip_adapter.update()
+        ip_adapter_container.visible = not differential_diffusion_prefs['use_SD3'] and differential_diffusion_prefs['use_ip_adapter']
+        ip_adapter_container.update()
+        ip_adapter_SDXL_model.visible = not differential_diffusion_prefs['use_SD3'] and differential_diffusion_prefs['use_ip_adapter']
+        ip_adapter_SDXL_model.update()
+    use_SD3 = Switcher(label="Use Stable Diffusion 3 Differential Diffusion Img2Img Pipeline", value=differential_diffusion_prefs['use_SD3'], on_change=toggle_SD3, tooltip="SD3 uses Model Checkpoint set in Installation. Otherwise use selected SDXL Inpainting Model.")
     def toggle_ip_adapter(e):
         differential_diffusion_prefs['use_ip_adapter'] = e.control.value
         ip_adapter_container.height = None if e.control.value else 0
@@ -11646,7 +11655,7 @@ def buildDifferential_Diffusion(page):
         ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
     ip_adapter_image = FileInput(label="IP-Adapter Image", pref=differential_diffusion_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
     ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=differential_diffusion_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if differential_diffusion_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if differential_diffusion_prefs['use_ip_adapter'] and not differential_diffusion_prefs['use_SD3'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     differential_diffusion_model = Dropdown(label="Inpainting Model", width=386, options=[dropdown.Option(m) for m in ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers", "Lykon/dreamshaper-8-inpainting", "parlance/dreamlike-diffusion-1.0-inpainting", "ghunkins/stable-diffusion-liberty-inpainting", "piyushaaryan011/realistic-vision-inpainting", "Custom"]], value=differential_diffusion_prefs['differential_diffusion_model'], on_change=changed_model)
     differential_diffusion_custom_model = TextField(label="Custom Differential_Diffusion Model (URL or Path)", value=differential_diffusion_prefs['custom_model'], expand=True, visible=differential_diffusion_prefs['differential_diffusion_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     #cpu_offload = Switcher(label="CPU Offload", value=differential_diffusion_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
@@ -11667,7 +11676,7 @@ def buildDifferential_Diffusion(page):
     page.differential_diffusion_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🙈  Differential Diffusion Image2Image", "Modifies an image according to a text prompt, and according to a map that specifies the amount of change in each region... Uses SDXL Model in Installation.", actions=[save_default(differential_diffusion_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Differential Diffusion Settings", on_click=differential_diffusion_help)]),
+            Header("🙈  Differential Diffusion SDXL & SD3 Image2Image", "Modifies an image according to a text prompt, and according to a map that specifies the amount of change in each region...", actions=[save_default(differential_diffusion_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Differential Diffusion Settings", on_click=differential_diffusion_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([init_image, mask_image]),
             init_image_strength,
@@ -11677,6 +11686,7 @@ def buildDifferential_Diffusion(page):
             max_row, #Divider(height=9, thickness=2),
             #Row([differential_diffusion_model, differential_diffusion_custom_model]),
             #Row([cpu_offload, cpu_only]),
+            use_SD3,
             Row([use_ip_adapter, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
@@ -12289,8 +12299,8 @@ def buildPAG(page):
         ip_adapter_model.update()
         ip_adapter_SDXL_model.visible = pag_prefs['use_SDXL'] and pag_prefs['use_ip_adapter']
         ip_adapter_SDXL_model.update()
-        cpu_offload.visible = pag_prefs['use_SDXL']
-        cpu_offload.update()
+        #cpu_offload.visible = pag_prefs['use_SDXL']
+        #cpu_offload.update()
         image_container.height = None if pag_prefs['use_SDXL'] else 0
         image_container.update()
     use_SDXL = Switcher(label="Use Stable Diffusion XL PAG Pipeline", value=pag_prefs['use_SDXL'], on_change=toggle_SDXL, tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
@@ -12320,7 +12330,7 @@ def buildPAG(page):
     image_container = Container(Column([ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]), image_strength]), height = None if pag_prefs['use_SDXL'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     pag_model = Dropdown(label="PAG Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("PAG_Dreamshaper_v7"), dropdown.Option("PAG_Dreamshaper_v8")], value=pag_prefs['pag_model'], on_change=changed_model)
     pag_custom_model = TextField(label="Custom PAG Model (URL or Path)", value=pag_prefs['custom_model'], expand=True, visible=pag_prefs['pag_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
-    cpu_offload = Checkbox(label="CPU Offload", tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.", value=pag_prefs['cpu_offload'], visible=pag_prefs['use_SDXL'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'cpu_offload'))
+    cpu_offload = Checkbox(label="CPU Offload", tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.", value=pag_prefs['cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'cpu_offload'))
     #cpu_offload = Switcher(label="CPU Offload", value=pag_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), visible=pag_prefs['use_SDXL'], tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     cpu_only = Switcher(label="CPU Only", value=pag_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
     seed = TextField(label="Seed", width=90, value=str(pag_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
@@ -19949,8 +19959,8 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         readme_description.update()
     def toggle_dream(e):
         changed(e, 'dream_training')
-        dream_detail_preservation.visible = LoRA_prefs['dream_training']
-        dream_detail_preservation.update()
+        #dream_detail_preservation.visible = LoRA_prefs['dream_training']
+        #dream_detail_preservation.update()
     validation_prompt = Container(content=Tooltip(message="A prompt that is sampled during training for inference.", content=TextField(label="Validation Prompt Text", value=LoRA_prefs['validation_prompt'], on_change=lambda e:changed(e,'validation_prompt'))), col={'md':9})
     name_of_your_model = TextField(label="Name of your Model", value=LoRA_prefs['name_of_your_model'], on_change=lambda e:changed(e,'name_of_your_model'), col={'md':3})
     #class_prompt = TextField(label="Class Prompt", value=LoRA_prefs['class_prompt'], on_change=lambda e:changed(e,'class_prompt'))
@@ -28698,7 +28708,7 @@ def run_retrieve(page):
             json_txt = metadata['parameters']
             #print(json_txt)
             meta = json.loads(json_txt)
-            meta_auto111(meta)
+            meta_auto1111(meta)
           else:
             alert_msg(page, "No Stable Diffusion Deluxe config metadata found inside image.")
 
@@ -30730,7 +30740,7 @@ def run_hd_painter(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = get_seed(int(pr['seed']) + num)
+        random_seed = get_seed(int(pr['seed']))
         generator = torch.manual_seed(random_seed)
         init_img = None
         mask_img = None
@@ -30817,11 +30827,11 @@ def run_hd_painter(page, from_list=False, with_params=False):
                 upscale_image(image_path, upscaled_path, scale=hd_painter_prefs["enlarge_scale"], face_enhance=hd_painter_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
-                save_metadata(image_path, hd_painter_prefs, f"HD-Painter {mode}", hd_painter_model, random_seed, extra=pr)
+                save_metadata(image_path, hd_painter_prefs, f"HD-Painter", hd_painter_model, random_seed, extra=pr)
                 if hd_painter_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(hd_painter_prefs["enlarge_scale"]), height=pr['height'] * float(hd_painter_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if not hd_painter_prefs['display_upscaled_image'] or not hd_painter_prefs['apply_ESRGAN_upscale']:
-                save_metadata(image_path, hd_painter_prefs, f"HD-Painter {mode}", hd_painter_model, random_seed, extra=pr)
+                save_metadata(image_path, hd_painter_prefs, f"HD-Painter", hd_painter_model, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], hd_painter_prefs['batch_folder_name']), fname, 0)
@@ -32326,7 +32336,7 @@ def run_semantic(page):
     makedir(batch_output)
     batch_output = os.path.join(prefs['image_output'], semantic_prefs['batch_folder_name'])
     makedir(batch_output)
-    random_seed = get_seed(pr['seed'])
+    random_seed = get_seed(semantic_prefs['seed'])
     generator = torch.Generator(device=torch_device).manual_seed(random_seed)
     #generator = torch.manual_seed(random_seed)
     width = semantic_prefs['width']
@@ -33591,6 +33601,7 @@ def run_music_gen(page):
             return
     clear_last()
     def get_melody(melody_filepath):
+        import librosa
         audio_data= list(librosa.load(melody_filepath, sr=None))
         audio_data[0], audio_data[1] = audio_data[1], audio_data[0]
         melody = tuple(audio_data)
@@ -33655,7 +33666,7 @@ def run_music_gen(page):
             try:
                 if melody:
                     if duration > pipe_music_gen.lm.cfg.dataset.segment_duration:
-                        output_segments, duration = generate_music_segments(text, melody, random_seed, pipe_music_gen, duration, overlap, pipe_music_gen.lm.cfg.dataset.segment_duration, prompt_index, harmony_only=music_gen_prefs['harmony_only'])
+                        output_segments, duration = generate_music_segments(text, melody, random_seed, pipe_music_gen, duration, overlap, pipe_music_gen.lm.cfg.dataset.segment_duration, harmony_only=music_gen_prefs['harmony_only'])
                     else:
                         # pure original code
                         sr, melody = melody[0], torch.from_numpy(melody[1]).to(pipe_music_gen.device).float().t().unsqueeze(0)
@@ -35171,6 +35182,7 @@ def run_tortoise_tts(page):
     import torch.nn.functional as F
     from tortoise.api import TextToSpeech
     from tortoise.utils.audio import load_audio, load_voice, load_voices
+    import pydub
     clear_pipes('tortoise_tts')
     # This will download all the models used by Tortoise from the HuggingFace hub.
     if pipe_tortoise_tts == None:
@@ -35508,7 +35520,7 @@ def run_audio_ldm2(page):
     prt(progress)
     random_seed = get_seed(audioLDM2_prefs['seed'])
     generator = torch.Generator("cuda").manual_seed(random_seed)
-    extra_args = {'transcription': audioLDM2_prefs['transcription'], 'max_new_tokens': b512} if 'speech' in model_id else {}
+    extra_args = {'transcription': audioLDM2_prefs['transcription'], 'max_new_tokens': 512} if 'speech' in model_id else {}
     try:
       audios = pipe_audio_ldm2(audioLDM2_prefs['text'],
           negative_prompt=audioLDM2_prefs['negative_prompt'],
@@ -41821,7 +41833,7 @@ def run_amused(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = get_seed(int(pr['seed']) + num)
+        random_seed = get_seed(int(pr['seed']))
         generator = torch.Generator().manual_seed(random_seed)
         init_img = None
         mask_img = None
@@ -43337,6 +43349,263 @@ def run_lumina(page, from_list=False, with_params=False):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+def run_layer_diffusion(page, from_list=False, with_params=False):
+    global layer_diffusion_prefs, pipe_layer_diffusion, prefs
+    if not check_diffusers(page): return
+    if int(status['cpu_memory']) <= 8:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run LayerDiffusion right now. Either Change runtime type to High-RAM mode and restart.")
+      return
+    layer_diffusion_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            layer_diffusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':layer_diffusion_prefs['guidance_scale'], 'steps':layer_diffusion_prefs['steps'], 'width':layer_diffusion_prefs['width'], 'height':layer_diffusion_prefs['height'], 'num_images':layer_diffusion_prefs['num_images'], 'init_image':layer_diffusion_prefs['init_image'], 'init_image_strength':layer_diffusion_prefs['init_image_strength'], 'seed':layer_diffusion_prefs['seed']})
+        else:
+            layer_diffusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'init_image':p['init_image'], 'init_image_strength':p['init_image_strength'], 'seed':p['seed']})
+    else:
+      if not bool(layer_diffusion_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      layer_diffusion_prompts.append({'prompt': layer_diffusion_prefs['prompt'], 'negative_prompt':layer_diffusion_prefs['negative_prompt'], 'guidance_scale':layer_diffusion_prefs['guidance_scale'], 'steps':layer_diffusion_prefs['steps'], 'width':layer_diffusion_prefs['width'], 'height':layer_diffusion_prefs['height'], 'num_images':layer_diffusion_prefs['num_images'], 'init_image':layer_diffusion_prefs['init_image'], 'init_image_strength':layer_diffusion_prefs['init_image_strength'], 'seed':layer_diffusion_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.LayerDiffusion.controls.append(line)
+        if update:
+          page.LayerDiffusion.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.LayerDiffusion, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.LayerDiffusion.auto_scroll = scroll
+        page.LayerDiffusion.update()
+      else:
+        page.LayerDiffusion.auto_scroll = scroll
+        page.LayerDiffusion.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.LayerDiffusion.controls = page.LayerDiffusion.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = layer_diffusion_prefs['steps']
+    def callback_fnc(step: int, timestep: int, callback_kwargs) -> None: #(pipe, step, timestep, callback_kwargs):#
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    def callback_fn(pipe, step, timestep, callback_kwargs):
+      callback_fn.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    SDXL_model = get_SDXL_model(prefs['SDXL_model'])
+    model_id = SDXL_model['path']
+    if 'loaded_layer_diffusion_model' not in status: status['loaded_layer_diffusion_model'] = ''
+    installer = Installing(f"Installing Layer Diffusion Engine & {SDXL_model['name']}... See console log for progress.")
+    #cpu_offload = layer_diffusion_prefs['cpu_offload']
+    prt(installer)
+    layer_diffuse_dir = os.path.join(root_dir, 'LayerDiffuse_DiffusersCLI')
+    if not os.path.exists(layer_diffuse_dir): #TODO: check force_update
+        installer.status("...cloning lllyasviel/LayerDiffuse_DiffusersCLI")#
+        run_sp("git clone https://github.com/lllyasviel/LayerDiffuse_DiffusersCLI.git", cwd=root_dir, realtime=False)
+    if layer_diffuse_dir not in sys.path:
+        sys.path.append(layer_diffuse_dir)
+    pip_install("bitsandbytes==0.43.1 protobuf==3.20 opencv-python tensorboardX einops peft", installer=installer)
+    if status['loaded_layer_diffusion_model'] != model_id:
+        clear_pipes()
+    else:
+        clear_pipes('layer_diffusion')
+    import numpy as np
+    import memory_management
+    import safetensors.torch as sf
+    from PIL import Image as PILImage
+    from PIL import ImageOps
+    from diffusers_kdiffusion_sdxl import KDiffusionStableDiffusionXLPipeline
+    from diffusers import AutoencoderKL, UNet2DConditionModel
+    from diffusers.models.attention_processor import AttnProcessor2_0
+    from transformers import CLIPTextModel, CLIPTokenizer
+    from lib_layerdiffuse.vae import TransparentVAEDecoder, TransparentVAEEncoder
+    from lib_layerdiffuse.utils import download_model
+    
+    if pipe_layer_diffusion == None:
+        try:
+            installer.status("...loading CLIP Tokenizer & Autoencoder")
+            tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
+            tokenizer_2 = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer_2")
+            text_encoder = CLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", torch_dtype=torch.float16, variant="fp16")
+            text_encoder_2 = CLIPTextModel.from_pretrained(model_id, subfolder="text_encoder_2", torch_dtype=torch.float16, variant="fp16")
+            vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", torch_dtype=torch.bfloat16, variant="fp16")  # bfloat16 vae
+            unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet", torch_dtype=torch.float16, variant="fp16")
+            unet.set_attn_processor(AttnProcessor2_0())
+            vae.set_attn_processor(AttnProcessor2_0())
+            installer.status("...downloading Models")
+            path_ld_diffusers_sdxl_attn = download_model(url='https://huggingface.co/lllyasviel/LayerDiffuse_Diffusers/resolve/main/ld_diffusers_sdxl_attn.safetensors', local_path=os.path.join(layer_diffuse_dir, 'models', 'ld_diffusers_sdxl_attn.safetensors'))
+            path_ld_diffusers_sdxl_vae_transparent_encoder = download_model(url='https://huggingface.co/lllyasviel/LayerDiffuse_Diffusers/resolve/main/ld_diffusers_sdxl_vae_transparent_encoder.safetensors', local_path=os.path.join(layer_diffuse_dir, 'models', 'ld_diffusers_sdxl_vae_transparent_encoder.safetensors'))
+            path_ld_diffusers_sdxl_vae_transparent_decoder = download_model(url='https://huggingface.co/lllyasviel/LayerDiffuse_Diffusers/resolve/main/ld_diffusers_sdxl_vae_transparent_decoder.safetensors', local_path=os.path.join(layer_diffuse_dir, 'models', 'ld_diffusers_sdxl_vae_transparent_decoder.safetensors'))
+            installer.status("...loading unet states")
+            sd_offset = sf.load_file(path_ld_diffusers_sdxl_attn)
+            sd_origin = unet.state_dict()
+            keys = sd_origin.keys()
+            sd_merged = {}
+            for k in sd_origin.keys():
+                if k in sd_offset:
+                    sd_merged[k] = sd_origin[k] + sd_offset[k]
+                else:
+                    sd_merged[k] = sd_origin[k]
+            unet.load_state_dict(sd_merged, strict=True)
+            del sd_offset, sd_origin, sd_merged, keys, k
+            installer.status("...initialize Transparent VAE Pipe")
+            transparent_encoder = TransparentVAEEncoder(path_ld_diffusers_sdxl_vae_transparent_encoder)
+            transparent_decoder = TransparentVAEDecoder(path_ld_diffusers_sdxl_vae_transparent_decoder)
+            pipe_layer_diffusion = KDiffusionStableDiffusionXLPipeline(
+                vae=vae,
+                text_encoder=text_encoder,
+                tokenizer=tokenizer,
+                text_encoder_2=text_encoder_2,
+                tokenizer_2=tokenizer_2,
+                unet=unet,
+                scheduler=None,
+            )
+            status['loaded_layer_diffusion_model'] = model_id
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing LayerDiffusion, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_last()
+    n = 0
+    for pr in layer_diffusion_prompts:
+        pb = Progress(f"{f'[{n + 1}/{len(layer_diffusion_prompts)}]  ' if from_list else ''}{pr['prompt']}", steps=pr['steps'])
+        prt(pb)
+        nudge(page.imageColumn if from_list else page.LayerDiffusion, page=page)
+        autoscroll(False)
+        total_steps = pr['steps']
+        random_seed = get_seed(pr['seed'])
+        init_img = None
+        if bool(pr['init_image']):
+            pb.status("...initialize image")
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            max_size = max(pr['width'], pr['height'])
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, max_size, multiple=32)
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        try:
+            with torch.inference_mode():
+                pb.status("...loading text encoders")
+                generator = torch.Generator(device=memory_management.gpu).manual_seed(random_seed)
+                memory_management.load_models_to_gpu([text_encoder, text_encoder_2])
+                positive_cond, positive_pooler = pipe_layer_diffusion.encode_cropped_prompt_77tokens(pr['prompt'])
+                negative_cond, negative_pooler = pipe_layer_diffusion.encode_cropped_prompt_77tokens(pr['negatiive_prompt'])
+                pb.status("...encoding transparent latents")
+                if init_img is not None:
+                    memory_management.load_models_to_gpu([vae, transparent_decoder, transparent_encoder])
+                    initial_latent = [np.array(init_img)]
+                    initial_latent = transparent_encoder(vae, initial_latent) * vae.config.scaling_factor
+                    memory_management.load_models_to_gpu([unet])
+                    initial_latent = initial_latent.to(dtype=unet.dtype, device=unet.device)
+                else:
+                    memory_management.load_models_to_gpu([unet])
+                    initial_latent = torch.zeros(size=(1, 4, 144, 112), dtype=unet.dtype, device=unet.device)
+                pb.status("...running layer diffusion")
+                latents = pipe_layer_diffusion(
+                    initial_latent=initial_latent,
+                    strength=1.0 if init_img is None else pr['init_image_strength'],
+                    num_inference_steps=pr['steps'],
+                    batch_size=pr['num_images'],
+                    #width=pr['width'],
+                    #height=pr['height'],
+                    prompt_embeds=positive_cond,
+                    negative_prompt_embeds=negative_cond,
+                    pooled_prompt_embeds=positive_pooler,
+                    negative_pooled_prompt_embeds=negative_pooler,
+                    generator=generator,
+                    guidance_scale=pr['guidance_scale'],
+                ).images
+                pb.status("...decoding transparent latents")
+                memory_management.load_models_to_gpu([vae, transparent_decoder, transparent_encoder])
+                latents = latents.to(dtype=vae.dtype, device=vae.device) / vae.config.scaling_factor
+                result_list, vis_list = transparent_decoder(vae, latents)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        clear_last()
+        autoscroll(True)
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(layer_diffusion_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, layer_diffusion_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        #print(str(images))
+        if result_list is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        for i, image in enumerate(result_list):
+            fname = format_filename(pr['prompt'])
+            fname = f'{layer_diffusion_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, i)
+            new_file = available_file(os.path.join(prefs['image_output'], layer_diffusion_prefs['batch_folder_name']), fname, i)
+            vis_path = available_file(os.path.join(prefs['image_output'], layer_diffusion_prefs['batch_folder_name']), fname + "-vis", i)
+            img = PILImage.fromarray(image)
+            w, h = img.size
+            img.save(image_path, format='PNG')
+            PILImage.fromarray(vis_list[i]).save(vis_path, format='PNG')
+            output_file = image_path.rpartition(slash)[2]
+            if not layer_diffusion_prefs['display_upscaled_image'] or not layer_diffusion_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=vis_path, width=w, height=h, data=vis_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                save_metadata(image_path, layer_diffusion_prefs, f"Layer Diffusion", model_id, random_seed, extra=pr)
+                prt(Row([ImageButton(src=image_path, width=w, height=h, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], layer_diffusion_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+            if layer_diffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=layer_diffusion_prefs["enlarge_scale"], face_enhance=layer_diffusion_prefs["face_enhance"])
+                image_path = upscaled_path
+                save_metadata(upscaled_path, layer_diffusion_prefs, f"Layer Diffusion", model_id, random_seed, extra=pr)
+                if layer_diffusion_prefs['display_upscaled_image']:
+                    prt(Row([Img(src=asset_dir(upscaled_path), width=w * float(layer_diffusion_prefs["enlarge_scale"]), height=h * float(layer_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        n += 1
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
 
 def run_differential_diffusion(page, from_list=False, with_params=False):
     global differential_diffusion_prefs, pipe_differential_diffusion, prefs, status
@@ -43419,9 +43688,17 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     cpu_offload = differential_diffusion_prefs['cpu_offload']
+    use_SD3 = differential_diffusion_prefs['use_SD3']
     #model_id = differential_diffusion_prefs['differential_diffusion_model'] if differential_diffusion_prefs['differential_diffusion_model'] != "Custom" else differential_diffusion_prefs['differential_diffusion_custom_model'] #"differential_diffusion/differential_diffusion-512" if differential_diffusion_prefs['differential_diffusion_model'] == "differential_diffusion-512" else "differential_diffusion/differential_diffusion-256" if differential_diffusion_prefs['differential_diffusion_model'] == "differential_diffusion-256" else differential_diffusion_prefs['differential_diffusion_custom_model']
-    SDXL_model = get_SDXL_model(prefs['SDXL_model'])
-    model_id = SDXL_model['path']
+    if use_SD3:
+        SD3_model = get_SD3_model(prefs['SD3_model'])
+        model_id = SD3_model['path']
+        variant = {'variant': SD3_model['variant']} if 'variant' in SD3_model else {}
+    else:
+        SDXL_model = get_SDXL_model(prefs['SDXL_model'])
+        model_id = SDXL_model['path']
+        variant = {'variant': SDXL_model['revision']} if 'revision' in SDXL_model else {}
+        variant = {'variant': SDXL_model['variant']} if 'variant' in SDXL_model else variant
     if 'loaded_differential_diffusion' not in status: status['loaded_differential_diffusion'] = ""
     if model_id != status['loaded_differential_diffusion']:
         clear_pipes()
@@ -43429,17 +43706,22 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
         clear_pipes("differential_diffusion")
     #from optimum.intel import OVLatentConsistencyModelPipeline
     #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/Differential_Diffusion-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
-    variant = {'variant': SDXL_model['revision']} if 'revision' in SDXL_model else {}
-    variant = {'variant': SDXL_model['variant']} if 'variant' in SDXL_model else variant
     #mem_kwargs = {} if prefs['higher_vram_mode'] else {'variant': "fp16", 'torch_dtype': torch.float16}
     from diffusers import DPMSolverMultistepScheduler
+    import transformers
     from examples.community.pipeline_stable_diffusion_xl_differential_img2img import (
         StableDiffusionXLDifferentialImg2ImgPipeline,
+    )
+    from examples.community.pipeline_stable_diffusion_3_differential_img2img import (
+        StableDiffusion3DifferentialImg2ImgPipeline,
     )
     if pipe_differential_diffusion == None:
         installer.status(f"...initialize Differential Diffusion Pipeline")
         try:
-            pipe_differential_diffusion = StableDiffusionXLDifferentialImg2ImgPipeline.from_pretrained(model_id, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant)
+            if use_SD3:
+                pipe_differential_diffusion = StableDiffusion3DifferentialImg2ImgPipeline.from_pretrained(model_id, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant)
+            else:
+                pipe_differential_diffusion = StableDiffusionXLDifferentialImg2ImgPipeline.from_pretrained(model_id, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant)
             #if prefs['enable_torch_compile']:
             #    installer.status(f"...Torch compiling transformer")
             #    pipe_differential_diffusion.transformer = torch.compile(pipe_differential_diffusion.transformer, mode="reduce-overhead", fullgraph=True)
@@ -43459,7 +43741,7 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
     else:
         clear_pipes('differential_diffusion')
     ip_adapter_arg = {}
-    if differential_diffusion_prefs['use_ip_adapter']:
+    if differential_diffusion_prefs['use_ip_adapter'] and not use_SD3:
         installer.status(f"...initialize IP-Adapter")
         ip_adapter_img = None
         if differential_diffusion_prefs['ip_adapter_image'].startswith('http'):
@@ -43497,7 +43779,7 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = get_seed(int(pr['seed']) + num)
+        random_seed = get_seed(int(pr['seed']))
         generator = torch.Generator().manual_seed(random_seed)
         init_img = None
         mask_img = None
@@ -43994,7 +44276,7 @@ def run_lcm(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = get_seed(int(pr['seed']) + num)
+        random_seed = get_seed(int(pr['seed']))
         generator = torch.Generator(device="cpu").manual_seed(random_seed)
         init_img = None
         if bool(pr['init_image']):
@@ -44368,7 +44650,7 @@ def run_instaflow(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = get_seed(int(pr['seed']) + num)
+        random_seed = get_seed(int(pr['seed']))
         generator = torch.Generator().manual_seed(random_seed)
         try:
             images = pipe_instaflow(
@@ -44537,28 +44819,28 @@ def run_pag(page, from_list=False, with_params=False):
             return AutoPipelineForText2Image.from_pipe(pipe, enable_pag=True)
     #from optimum.intel import OVLatentConsistencyModelPipeline
     #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/PAG-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
-    from accelerate.utils import set_seed
-    from diffusers import StableDiffusionPipeline
+    #from accelerate.utils import set_seed
+    #from diffusers import StableDiffusionPipeline
     pag_applied_layers = []
-    if pag_prefs['applied_layer_down']: pag_applied_layers.append("down" if use_SDXL else "d4")
-    if pag_prefs['applied_layer_mid']: pag_applied_layers.append("mid" if use_SDXL else "m0")
-    if pag_prefs['applied_layer_up']: pag_applied_layers.append("up" if use_SDXL else "u0")
+    if pag_prefs['applied_layer_down']: pag_applied_layers.append("down")# if use_SDXL else "d4"
+    if pag_prefs['applied_layer_mid']: pag_applied_layers.append("mid")# if use_SDXL else "m0"
+    if pag_prefs['applied_layer_up']: pag_applied_layers.append("up")# if use_SDXL else "u0"
     if pipe_PAG == None:
         installer.status(f"...initialize PAG Pipeline")
         try:
-            if use_SDXL:
-                from diffusers import AutoPipelineForText2Image
-                #pag_applied_layers = "down.block_1" if pag_prefs['pag_applied_layers'] == "down" else "up.block_0.attentions_0" if pag_prefs['pag_applied_layers'] == "up" else "mid"
-                pipe_PAG = AutoPipelineForText2Image.from_pretrained(pag_model, enable_pag=True, pag_applied_layers=pag_applied_layers, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                if cpu_offload:
-                    pipe_PAG.enable_model_cpu_offload()
-                else:
-                    pipe_PAG = pipe_PAG.to(torch_device)
+            #if use_SDXL:
+            from diffusers import AutoPipelineForText2Image
+            #pag_applied_layers = "down.block_1" if pag_prefs['pag_applied_layers'] == "down" else "up.block_0.attentions_0" if pag_prefs['pag_applied_layers'] == "up" else "mid"
+            pipe_PAG = AutoPipelineForText2Image.from_pretrained(pag_model, enable_pag=True, pag_applied_layers=pag_applied_layers, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if cpu_offload:
+                pipe_PAG.enable_model_cpu_offload()
             else:
+                pipe_PAG = pipe_PAG.to(torch_device)
+            '''else:
                 pipe_PAG = StableDiffusionPipeline.from_pretrained(pag_model, custom_pipeline="hyoungwoncho/sd_perturbed_attention_guidance", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 #pipe_PAG = pipeline_scheduler(pipe_PAG)
                 #pipe_PAG.scheduler = PAGScheduler.from_config(pipe_PAG.scheduler.config)
-                pipe_PAG = optimize_pipe(pipe_PAG)
+                pipe_PAG = optimize_pipe(pipe_PAG)'''
             pipe_PAG.set_progress_bar_config(disable=True)
             status['loaded_pag_mode'] = "txt2img"
             status['loaded_pag_layers'] = pag_applied_layers
@@ -44600,10 +44882,10 @@ def run_pag(page, from_list=False, with_params=False):
         autoscroll(False)
         total_steps = pr['num_inference_steps']
         random_seed = get_seed(pr['seed'])
-        if use_SDXL:
-            generator = torch.Generator(device="cpu").manual_seed(random_seed)
-        else:
-            set_seed(random_seed)
+        #if use_SDXL:
+        generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        #else:
+        #    set_seed(random_seed)
         '''init_img = None
         if bool(pr['init_image']):
             fname = pr['init_image'].rpartition(slash)[2]
@@ -44619,7 +44901,7 @@ def run_pag(page, from_list=False, with_params=False):
             init_img = ImageOps.exif_transpose(init_img).convert("RGB")'''
         init_img = None
         mask_img = None
-        if bool(pr['init_image']):
+        if bool(pr['init_image']) and use_SDXL:
             if pr['init_image'].startswith('http'):
                 init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
             else:
@@ -44656,36 +44938,36 @@ def run_pag(page, from_list=False, with_params=False):
                 from PIL import ImageOps
                 mask_img = ImageOps.invert(mask_img.convert('RGB'))
         mode = "inpaint" if init_img != None and mask_img != None else "img2img" if init_img != None else "txt2img"
-        if status['loaded_pag_mode'] != mode and use_SDXL:
+        if status['loaded_pag_mode'] != mode:
             prt(Installing(f"Switching to PAG {mode} Pipeline..."))
             pipe_PAG = change_mode(pipe_PAG, mode)
             clear_last()
         try:
-            if use_SDXL:
-                img_mode = {}
-                if mode == "img2img" or mode == "inpaint":
-                    img_mode = {'strength': pr['init_image_strength'], 'image': init_img}
-                if mode == "inpaint":
-                    img_mode['mask_image'] = mask_img
-                images = pipe_PAG(
-                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
-                    num_images_per_prompt=pr['num_images'],
-                    height=pr['height'],
-                    width=pr['width'],
-                    num_inference_steps=pr['num_inference_steps'],
-                    guidance_scale=pr['guidance_scale'],
-                    pag_scale=pag_prefs['pag_scale'],
-                    #pag_applied_layers=[pag_prefs['pag_applied_layers']],
-                    #pag_applied_layers_index=[pag_prefs['pag_applied_layers_index']],
-                    pag_adaptive_scale=pag_prefs['pag_adaptive_scaling'],
-                    #pag_drop_rate=pag_prefs['pag_drop_rate'],
-                    #latents=latent_input,
-                    generator=generator,
-                    callback_on_step_end=callback_fnc,
-                    **img_mode,
-                    **ip_adapter_arg,
-                ).images
-            else:
+            #if use_SDXL:
+            img_mode = {}
+            if mode == "img2img" or mode == "inpaint":
+                img_mode = {'strength': pr['init_image_strength'], 'image': init_img}
+            if mode == "inpaint":
+                img_mode['mask_image'] = mask_img
+            images = pipe_PAG(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                num_images_per_prompt=pr['num_images'],
+                height=pr['height'],
+                width=pr['width'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                pag_scale=pag_prefs['pag_scale'],
+                #pag_applied_layers=[pag_prefs['pag_applied_layers']],
+                #pag_applied_layers_index=[pag_prefs['pag_applied_layers_index']],
+                pag_adaptive_scale=pag_prefs['pag_adaptive_scaling'],
+                #pag_drop_rate=pag_prefs['pag_drop_rate'],
+                #latents=latent_input,
+                generator=generator,
+                callback_on_step_end=callback_fnc,
+                **img_mode,
+                **ip_adapter_arg,
+            ).images
+            '''else:
                 from diffusers.utils.torch_utils import randn_tensor
                 latent_input = randn_tensor(shape=(1,4,64,64), generator=None, device=torch_device, dtype=torch.float16)
                 images = pipe_PAG(
@@ -44704,7 +44986,7 @@ def run_pag(page, from_list=False, with_params=False):
                     #generator=generator,
                     callback_on_step_end=callback_fnc,
                     **ip_adapter_arg,
-                ).images
+                ).images'''
         except Exception as e:
             clear_last(2)
             alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=pag_prefs)
@@ -50109,6 +50391,7 @@ def run_fresco_v2v(page):
         installer.status(f"...initialize IP-Adapter")
         ip_adapter_img = None
         if fresco_v2v_prefs['ip_adapter_image'].startswith('http'):
+          from io import BytesIO
           i_response = requests.get(fresco_v2v_prefs['ip_adapter_image'])
           ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
         else:
@@ -50167,7 +50450,7 @@ def run_fresco_v2v(page):
     #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
     clear_last()
     autoscroll(True)
-    installer = Installer("Saving Video File...")
+    installer = Installing("Saving Video File...")
     prt(installer)
     #output_path = os.path.join(fresco_v2v_dir, "fresco_v2v-results", "fresco_v2v_PnP.mp4")
     #keyframe_path = available_file(batch_output, filename+"-keyframes", ext="mp4", no_num=True)
@@ -51005,7 +51288,7 @@ def run_shap_e(page):
             images = decode_latent_images(xm, latent, cameras, rendering_mode=shap_e_prefs['render_mode'].lower())
             #images.save(img_file)
             if is_Colab:
-                display(gif_widget(images))
+                IPython.display(gif_widget(images))
             #callback_fnc(i)
     except Exception as e:
         clear_last()
@@ -53627,7 +53910,7 @@ def run_kandinsky21(page):
         image.save(image_path)
         new_file = image_path.rpartition(slash)[2]
         if not kandinsky21_prefs['display_upscaled_image'] or not kandinsky21_prefs['apply_ESRGAN_upscale']:
-            save_metadata(image_path, kandinsky21_prefs, "Kandinsky 2.1", seed=random_seed)
+            save_metadata(image_path, kandinsky21_prefs, "Kandinsky 2.1")
             #prt(Row([Img(src=image_path, width=kandinsky21_prefs['width'], height=kandinsky21_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([ImageButton(src=image_path, width=kandinsky21_prefs['width'], height=kandinsky21_prefs['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
         #if save_to_GDrive:
@@ -53643,7 +53926,7 @@ def run_kandinsky21(page):
         if kandinsky21_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = new_path
             upscale_image(image_path, upscaled_path, scale=kandinsky21_prefs["enlarge_scale"], face_enhance=kandinsky21_prefs["face_enhance"])
-            save_metadata(upscaled_path, kandinsky21_prefs, "Kandinsky 2.1", seed=random_seed)
+            save_metadata(upscaled_path, kandinsky21_prefs, "Kandinsky 2.1")
             if kandinsky21_prefs['display_upscaled_image']:
                 prt(Row([Img(src=asset_dir(upscaled_path), width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
@@ -53923,7 +54206,7 @@ def run_kandinsky21_fuse(page):
         image.save(image_path)
         new_file = image_path.rpartition(slash)[2]
         if not kandinsky21_fuse_prefs['display_upscaled_image'] or not kandinsky21_fuse_prefs['apply_ESRGAN_upscale']:
-            save_metadata(image_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse", seed=random_seed)
+            save_metadata(image_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse")
             #prt(Row([Img(src=image_path, width=kandinsky21_fuse_prefs['width'], height=kandinsky21_fuse_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([ImageButton(src=image_path, width=kandinsky21_fuse_prefs['width'], height=kandinsky21_fuse_prefs['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
 
@@ -53940,7 +54223,7 @@ def run_kandinsky21_fuse(page):
         if kandinsky21_fuse_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = new_path
             upscale_image(image_path, upscaled_path, scale=kandinsky21_fuse_prefs["enlarge_scale"], face_enhance=kandinsky21_fuse_prefs["face_enhance"])
-            save_metadata(upscaled_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse", seed=random_seed)
+            save_metadata(upscaled_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse")
             if kandinsky21_fuse_prefs['display_upscaled_image']:
                 prt(Row([Img(src=asset_dir(upscaled_path), width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
@@ -56070,7 +56353,7 @@ from IPython.display import Javascript
 if bool(public_url):
     import urllib
     if auto_launch_website:
-        display(Javascript('window.open("{url}");'.format(url=public_url)))
+        IPython.display(Javascript('window.open("{url}");'.format(url=public_url)))
     print("\nOpen URL in browser to launch app in tab: " + str(public_url))
     if tunnel_type == "localtunnel":
         print("Copy/Paste the Password/Enpoint IP for localtunnel:",urllib.request.urlopen('https://ipv4.icanhazip.com').read().decode('utf8').strip("\n"))
@@ -56080,11 +56363,11 @@ elif tunnel_type == "Local_Colab":
     print("\nOpen URL in browser to launch app in tab: ")
     output.serve_kernel_port_as_window(port, anchor_text = "Open Colab URL")
 def close_tab():
-  display(Javascript("window.close('', '_parent', '');"))
+  IPython.display(Javascript("window.close('', '_parent', '');"))
 #await google.colab.kernel.proxyPort(%s)
 # Still not working to display app in Colab console, but tried.
 def show_port(adr, height=500):
-  display(Javascript("""
+  IPython.display(Javascript("""
   (async ()=>{
     fm = document.createElement('iframe')
     fm.src = '%s'
