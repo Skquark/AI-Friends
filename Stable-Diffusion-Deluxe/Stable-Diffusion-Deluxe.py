@@ -269,6 +269,7 @@ def load_settings_file():
       'TextSynth_api_key': "",
       'Replicate_api_key': "",
       'AIHorde_api_key': "0000000000",
+      'Perplexity_api_key': "",
       'luma_api_key': "",
       'HuggingFace_username': "",
       'scheduler_mode': "DDIM",
@@ -445,7 +446,8 @@ def load_settings_file():
           'request_mode': 3,
           'AI_temperature': 0.8,
           'AI_engine': "ChatGPT-3.5 Turbo",
-          'AIHorde_model': "Pantheon-RP-1.0-8b-Llama-3",
+          'AIHorde_model': "LLaMA-13B-Psyfighter2",
+          'Perplexity_model': "llama-3-sonar-small-32k-chat",
           'economy_mode': True,
       },
       'prompt_remixer': {
@@ -458,14 +460,16 @@ def load_settings_file():
           'request_mode': 3,
           'AI_temperature': 0.8,
           'AI_engine': "ChatGPT-3.5 Turbo",
-          'AIHorde_model': "Pantheon-RP-1.0-8b-Llama-3",
+          'AIHorde_model': "LLaMA-13B-Psyfighter2",
+          'Perplexity_model': "llama-3-sonar-small-32k-chat",
       },
       'prompt_brainstormer': {
           'AI_engine': 'ChatGPT-3.5 Turbo',
           'about_prompt': '',
           'request_mode': 'Brainstorm',
           'AI_temperature': 0.8,
-          'AIHorde_model': "Pantheon-RP-1.0-8b-Llama-3",
+          'AIHorde_model': "LLaMA-13B-Psyfighter2",
+          'Perplexity_model': "llama-3-sonar-small-32k-chat",
       },
       'prompt_writer': {
           'art_Subjects': '',
@@ -1102,6 +1106,7 @@ prefs.setdefault('upscale_model', 'realesr-general-x4v3')
 prefs.setdefault('use_inpaint_model', False)
 prefs.setdefault('cache_dir', '')
 prefs.setdefault('Replicate_api_key', '')
+prefs.setdefault('Perplexity_api_key', '')
 prefs.setdefault('install_dreamfusion', False)
 prefs.setdefault('install_repaint', False)
 prefs.setdefault('finetuned_model', 'Midjourney v4 style')
@@ -1193,9 +1198,12 @@ prefs.setdefault('AIHorde_custom_lora_layer', '')
 prefs.setdefault('AIHorde_lora_map', [])
 prefs.setdefault('AIHorde_use_controlnet', False)
 prefs.setdefault('AIHorde_controlnet', 'Canny')
-prefs['prompt_generator'].setdefault('AIHorde_model', 'Pantheon-RP-1.0-8b-Llama-3')
-prefs['prompt_remixer'].setdefault('AIHorde_model', 'Pantheon-RP-1.0-8b-Llama-3')
-prefs['prompt_brainstormer'].setdefault('AIHorde_model', 'Pantheon-RP-1.0-8b-Llama-3')
+prefs['prompt_generator'].setdefault('AIHorde_model', 'LLaMA-13B-Psyfighter2')
+prefs['prompt_remixer'].setdefault('AIHorde_model', 'LLaMA-13B-Psyfighter2')
+prefs['prompt_brainstormer'].setdefault('AIHorde_model', 'LLaMA-13B-Psyfighter2')
+prefs['prompt_generator'].setdefault('Perplexity_model', 'llama-3-sonar-small-32k-chat')
+prefs['prompt_remixer'].setdefault('Perplexity_model', 'llama-3-sonar-small-32k-chat')
+prefs['prompt_brainstormer'].setdefault('Perplexity_model', 'llama-3-sonar-small-32k-chat')
 prefs.setdefault('PaLM_api_key', '')
 prefs.setdefault('Anthropic_api_key', '')
 prefs.setdefault('enable_torch_compile', False)
@@ -1427,7 +1435,7 @@ def buildSettings(page):
   stats_settings = Container(Row([stats_used, NumberPicker(label=" Update Interval (s):", min=1, max=30, value=prefs['stats_update'], on_change=lambda e:changed(e, 'stats_update'))]), padding=padding.only(left=0), animate_size=animation.Animation(700, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   stats_settings.width = 0 if not prefs['show_stats'] else None
   
-  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **Google Gemini API Token** from https://developers.generativeai.google/tutorials/setup\n\nGet **Anthropic Claude API Key** from https://console.anthropic.com/settings/keys\n\n\n\nGet **TextSynth GPT-J Key** from https://TextSynth.com, login, Setup\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
+  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **Google Gemini API Token** from https://developers.generativeai.google/tutorials/setup\n\nGet **Anthropic Claude API Key** from https://console.anthropic.com/settings/keys\n\nGet **TextSynth GPT-J Key** from https://TextSynth.com, login, Setup\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud\n\nGet **Perplexity PPLX API Key** from https://www.perplexity.ai/settings/api, login and Generate API", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key (optional)", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
   OpenAI_api = TextField(label="OpenAI API Key (optional)", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
@@ -1436,6 +1444,7 @@ def buildSettings(page):
   TextSynth_api = TextField(label="TextSynth API Key (optional)", value=prefs['TextSynth_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'TextSynth_api_key'))
   Replicate_api = TextField(label="Replicate API Key (optional)", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Replicate_api_key'))
   AIHorde_api = TextField(label="AIHorde API Key (optional)", value=prefs['AIHorde_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'AIHorde_api_key'))
+  Perplexity_api = TextField(label="Perplexity.ai API Key (optional)", value=prefs['Perplexity_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Perplexity_api_key'))
   #save_button = ElevatedButton(content=Text(value="💾  Save Settings", size=20), on_click=save_settings, style=b_style())
 
   c = Column([Container(
@@ -1460,6 +1469,7 @@ def buildSettings(page):
         TextSynth_api,
         #Replicate_api,
         AIHorde_api,
+        Perplexity_api,
         api_instructions,
         #save_button,
         Container(content=None, height=32),
@@ -3742,13 +3752,18 @@ def buildPromptGenerator(page):
         load_horde_text(page)
       AIHorde_model_container.visible = prefs['prompt_generator']['AI_engine']=="AI-Horde"
       AIHorde_model_container.update()
+      Perplexity_model_container.visible = prefs['prompt_generator']['AI_engine']=="Perplexity"
+      Perplexity_model_container.update()
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request, tooltip="The way it asks for the visual description.")
     request_slider.label = generator_request_modes[int(prefs['prompt_generator']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini"), dropdown.Option("Google Gemini 1.5 Pro"), dropdown.Option("Google Gemini 1.5 Flash"), dropdown.Option("Anthropic Claude 3"), dropdown.Option("Anthropic Claude 3.5"), dropdown.Option("AI-Horde")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed_engine(e))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini"), dropdown.Option("Google Gemini 1.5 Pro"), dropdown.Option("Google Gemini 1.5 Flash"), dropdown.Option("Anthropic Claude 3"), dropdown.Option("Anthropic Claude 3.5"), dropdown.Option("AI-Horde"), dropdown.Option("Perplexity")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed_engine(e))
     AIHorde_model = Dropdown(label="Horde AI Engine", width=400, options=[], value=prefs['prompt_generator']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_generator']['AI_engine']=="AI-Horde")
     page.AIHorde_model_generator = AIHorde_model
+    Perplexity_model = Dropdown(label="Perplexity AI Engine", width=400, options=[dropdown.Option(m) for m in ["llama-3-sonar-small-32k-chat", "llama-3-sonar-small-32k-online", "llama-3-sonar-large-32k-chat", "llama-3-sonar-large-32k-online", "llama-3-8b-instruct", "llama-3-70b-instruct", "mixtral-8x7b-instruct"]], value=prefs['prompt_generator']['Perplexity_model'], on_change=lambda e: changed(e, 'Perplexity_model'))
+    Perplexity_model_container = Container(Row([Perplexity_model]), visible=prefs['prompt_generator']['AI_engine']=="Perplexity")
+
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -3769,7 +3784,7 @@ def buildPromptGenerator(page):
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_generator']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=prefs['prompt_generator']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
-        Row([AI_engine, AIHorde_model_container]),
+        Row([AI_engine, AIHorde_model_container, Perplexity_model_container]),
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
@@ -3821,13 +3836,18 @@ def buildPromptRemixer(page):
         load_horde_text(page)
       AIHorde_model_container.visible = prefs['prompt_remixer']['AI_engine']=="AI-Horde"
       AIHorde_model_container.update()
+      Perplexity_model_container.visible = prefs['prompt_remixer']['AI_engine']=="Perplexity"
+      Perplexity_model_container.update()
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     request_slider.label = remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed_engine(e))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde", "Perplexity"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed_engine(e))
     AIHorde_model = Dropdown(label="Horde AI Engine", width=400, options=[], value=prefs['prompt_remixer']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_remixer']['AI_engine']=="AI-Horde")
     page.AIHorde_model_remixer = AIHorde_model
+    Perplexity_model = Dropdown(label="Perplexity AI Engine", width=400, options=[dropdown.Option(m) for m in ["llama-3-sonar-small-32k-chat", "llama-3-sonar-small-32k-online", "llama-3-sonar-large-32k-chat", "llama-3-sonar-large-32k-online", "llama-3-8b-instruct", "llama-3-70b-instruct", "mixtral-8x7b-instruct"]], value=prefs['prompt_remixer']['Perplexity_model'], on_change=lambda e: changed(e, 'Perplexity_model'))
+    Perplexity_model_container = Container(Row([Perplexity_model]), visible=prefs['prompt_remixer']['AI_engine']=="Perplexity")
+
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -3847,7 +3867,7 @@ def buildPromptRemixer(page):
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_remixer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
-        Row([AI_engine, AIHorde_model_container]),
+        Row([AI_engine, AIHorde_model_container, Perplexity_model_container]),
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
@@ -3904,10 +3924,14 @@ def buildPromptBrainstormer(page):
         load_horde_text(page)
       AIHorde_model_container.visible = prefs['prompt_brainstormer']['AI_engine']=="AI-Horde"
       AIHorde_model_container.update()
+      Perplexity_model_container.visible = prefs['prompt_brainstormer']['AI_engine']=="Perplexity"
+      Perplexity_model_container.update()
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     AIHorde_model = Dropdown(label="Horde AI Engine", width=400, options=[], value=prefs['prompt_brainstormer']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_brainstormer']['AI_engine']=="AI-Horde")
     page.AIHorde_model_brainstormer = AIHorde_model
+    Perplexity_model = Dropdown(label="Perplexity AI Engine", width=400, options=[dropdown.Option(m) for m in ["llama-3-sonar-small-32k-chat", "llama-3-sonar-small-32k-online", "llama-3-sonar-large-32k-chat", "llama-3-sonar-large-32k-online", "llama-3-8b-instruct", "llama-3-70b-instruct", "mixtral-8x7b-instruct"]], value=prefs['prompt_brainstormer']['Perplexity_model'], on_change=lambda e: changed(e, 'Perplexity_model'))
+    Perplexity_model_container = Container(Row([Perplexity_model]), visible=prefs['prompt_brainstormer']['AI_engine']=="Perplexity")
     new_prompt_text = TextField(label="New Prompt Text", expand=True, filled=True, suffix=IconButton(icons.CLEAR, on_click=clear_prompt_text), autofocus=True, on_submit=add_to_prompts)
     add_to_prompts_button = ElevatedButton("➕  Add to Prompts", on_click=add_to_prompts)#, icon=icons.ADD_ROUNDED
     brainstormer_list_buttons = Row([
@@ -3921,9 +3945,9 @@ def buildPromptBrainstormer(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT, Gemini & HuggingFace Bloom AI",
-               "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed_engine(e)),
-          AIHorde_model_container,
+               "Get Inspiration on Prompt Engineering with Rewrite, Edit, Story, Description, Details, etc.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde", "Perplexity"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed_engine(e)),
+          AIHorde_model_container, Perplexity_model_container,
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -11129,6 +11153,8 @@ pixart_sigma_prefs = {
     #"mask_feature": True,
     "cpu_offload": True,
     "use_8bit": False,
+    'use_refiner': False,
+    'SDXL_high_noise_frac': 0.7,
     "pixart_model": "PixArt-Sigma-XL-2-512-MS",
     "custom_model": "",
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -11164,6 +11190,9 @@ def buildPixArtSigma(page):
         pixart_sigma_prefs['pixart_model'] = e.control.value
         pixart_custom_model.visible = e.control.value == "Custom"
         pixart_custom_model.update()
+    def toggle_refiner(e):
+        pixart_sigma_prefs['use_refiner'] = e.control.value
+        SDXL_high_noise_frac.show = e.control.value
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         pixart_sigma_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -11186,6 +11215,8 @@ def buildPixArtSigma(page):
     #mask_feature = Switcher(label="Feature Mask", value=pixart_sigma_prefs['mask_feature'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'mask_feature'), tooltip="If enabled, the text embeddings will be masked.")
     cpu_offload = Switcher(label="CPU Offload", value=pixart_sigma_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     use_8bit = Switcher(label="Use 8-bit Precision", value=pixart_sigma_prefs['use_8bit'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_8bit'), tooltip="Runs with under 8GB VRAM by loading the text encoder in 8-bit numerical precision. Reduces quality & loads slower.")
+    use_refiner = Switcher(label="Use SDXL Refiner Pass", value=pixart_sigma_prefs['use_refiner'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_refiner, tooltip="Uses Expert Ensemble Refiner to clean-up after generation.")
+    SDXL_high_noise_frac = SliderRow(label="Refiner High Noise Fraction", min=0, max=1, divisions=20, round=2, pref=pixart_sigma_prefs, key='SDXL_high_noise_frac', visible=pixart_sigma_prefs['use_refiner'], tooltip="Percentage of Steps to use Base model, then Refiner model. Known as an Ensemble of Expert Denoisers. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'SDXL_high_noise_frac'))
     seed = TextField(label="Seed", width=90, value=str(pixart_sigma_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=pixart_sigma_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=pixart_sigma_prefs, key='enlarge_scale')
@@ -11209,6 +11240,8 @@ def buildPixArtSigma(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([pixart_model, pixart_custom_model]),
+            use_refiner,
+            SDXL_high_noise_frac,
             Row([clean_caption, resolution_binning, cpu_offload, use_8bit]),
             #Can't get wrap to work!! Container(Row([Container(clean_caption), Container(resolution_binning), Container(cpu_offload), Container(use_8bit)], wrap=True, expand=True, width=page.width, alignment=ft.MainAxisAlignment.START), width=800),#], expand=True),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
@@ -11230,6 +11263,8 @@ hunyuan_dit_prefs = {
     "height":1024,
     "guidance_scale":5.0,
     "distilled_model": False,
+    "hunyuan_model": "HunyuanDiT-v1.2-Diffusers",
+    "custom_model": "",
     "cpu_offload": False,
     "use_controlnet": False,
     "control_task": "Canny Map Edge",
@@ -11239,6 +11274,8 @@ hunyuan_dit_prefs = {
     'low_threshold': 100, #1-255
     'high_threshold': 200, #1-255
     'show_processed_image': False,
+    'use_refiner': False,
+    'SDXL_high_noise_frac': 0.7,
     "seed": 0,
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
@@ -11268,6 +11305,9 @@ def buildHunyuanDiT(page):
       page.overlay.append(hunyuan_dit_help_dlg)
       hunyuan_dit_help_dlg.open = True
       page.update()
+    def toggle_refiner(e):
+        hunyuan_dit_prefs['use_refiner'] = e.control.value
+        SDXL_high_noise_frac.show = e.control.value
     def toggle_controlnet(e):
         controlnet_container.height = None if e.control.value else 0
         hunyuan_dit_prefs['use_controlnet'] = e.control.value
@@ -11299,6 +11339,10 @@ def buildHunyuanDiT(page):
         changed(e,'control_task')
         threshold.height = None if "Canny" in hunyuan_dit_prefs['control_task'] else 0
         threshold.update()
+    def changed_model(e):
+        hunyuan_dit_prefs['hunyuan_model'] = e.control.value
+        hunyuan_custom_model.visible = e.control.value == "Custom"
+        hunyuan_custom_model.update()
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         hunyuan_dit_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -11316,6 +11360,8 @@ def buildHunyuanDiT(page):
     threshold.height = None if "Canny" in hunyuan_dit_prefs['control_task'] else 0
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=hunyuan_dit_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=hunyuan_dit_prefs, key='height')
+    hunyuan_model = Dropdown(label="HunyuanDiT Model", width=310, options=[dropdown.Option("Custom"), dropdown.Option("HunyuanDiT-v1.2-Diffusers"), dropdown.Option("HunyuanDiT-v1.2-Diffusers-Distilled"), dropdown.Option("HunyuanDiT-v1.1-Diffusers"), dropdown.Option("HunyuanDiT-v1.1-Diffusers-Distilled")], value=hunyuan_dit_prefs['hunyuan_model'], on_change=changed_model)
+    hunyuan_custom_model = TextField(label="Custom Hunyuan Model (URL or Path)", value=hunyuan_dit_prefs['custom_model'], expand=True, visible=hunyuan_dit_prefs['hunyuan_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=hunyuan_dit_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     distilled_model = Switcher(label="Use Distilled Model", value=hunyuan_dit_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
     use_controlnet = Switcher(label="Use ControlNet with Canny, Pose or Depth", value=hunyuan_dit_prefs['use_controlnet'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_controlnet, tooltip="Provide an additional control image to condition and control Hunyuan-DiT generation. For example, if you provide a depth map, the ControlNet model generates an image that'll preserve the spatial information from the depth map.")
@@ -11326,6 +11372,8 @@ def buildHunyuanDiT(page):
     multi_layers = Column([], spacing=0)
     show_processed_image = Checkbox(label="Show Pre-Processed Image", value=hunyuan_dit_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     controlnet_container = Container(Column([Row([control_task, original_image, add_layer_btn]), Row([conditioning_scale]), multi_layers, threshold, show_processed_image]), height=None if hunyuan_dit_prefs['use_controlnet'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(top=4, left=10))
+    use_refiner = Switcher(label="Use SDXL Refiner Pass", value=hunyuan_dit_prefs['use_refiner'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_refiner, tooltip="Uses Expert Ensemble Refiner to clean-up after generation.")
+    SDXL_high_noise_frac = SliderRow(label="Refiner High Noise Fraction", min=0, max=1, divisions=20, round=2, pref=hunyuan_dit_prefs, key='SDXL_high_noise_frac', visible=hunyuan_dit_prefs['use_refiner'], tooltip="Percentage of Steps to use Base model, then Refiner model. Known as an Ensemble of Expert Denoisers. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'SDXL_high_noise_frac'))
     seed = TextField(label="Seed", width=90, value=str(hunyuan_dit_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=hunyuan_dit_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=hunyuan_dit_prefs, key='enlarge_scale')
@@ -11349,8 +11397,11 @@ def buildHunyuanDiT(page):
             guidance, width_slider, height_slider,
             use_controlnet,
             controlnet_container,
+            use_refiner,
+            SDXL_high_noise_frac,
+            Row([hunyuan_model, hunyuan_custom_model]),
             page.ESRGAN_block_hunyuan,
-            ResponsiveRow([Row([n_images, seed, distilled_model], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Hunyuan_output
         ],
@@ -24659,12 +24710,20 @@ def clear_pixart_sigma_pipe():
     flush()
     pipe_pixart_sigma = None
     pipe_pixart_sigma_encoder = None
+    if pipe_SDXL_refiner is not None:
+      del pipe_SDXL_refiner
+      flush()
+      pipe_SDXL_refiner = None
 def clear_hunyuan_pipe():
-  global pipe_hunyuan
+  global pipe_hunyuan, pipe_SDXL_refiner
   if pipe_hunyuan is not None:
     del pipe_hunyuan
     flush()
     pipe_hunyuan = None
+    if pipe_SDXL_refiner is not None:
+      del pipe_SDXL_refiner
+      flush()
+      pipe_SDXL_refiner = None
 def clear_lumina_pipe():
   global pipe_lumina
   if pipe_lumina is not None:
@@ -27384,6 +27443,11 @@ def run_prompt_generator(page):
       del page.prompt_generator_list.controls[-1]
       page.prompt_generator_list.update()
       result = get_horde_text(page, page.prompt_generator_list, prompt, prefs['prompt_generator']['AIHorde_model'], prefs['prompt_generator']['AI_temperature'])
+    elif prefs['prompt_generator']['AI_engine'] == "Perplexity":
+      del page.prompt_generator_list.controls[-1]
+      page.prompt_generator_list.update()
+      result = get_perplexity_text(page, page.prompt_generator_list, prompt, prefs['prompt_generator']['Perplexity_model'], prefs['prompt_generator']['AI_temperature'])
+
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -27607,6 +27671,11 @@ def run_prompt_remixer(page):
       del page.prompt_remixer_list.controls[-1]
       page.prompt_remixer_list.update()
       result = get_horde_text(page, page.prompt_remixer_list, prompt, prefs['prompt_remixer']['AIHorde_model'], prefs['prompt_remixer']['AI_temperature'])
+    elif engine == "Perplexity":
+      del page.prompt_remixer_list.controls[-1]
+      page.prompt_remixer_list.update()
+      result = get_perplexity_text(page, page.prompt_remixer_list, prompt, prefs['prompt_remixer']['Perplexity_model'], prefs['prompt_remixer']['AI_temperature'])
+
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -27969,12 +28038,17 @@ def run_prompt_brainstormer(page):
         del page.prompt_brainstormer_list.controls[-1]
         page.prompt_brainstormer_list.update()
         result = get_horde_text(page, page.prompt_brainstormer_list, request, prefs['prompt_brainstormer']['AIHorde_model'], prefs['prompt_brainstormer']['AI_temperature'])
+      elif prefs['prompt_brainstormer']['AI_engine'] == "Perplexity":
+        del page.prompt_brainstormer_list.controls[-1]
+        page.prompt_brainstormer_list.update()
+        result = get_perplexity_text(page, page.prompt_brainstormer_list, request, prefs['prompt_brainstormer']['Perplexity_model'], prefs['prompt_brainstormer']['AI_temperature'])
+
       if len(page.prompt_brainstormer_list.controls) > 1:
         del page.prompt_brainstormer_list.controls[-1]
       page.prompt_brainstormer_list.update()
       if '*' in result:
         result = result.replace('*', '').strip()
-      page.add_to_prompt_brainstormer(str(result) + '\n')
+      page.add_to_prompt_brainstormer(str(result.strip()) + '\n')
     #print(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else ""))
     page.brainstormer.auto_scroll = True
     if good_key:
@@ -42379,6 +42453,14 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
+    def callback_fn(pipe, step, timestep, callback_kwargs):
+      callback_fn.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
     if from_list:
       page.tabs.selected_index = 4
       page.tabs.update()
@@ -42446,6 +42528,24 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
         clear_pipes('pixart_alpha')
         if prefs['scheduler_mode'] != status['loaded_scheduler']:
             pipe_pixart_alpha = pipeline_scheduler(pipe_pixart_alpha, **scheduler)
+    if pipe_SDXL_refiner == None and pixart_alpha_prefs['use_refiner']:
+        try:
+            from diffusers import StableDiffusionXLImg2ImgPipeline
+            pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, use_safetensors=True,
+                text_encoder_2=pipe_pixart_alpha.text_encoder_2,
+                vae=pipe_pixart_alpha.vae,
+                add_watermarker=False,
+                variant="fp16",
+                cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+                **safety,
+            )
+            pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, lora=False, vae_slicing=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing SDXL Refiner...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    refiner = {'output_type':"latent"} if pixart_alpha_prefs['use_refiner'] else {}
+    #'denoising_end': pixart_alpha_prefs['SDXL_high_noise_frac'], 
     clear_last()
     s = "" if len(pixart_alpha_prompts) == 0 else "s"
     prt(f"Generating your PixArt-α Image{s}...")
@@ -42475,6 +42575,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                     #mask_feature=pixart_alpha_prefs['mask_feature'],resolution_binning
                     generator=generator,
                     callback=callback_fnc,
+                    **refiner,
                 ).images
             else:
                 with torch.no_grad():
@@ -42499,6 +42600,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                     use_resolution_binning=pixart_alpha_prefs['resolution_binning'],
                     generator=generator,
                     callback=callback_fnc,
+                    **refiner,
                 ).images
                 del pipe_pixart_alpha.transformer
                 flush()
@@ -42509,6 +42611,22 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
             clear_last()
             alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
+        if pixart_alpha_prefs['use_refiner']:
+            progress.value = None
+            try:
+                images = pipe_SDXL_refiner(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    image=images,
+                    num_inference_steps=pr['steps'],
+                    denoising_start=pixart_alpha_prefs['SDXL_high_noise_frac'],
+                    generator=generator,
+                    callback_on_step_end=callback_fn,
+                ).images
+            except Exception as e:
+                clear_last(2)
+                alert_msg(page, f"ERROR: Something went wrong refining images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
         #clear_last()
         clear_last()
         autoscroll(True)
@@ -42527,7 +42645,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
             fname = format_filename(pr['prompt'])
             #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
             fname = f'{pixart_alpha_prefs["file_prefix"]}{fname}'
-            if use_8bit:
+            if use_8bit and not pixart_alpha_prefs['use_refiner']:
                 image = pipe_pixart_alpha.image_processor.postprocess(image, output_type="pil")[0]
             image_path = available_file(txt2img_output, fname, 1)
             image.save(image_path)
@@ -42823,7 +42941,7 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
     play_snd(Snd.ALERT, page)
 
 def run_hunyuan(page, from_list=False, with_params=False):
-    global hunyuan_dit_prefs, pipe_hunyuan, prefs, controlnet_hunyuan_models
+    global hunyuan_dit_prefs, pipe_hunyuan, prefs, controlnet_hunyuan_models, pipe_SDXL_refiner
     if not check_diffusers(page): return
     if int(status['cpu_memory']) <= 8:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Hunyuan DiT right now. Either Change runtime type to High-RAM mode and restart.")
@@ -42905,7 +43023,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
       page.tabs.update()
     clear_list()
     autoscroll(True)
-    model_id = "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers" if not hunyuan_dit_prefs['distilled_model'] else "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled"
+    model_id = f"Tencent-Hunyuan/{hunyuan_dit_prefs['hunyuan_model']}" if hunyuan_dit_prefs['hunyuan_model'] != "Custom" else hunyuan_dit_prefs['custom_model']
     if 'loaded_hunyuan_model' not in status: status['loaded_hunyuan_model'] = ''
     installer = Installing(f"Installing Tencent-HunyuanDiT Engine & Models... See console log for progress.")
     cpu_offload = hunyuan_dit_prefs['cpu_offload']
@@ -43073,9 +43191,26 @@ def run_hunyuan(page, from_list=False, with_params=False):
             status['loaded_hunyuan_model'] = model_id
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR Initializing Hunyuan, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR Initializing Hunyuan...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-    clear_last()
+    if pipe_SDXL_refiner == None and hunyuan_dit_prefs['use_refiner']:
+        try:
+            from diffusers import StableDiffusionXLImg2ImgPipeline
+            pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, use_safetensors=True,
+                text_encoder_2=pipe_hunyuan.text_encoder_2,
+                vae=pipe_hunyuan.vae,
+                add_watermarker=False,
+                variant="fp16",
+                cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+                **safety,
+            )
+            pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, lora=False, vae_slicing=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing SDXL Refiner...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    refiner = {'output_type':"latent"} if hunyuan_dit_prefs['use_refiner'] else {}
+    clear_last() #'denoising_end': hunyuan_dit_prefs['SDXL_high_noise_frac'], 
     n = 0
     for pr in hunyuan_dit_prompts:
         prt(f"{f'[{n + 1}/{len(hunyuan_dit_prompts)}]  ' if from_list else ''}{pr['prompt']}")
@@ -43112,12 +43247,29 @@ def run_hunyuan(page, from_list=False, with_params=False):
                 guidance_scale=pr['guidance_scale'],
                 generator=generator,
                 callback_on_step_end=callback_fn,
+                **refiner,
                 **control_args,
             ).images
         except Exception as e:
             clear_last(2)
             alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
+        if hunyuan_dit_prefs['use_refiner']:
+            progress.value = None
+            try:
+                images = pipe_SDXL_refiner(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    image=images,
+                    num_inference_steps=pr['steps'],
+                    denoising_start=hunyuan_dit_prefs['SDXL_high_noise_frac'],
+                    generator=generator,
+                    callback_on_step_end=callback_fn,
+                ).images
+            except Exception as e:
+                clear_last(2)
+                alert_msg(page, f"ERROR: Something went wrong refining images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
         clear_last(2)
         autoscroll(True)
         txt2img_output = stable_dir
@@ -55863,6 +56015,56 @@ def get_horde_text(page, column, text_prompt, llm_model="aphrodite/Gryphe/Panthe
     final_results = json.loads(get_response.content)
     clear_last()
     return final_results['generations'][0]['text']
+
+def get_perplexity_text(page, column, text_prompt, llm_model="llama-3-sonar-small-32k-chat", temperature=0.2, system_prompt=None):
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      column.controls.append(line)
+      column.update()
+    def clear_last(lines=1):
+      clear_line(column, lines=lines)
+    progress = Progress(f"Getting Prompts with Perplexity PPLX-API using {llm_model} Model...")
+    prt(progress)
+    import requests
+    from io import BytesIO
+    import base64
+    system = system_prompt if system_prompt != None else "Write imaginative prompts for an AI Image Generation and return a bullet point list with * astrix at the beginning of each line of requested prompt texts. Do not preface the list with any extra text like Here's a list of... Just give a creative list with the amount specified about the subject provided in the style requested."
+    api_host = 'https://api.perplexity.ai/chat/completions'
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "authorization": f"Bearer {prefs['Perplexity_api_key']}",
+    }
+    payload = {
+      "model": llm_model,
+      "messages": [
+          {"role": "system", "content": system},
+          {"role": "user", "content": text_prompt}
+      ],
+      "temperature": temperature,
+    }
+    #print(params)
+    try:
+        response = requests.post(api_host, headers=headers, json=payload)#json.dumps(payload, indent = 4))
+    except Exception as e:
+        alert_msg(page, f"ERROR: Problem sending JSON request and getting response.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]), debug_pref=payload)
+        print(payload)
+        clear_last()
+        return ""
+    clear_last()
+    if response != None:
+      if response.status_code != 200:
+        clear_last()
+        if response.status_code == 422:
+          alert_msg(page, "PPLX-API ERROR: Validation Error...", content=Text(str(response.text)))
+          return ""
+        else:
+          prt(Text(f"PPLX-API ERROR {response.status_code}: " + str(response.text), selectable=True))
+          print(payload)
+          return ""
+    results = json.loads(response.content)
+    return results['choices'][0]['message']['content']
 
 def pastebin_file(file_path):
     pip_install("pbwrap")
