@@ -5,6 +5,7 @@
 #pyinstaller Stable-Diffusion-Deluxe.spec -y
 import os, subprocess, sys, shutil, re, argparse
 import random as rnd
+from typing import Optional
 from pathlib import Path
 parser = argparse.ArgumentParser()
 parser.add_argument("--storage_type", type=str, default="Local Drive")
@@ -93,29 +94,32 @@ def ng():
   _ng = rnd.choice(ng_list).partition('_')
   return _ng[2]+_ng[1]+_ng[0]
 
-def download_file(url, to=None, filename=None, raw=True, ext="png", replace=False):
-    if filename != None:
-        local_filename = filename
-    else:
-        local_filename = url.split('/')[-1]
-        if '?' in local_filename:
-            local_filename = local_filename.rpartition('?')[0]
-    if '.' not in local_filename:
-        local_filename += f".{ext}"
-    local_filename = os.path.join(to if to != None else root_dir, local_filename)
-    if to != None:
-        if not os.path.exists(to):
-            os.makedirs(to)
-    else: to = root_dir
+from urllib.parse import urlparse, unquote
+def download_file(url: str, to: Optional[str] = None, filename: Optional[str] = None, 
+                  raw: bool = True, ext: str = "png", replace: bool = False) -> str:
+    if filename is None:
+        parsed_url = urlparse(url)
+        filename = os.path.basename(unquote(parsed_url.path))
+        if not filename:
+            filename = "downloaded_file"
+        if '?' in filename:
+            filename = filename.split('?')[0]
+    if '.' not in filename:
+        filename = f"{filename}.{ext}"
+    to = to or uploads_dir#os.getcwd()
+    local_filename = os.path.join(to, filename)
+    os.makedirs(to, exist_ok=True)
     if os.path.isfile(local_filename) and not replace:
         return local_filename
     with requests.get(url, stream=True) as r:
+        r.raise_for_status()
         with open(local_filename, 'wb') as f:
             if raw:
-              shutil.copyfileobj(r.raw, f)
+                shutil.copyfileobj(r.raw, f)
             else:
-              f.write(r.content)
+                f.write(r.content)
     return local_filename
+
 def wget(url, to):
     res = subprocess.run(['wget', '-q', url, '-O', to], stdout=subprocess.PIPE).stdout.decode('utf-8')
 
@@ -929,6 +933,7 @@ def buildVideoAIs(page):
     page.SVD = buildSVD(page)
     page.AnimateDiffImage2Video = buildAnimateDiffImage2Video(page)
     page.AnimateDiffSDXL = buildAnimateDiffSDXL(page)
+    page.DiffSynth = buildDiffSynth(page)
     page.PIA = buildPIA(page)
     page.I2VGenXL = buildI2VGenXL(page)
     page.ControlNet = buildControlNet(page)
@@ -951,6 +956,7 @@ def buildVideoAIs(page):
             Tab(text="SVD Image-to-Video", content=page.SVD, icon=icons.SLOW_MOTION_VIDEO),
             Tab(text="AnimateDiff to-Video", content=page.AnimateDiffImage2Video, icon=icons.CATCHING_POKEMON),
             Tab(text="AnimateDiff SDXL", content=page.AnimateDiffSDXL, icon=icons.TWO_WHEELER),
+            Tab(text="DiffSynth", content=page.DiffSynth, icon=icons.FIREPLACE),
             Tab(text="I2VGen-XL", content=page.I2VGenXL, icon=icons.TIPS_AND_UPDATES),
             Tab(text="PIA Image Animator", content=page.PIA, icon=icons.EMERGENCY_RECORDING),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
@@ -15831,6 +15837,173 @@ def buildAnimateDiffSDXL(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+diffsynth_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'init_image': '',
+    'init_video': '',
+    'diffsynth_mode': 'video_rerender',
+    'diffsynth_model': 'DiffSynth-img2vid-XT',
+    'guidance_scale': 7.5,
+    'min_guidance_scale': 1.0,
+    'max_guidance_scale': 3.0,
+    'num_inference_steps': 50,
+    'controlnet_strength': 0.5,
+    'fps': 8,
+    'target_fps': 30,
+    'motion_bucket_id': 127,  # 180
+    'stride': 4,
+    'batch_size': 8,  # 3-8
+    'clip_skip': 1,
+    'contrast_enhance_scale': 1.2,
+    'num_frames': 64,
+    'export_to_gif': True,
+    'export_to_video': True,
+    "interpolate_video": False,
+    'seed': 0,
+    'max_size': 768 if prefs['higher_vram_mode'] else 512,
+    'width': 1024,
+    'height': 576,
+    'cpu_offload': not prefs['higher_vram_mode'],
+    'num_videos': 1,
+    'file_prefix': 'diffsynth-',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+
+def buildDiffSynth(page):
+    global diffsynth_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+            try:
+                diffsynth_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+            except Exception:
+                alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+                pass
+    def diffsynth_help(e):
+        def close_diffsynth_dlg(e):
+            nonlocal diffsynth_help_dlg
+            diffsynth_help_dlg.open = False
+            page.update()
+        diffsynth_help_dlg = AlertDialog(title=Text("💁   Help with DiffSynth Image-To-Video"), content=Column([
+            Text("DiffSynth Studio is a Diffusion engine. We have restructured architectures including Text Encoder, UNet, VAE, among others, maintaining compatibility with models from the open-source community while enhancing computational performance. We provide many interesting features. Enjoy the magic of Diffusion models!"),
+            Markdown("[DiffSynth](https://ecnu-cilab.github.io/DiffSynth.github.io/) | [ExVideo](https://ecnu-cilab.github.io/ExVideoProjectPage/) | [Diffutoon](https://ecnu-cilab.github.io/DiffutoonProjectPage/) | [Huggingface Model](https://huggingface.co/ameerazam08/DiffSynth-Studio) | [GitHub repository](https://github.com/modelscope/DiffSynth-Studio) | [Paper](https://stability.ai/research/stable-video-diffusion-scaling-latent-video-diffusion-models-to-large-datasets)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🆒  Extra cool... ", on_click=close_diffsynth_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.overlay.append(diffsynth_help_dlg)
+        diffsynth_help_dlg.open = True
+        page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        diffsynth_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_mode(e):
+        mode = e.data.split('"')[1]
+        diffsynth_prefs['diffsynth_mode'] = mode
+        init_image.show = mode in ["exvideo_svd", "svd_text_to_video", "sd_text_to_video"]
+        init_video.show = mode in ["video_rerender", "diffutoon", "exvideo_svd", "sd_toon_shading"]
+        text_prompts.visible = mode in ["video_rerender", "exvideo_svd", "sd_text_to_video", "sdxl_text_to_video", "svd_text_to_video", "diffutoon", "sd_toon_shading"]
+        text_prompts.update()
+        num_inference_row.show = mode in ["video_rerender", "exvideo_svd", "sd_text_to_video", "sdxl_text_to_video", "svd_text_to_video", "diffutoon", "sd_toon_shading"]
+        guidance.show = mode in ["video_rerender", "exvideo_svd", "sd_text_to_video", "sdxl_text_to_video", "svd_text_to_video", "diffutoon"]
+        guidance_row.visible = mode in ["exvideo_svd"]
+        guidance_row.update()
+        batch_size.show = mode in ["video_rerender", "diffutoon", "sd_toon_shading", "sd_text_to_video"]
+        stride.show = mode in ["video_rerender", "diffutoon", "sd_toon_shading"]
+        controlnet_strength.show = mode in ["video_rerender", "diffutoon"]
+        clip_skip.show = mode in ["diffutoon", "sd_toon_shading"]
+        motion_bucket_id.show = mode in ["exvideo_svd", "svd_text_to_video"]
+        num_frames.show = mode in ["exvideo_svd", "sd_text_to_video", "sdxl_text_to_video", "svd_text_to_video", "diffutoon"]
+    selected_mode = ft.SegmentedButton(on_change=change_mode, selected={diffsynth_prefs['diffsynth_mode']}, allow_multiple_selection=False,
+                                       segments=[
+        ft.Segment(value="video_rerender", label=ft.Text("Video ReRender"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO), tooltip="Video stylization without video models."),
+        ft.Segment(value="exvideo_svd", label=ft.Text("ExVideo SVD"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO), tooltip="Post-tuning technique aimed at enhancing the capability of video generation models. Up to 128 frames."),
+        ft.Segment(value="sd_text_to_video", label=ft.Text("SD Text-to-Image"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO)),
+        ft.Segment(value="sdxl_text_to_video", label=ft.Text("SDXL Text-to-Image"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO)),
+        ft.Segment(value="svd_text_to_video", label=ft.Text("SVD Text-to-Image"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO)),
+        ft.Segment(value="diffutoon", label=ft.Text("Diffutoon Shading"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO), tooltip="Render realistic videos in a flatten style and enable video editing features."),
+        ft.Segment(value="sd_toon_shading", label=ft.Text("SD Toon Shading"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO), tooltip="Render realistic videos in a flatten style and enable video editing features."),
+    ],
+    )
+    prompt = TextField(label="Animation Prompt Text", value=diffsynth_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e: changed(e, 'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=diffsynth_prefs['negative_prompt'], filled=True, col={'md': 3}, on_change=lambda e: changed(e, 'negative_prompt'))
+    text_prompts = ResponsiveRow([prompt, negative_prompt], visible=diffsynth_prefs['diffsynth_mode'] in ["video_rerender", "exvideo_svd", "sd_text_to_video", "sdxl_text_to_video", "svd_text_to_video", "diffutoon"])
+    init_image = FileInput(label="Initial Image (optional)", pref=diffsynth_prefs, key='init_image', filled=True, page=page, visible=diffsynth_prefs['diffsynth_mode'] == "exvideo_svd")
+    init_video = FileInput(label="Initial Video", pref=diffsynth_prefs, key='init_video', ftype="video", page=page, visible=diffsynth_prefs['diffsynth_mode'] in ["video_rerender", "diffutoon", "exvideo_svd"])
+    # diffsynth_model = Dropdown(label="DiffSynth Model", width=200, options=[dropdown.Option("DiffSynth-img2vid-XT"), dropdown.Option("DiffSynth-img2vid"), dropdown.Option("DiffSynth-img2vid-XT 1.1")], value=diffsynth_prefs['diffsynth_model'], on_change=lambda e: changed(e, 'diffsynth_model'))
+    num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=diffsynth_prefs, key='num_frames', visible=diffsynth_prefs['diffsynth_mode'] in ["exvideo_svd", "sd_text_to_video", "sdxl_text_to_video", "svd_text_to_video", "diffutoon"], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=diffsynth_prefs, key='num_inference_steps', visible=diffsynth_prefs['diffsynth_mode'] in ["video_rerender", "exvideo_svd", "sd_text_to_video", "sdxl_text_to_video", "svd_text_to_video", "diffutoon"], tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=diffsynth_prefs, key='guidance_scale', visible=diffsynth_prefs['diffsynth_mode'] in ["video_rerender", "exvideo_svd", "sd_text_to_video", "sdxl_text_to_video", "svd_text_to_video", "diffutoon"])
+    min_guidance = SliderRow(label="Min Guidance Scale", min=0, max=10, divisions=20, round=1, pref=diffsynth_prefs, key='min_guidance_scale', col={'sm': 6}, tooltip="Used for the classifier free guidance with first frame.")
+    max_guidance = SliderRow(label="Max Guidance Scale", min=0, max=10, divisions=20, round=1, pref=diffsynth_prefs, key='max_guidance_scale', col={'sm': 6}, tooltip="Used for the classifier free guidance with last frame.")
+    guidance_row = ResponsiveRow([min_guidance, max_guidance], visible=diffsynth_prefs['diffsynth_mode'] == "exvideo_svd")
+    controlnet_strength = SliderRow(label="ControlNet Strength", min=0.0, max=1.0, divisions=20, round=2, pref=diffsynth_prefs, key='controlnet_strength', visible=diffsynth_prefs['diffsynth_mode'] in ["video_rerender", "diffutoon"], tooltip="How much influence the controlnet annotator's output is used to guide the denoising process.")
+    clip_skip = SliderRow(label="Clip Skip", min=0, max=4, divisions=4, pref=diffsynth_prefs, key='clip_skip', expand=True, col={'md': 6}, tooltip="Recommeded to leave at 1 for this Pipeline. Skips part of the image generation process, leading to slightly different results from the LoRA CLIP model.")
+    motion_bucket_id = SliderRow(label="Motion Bucket ID", min=1, max=300, divisions=299, pref=diffsynth_prefs, key='motion_bucket_id', visible=diffsynth_prefs['diffsynth_mode'] == "exvideo_svd", tooltip="Increasing the motion bucket id will increase the motion of the generated video.")
+    stride = SliderRow(label="Max Motion Stride", min=1, max=8, divisions=7, pref=diffsynth_prefs, key='stride', expand=True, col={'md': 6}, visible=diffsynth_prefs['diffsynth_mode'] in ["video_rerender", "diffutoon"], tooltip="Max motion stride as a power of 2 (default: 4)")
+    batch_size = SliderRow(label="Batch Size", min=1, max=60, divisions=59, pref=diffsynth_prefs, key='batch_size', visible=diffsynth_prefs['diffsynth_mode'] in ["video_rerender", "diffutoon"], tooltip="Affects coherancy. To avoid out-of-memory, use small batch size.")
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=diffsynth_prefs, key='fps', col={'sm': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. Note that Stable Diffusion Video's UNet was micro-conditioned on fps-1 during training.")
+    target_fps = SliderRow(label="Target FPS", min=0, max=60, suffix="fps", divisions=60, expand=1, pref=diffsynth_prefs, key='target_fps', col={'sm': 6})
+    # width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=diffsynth_prefs, key='width')
+    # height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=diffsynth_prefs, key='height')
+    export_to_gif = Tooltip(message="Save animated gif file along with Image Sequence", content=Switcher(label="Export to GIF", value=diffsynth_prefs['export_to_gif'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'export_to_gif')))
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=diffsynth_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'export_to_video')))
+    max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=16, multiple=64, suffix="px", pref=diffsynth_prefs, key='max_size')
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=diffsynth_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=diffsynth_prefs, key='height')
+    interpolate_video = Switcher(label="Interpolate Video", value=diffsynth_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e: changed(e, 'interpolate_video'))
+    # cpu_offload = Switcher(label="CPU Offload", value=diffsynth_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=diffsynth_prefs['num_videos'], on_change=lambda e: changed(e, 'num_videos'))
+    file_prefix = TextField(label="Filename Prefix", value=diffsynth_prefs['file_prefix'], width=120, on_change=lambda e: changed(e, 'file_prefix'))
+    batch_folder_name = TextField(label="Video Folder Name", value=diffsynth_prefs['batch_folder_name'], on_change=lambda e: changed(e, 'batch_folder_name'))
+    # resume_frame = Switcher(label="Resume from Last Frame", value=diffsynth_prefs['resume_frame'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_resume, tooltip="Continues generating frames in chunks for videos longer than 14 or 25 frame limit.")
+    # resume_container = Container(content=NumberPicker(label="Times to Continue: ", min=1, max=10, value=diffsynth_prefs['continue_times'], on_change=lambda e: changed(e, 'continue_times'), tooltip="Resumes 14 or 25 more frames in iterations. May degrade over time."), visible=diffsynth_prefs['resume_frame'])
+    seed = TextField(label="Seed", width=90, value=str(diffsynth_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e: changed(e, 'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=diffsynth_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=diffsynth_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=diffsynth_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=diffsynth_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_diffsynth = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_diffsynth.height = None if status['installed_ESRGAN'] else 0
+    if not diffsynth_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text("🪭  Run DiffSynth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_diffsynth(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_diffsynth(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_diffsynth(page, from_list=True, with_params=True))
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10),
+        content=Column([
+            Header("🔥  DiffSynth Studio", "Diffusion engine with multiple optimized modes, restructured architectures including Text Encoder, UNet, VAE, among others...", actions=[save_default(diffsynth_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with DiffSynth Settings", on_click=diffsynth_help)]),
+            # ResponsiveRow([prompt, negative_prompt]),
+            Row([Text("DiffSynth Mode:"), selected_mode]),
+            text_prompts,
+            init_image,
+            init_video,
+            motion_bucket_id,
+            # Row([resume_frame, resume_container]),
+            ResponsiveRow([guidance]),
+            guidance_row,
+            ResponsiveRow([batch_size, controlnet_strength]),
+            ResponsiveRow([stride, clip_skip]),
+            width_slider, height_slider,
+            #max_size,
+            num_frames,
+            num_inference_row,
+            ResponsiveRow([fps, target_fps]),
+            # width_slider, height_slider,
+            page.ESRGAN_block_diffsynth,
+            Row([export_to_gif, interpolate_video]),
+            Row([seed, batch_folder_name, file_prefix]),  # num_videos,
+            Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True),
+        ]
+        ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+
 pia_prefs = {
     "prompt": '',
     "negative_prompt": '',
@@ -16007,7 +16180,7 @@ def buildPIA(page):
     parameters_button = ElevatedButton(content=Text(value="🪖   Run PIA", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pia(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pia(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pia(page, from_list=True, with_params=True))
-    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True)
     page.pia_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
@@ -21908,6 +22081,7 @@ pipe_task_matrix = None
 pipe_ldm3d = None
 pipe_ldm3d_upscale = None
 pipe_svd = None
+pipe_diffsynth, pipe_diffsynth_image, diffsynth_model_manager = [None] * 3
 pipe_animatediff_img2video = None
 pipe_animatediff_sdxl = None
 pipe_pia = None
@@ -24848,6 +25022,12 @@ def clear_svd_pipe():
     del pipe_svd
     flush()
     pipe_svd = None
+def clear_diffsynth_pipe():
+  global pipe_diffsynth, pipe_diffsynth_image, diffsynth_model_manager
+  if pipe_diffsynth is not None:
+    del pipe_diffsynth, pipe_diffsynth_image, diffsynth_model_manager
+    flush()
+    pipe_diffsynth, pipe_diffsynth_image, diffsynth_model_manager = [None] * 3
 def clear_animatediff_img2video_pipe():
   global pipe_animatediff_img2video
   if pipe_animatediff_img2video is not None:
@@ -25238,6 +25418,7 @@ def clear_pipes(allbut=None):
     if not 'task_matrix' in but: clear_task_matrix_pipe()
     if not 'ldm3d' in but: clear_ldm3d_pipe()
     if not 'svd' in but: clear_svd_pipe()
+    if not 'diffsynth' in but: clear_diffsynth_pipe()
     if not 'animatediff_img2video' in but: clear_animatediff_img2video_pipe()
     if not 'animatediff_sdxl' in but: clear_animatediff_sdxl_pipe()
     if not 'pia' in but: clear_pia_pipe()
@@ -27217,6 +27398,15 @@ def nsp_parse(prompt):
         return new_prompt
     else:
         return
+
+def switchcase(switch, cases, default=None):
+    result = cases.get(switch, default)
+    return result() if callable(result) else result
+
+class SwitchStr(str):
+    def switchcase(self, cases, default=None):
+        result = cases.get(self, default)
+        return result() if callable(result) else result
 
 def tween_value(start, end, amount):
     values = []
@@ -29291,7 +29481,7 @@ def run_background_remover(page):
         import onnx
     except ImportError as e:
         installer.status("...installing onnx")
-        run_sp("pip install -q onnx==1.14.0", realtime=False)
+        run_sp("pip install -q onnx==1.16.1", realtime=False)#1.14.0
         pass
     try:
         import onnxruntime
@@ -49402,6 +49592,577 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+class ProgressBar:
+    def __init__(self, progress_bar_object):
+        self.progress_bar = progress_bar_object
+        self.current_progress = 0
+    def progress(self, percent):
+        self.progress_bar.value = float(percent)
+        self.progress_bar.update()
+
+def run_diffsynth(page, from_list=False, with_params=False):
+    global diffsynth_prefs, prefs, status, pipe_diffsynth, pipe_diffsynth_image, diffsynth_model_manager
+    if not check_diffusers(page):
+        return
+    '''if not bool(diffsynth_prefs['init_image']):
+        alert_msg(page, "You need to provide an Initial Image to animate before using...")
+        return
+    if not bool(diffsynth_prefs['batch_folder_name']):
+        alert_msg(page, "You need to provide a unique Video Folder Name for your project...")
+        return'''
+    diffsynth_prompts = []
+    if from_list:
+        if len(prompts) < 1:
+            alert_msg(page, "You need to add Prompts to your List first... ")
+            return
+        for p in prompts:
+            if with_params:
+                diffsynth_prompts.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'guidance_scale': diffsynth_prefs['guidance_scale'], 'num_inference_steps': diffsynth_prefs['num_inference_steps'], 'width': diffsynth_prefs['width'], 'height': diffsynth_prefs['height'], 'init_image': diffsynth_prefs['init_image'], 'init_image_strength': diffsynth_prefs['init_image_strength'], 'num_images': diffsynth_prefs['num_images'], 'seed': diffsynth_prefs['seed']})
+            else:
+                diffsynth_prompts.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'guidance_scale': p['guidance_scale'], 'num_inference_steps': p['steps'], 'width': p['width'], 'height': p['height'], 'init_image': p['init_image'], 'init_image_strength': p['init_image_strength'], 'num_images': p['batch_size'], 'seed': p['seed']})
+    else:
+        if not bool(diffsynth_prefs['prompt']):
+            alert_msg(page, "You must provide a text prompt to process your image generation...")
+            return
+        diffsynth_prompts.append({'prompt': diffsynth_prefs['prompt'], 'negative_prompt': diffsynth_prefs['negative_prompt'], 'guidance_scale': diffsynth_prefs['guidance_scale'], 'num_inference_steps': diffsynth_prefs['num_inference_steps'], 'width': diffsynth_prefs['width'], 'height': diffsynth_prefs['height'], 'init_image': diffsynth_prefs['init_image'], 'init_image_strength': diffsynth_prefs['init_image_strength'], 'num_images': diffsynth_prefs['num_images'], 'seed': diffsynth_prefs['seed']})
+    def prt(line, update=True):
+        if type(line) == str:
+            line = Text(line, size=17)
+        page.DiffSynth.controls.append(line)
+        page.DiffSynth.update()
+        if from_list:
+            page.imageColumn.controls.append(line)
+            if update:
+                page.imageColumn.update()
+            else:
+                page.DiffSynth.controls.append(line)
+                if update:
+                    page.DiffSynth.update()
+    def clear_last(lines=1):
+        if from_list:
+            clear_line(page.imageColumn, lines=lines)
+        else:
+            clear_line(page.DiffSynth, lines=lines)
+    def clear_list():
+        if from_list:
+            page.imageColumn.controls.clear()
+        else:
+            page.DiffSynth.controls = page.DiffSynth.controls[:1]
+    def autoscroll(scroll=True):
+        if from_list:
+            page.imageColumn.auto_scroll = scroll
+            page.imageColumn.update()
+            page.DiffSynth.auto_scroll = scroll
+            page.DiffSynth.update()
+        else:
+            page.DiffSynth.auto_scroll = scroll
+            page.DiffSynth.update()
+    if from_list:
+        page.tabs.selected_index = 4
+        page.tabs.update()
+    modes = {"video_rerender": "Video ReRender", "exvideo_svd": "ExVideo SVD", "sd_text_to_video": "SD Text-to-Image", "sdxl_text_to_video": "SDXL Text-to-Image", "svd_text_to_video": "SVD Text-to-Image", "diffutoon": "Diffutoon Shading"}
+    diffsynth_mode = switchcase(diffsynth_prefs["diffsynth_mode"], modes)
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing DiffSynth Image-To-Video Pipeline...")
+    prt(installer)
+    pip_install("cupy-cuda12x controlnet-aux imageio imageio[ffmpeg] safetensors einops sentencepiece", installer=installer)
+    diffsynth_dir = os.path.join(root_dir, "DiffSynth-Studio")
+    models = os.path.join(diffsynth_dir, "models")
+    if not os.path.exists(diffsynth_dir):
+        installer.status("...cloning lllyasviel/LayerDiffuse_DiffusersCLI")
+        run_sp("git clone https://github.com/modelscope/DiffSynth-Studio.git", cwd=root_dir, realtime=False)
+    if layer_diffuse_dir not in sys.path:
+        sys.path.append(diffsynth_dir)
+    os.chdir(diffsynth_dir)
+    mode = diffsynth_prefs["diffsynth_mode"]
+    status.setdefault("loaded_diffsynth", "")
+    if mode != status['loaded_diffsynth']:
+        clear_pipes()
+    else:
+        clear_pipes("diffsynth")
+    try:
+        from diffsynth import save_video, ModelManager, SDVideoPipelineRunner, SVDVideoPipeline, HunyuanDiTImagePipeline, save_video, download_models
+        from diffsynth.extensions.RIFE import RIFEInterpolater
+        if mode == "video_rerender":
+            from diffsynth import SDVideoPipeline, ControlNetConfigUnit, VideoData, download_models
+            from diffsynth.processors.FastBlend import FastBlendSmoother
+            from diffsynth.processors.PILEditor import ContrastEditor, SharpnessEditor
+            from diffsynth.processors.sequencial_processor import SequencialProcessor
+            if pipe_diffsynth != None:
+                installer.status("...downloading models")
+                download_models([
+                    "ControlNet_v11f1p_sd15_depth",
+                    "ControlNet_v11p_sd15_softedge",
+                    "DreamShaper_8"
+                ])
+                diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
+                                                       file_path_list=[
+                                                           os.path.join(models, "stable_diffusion", "dreamshaper_8.safetensors"),
+                                                           os.path.join(models, "ControlNet", "control_v11f1p_sd15_depth.pth"),
+                                                           os.path.join(models, "ControlNet", "control_v11p_sd15_softedge.pth"),
+                                                       ]
+                                                       )
+                installer.status("...loading SDVideoPipeline")
+                pipe_diffsynth = SDVideoPipeline.from_model_manager(
+                    diffsynth_model_manager,
+                    [
+                        ControlNetConfigUnit(
+                            processor_id="depth",
+                            model_path=os.path.join(models, "ControlNet", "control_v11f1p_sd15_depth.pth"),
+                            scale=0.5
+                        ),
+                        ControlNetConfigUnit(
+                            processor_id="softedge",
+                            model_path=os.path.join(models, "ControlNet", "control_v11p_sd15_softedge.pth"),
+                            scale=0.5
+                        )
+                    ]
+                )
+            smoother = SequencialProcessor([FastBlendSmoother(), ContrastEditor(rate=1.1), SharpnessEditor(rate=1.1)])
+        elif mode == "exvideo_svd":
+            if pipe_diffsynth != None:
+                installer.status("...downloading HunyuanDiT models")
+                os.environ["TOKENIZERS_PARALLELISM"] = "True"
+                download_models(["HunyuanDiT"])
+                diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
+                                                       file_path_list=[
+                                                           os.path.join(diffsynth_dir, "models/HunyuanDiT/t2i/clip_text_encoder/pytorch_model.bin"),
+                                                           os.path.join(diffsynth_dir, "models/HunyuanDiT/t2i/mt5/pytorch_model.bin"),
+                                                           os.path.join(diffsynth_dir, "models/HunyuanDiT/t2i/model/pytorch_model_ema.pt"),
+                                                           os.path.join(diffsynth_dir, "models/HunyuanDiT/t2i/sdxl-vae-fp16-fix/diffusion_pytorch_model.bin"),
+                                                       ])
+                installer.status("...loading HunyuanDiTImagePipeline")
+                pipe_diffsynth_image = HunyuanDiTImagePipeline.from_model_manager(diffsynth_model_manager)
+                installer.status("...downloading svd-img2vid-xt & ExVideo-SVD")
+                download_models(["stable-video-diffusion-img2vid-xt", "ExVideo-SVD-128f-v1"])
+                model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
+                                             file_path_list=[
+                                                 os.path.join("models/stable_video_diffusion/svd_xt.safetensors"),
+                                                 os.path.join("models/stable_video_diffusion/model.fp16.safetensors"),
+                                             ])
+                installer.status("...loading SVDVideoPipeline")
+                pipe_diffsynth = SVDVideoPipeline.from_model_manager(model_manager)
+        elif mode == "sd_text_to_video":
+            from diffsynth import SDImagePipeline
+            if pipe_diffsynth != None and pipe__diffsynth_image != None:
+                installer.status("...downloading dreamshaper_8 mm_sd_v15_v2 & flownet")
+                download_models(["DreamShaper_8", "AnimateDiff_v2", "RIFE"])
+                diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
+                diffsynth_model_manager.load_models([
+                    os.path.join(diffsynth_dir, "models/stable_diffusion/dreamshaper_8.safetensors"),
+                    os.path.join(diffsynth_dir, "models/AnimateDiff/mm_sd_v15_v2.ckpt"),
+                    os.path.join(diffsynth_dir, "models/RIFE/flownet.pkl")
+                ])
+                installer.status("...loading SDImagePipeline")
+                pipe__diffsynth_image = SDImagePipeline.from_model_manager(diffsynth_model_manager)
+                installer.status("...loading SDVideoPipeline")
+                pipe_diffsynth = SDVideoPipeline.from_model_manager(diffsynth_model_manager)
+        elif mode == "sdxl_text_to_video":
+            from diffsynth import SDXLVideoPipeline
+            if pipe_diffsynth != None:
+                installer.status("...downloading mm_sdxl models")
+                download_models(["StableDiffusionXL_v1", "AnimateDiff_xl_beta"])
+                diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
+                diffsynth_model_manager.load_models([
+                    os.path.join(diffsynth_dir, "models/stable_diffusion_xl/sd_xl_base_1.0.safetensors"),
+                    os.path.join(diffsynth_dir, "models/AnimateDiff/mm_sdxl_v10_beta.ckpt")
+                ])
+                installer.status("...loading SDXLVideoPipeline")
+                pipe_diffsynth = SDXLVideoPipeline.from_model_manager(diffsynth_model_manager)
+        elif mode == "svd_text_to_video":
+            from diffsynth import SDXLImagePipeline, SVDVideoPipeline
+            if pipe_diffsynth != None and pipe__diffsynth_image != None:
+                installer.status("...downloading img2vid models")
+                download_models(["StableDiffusionXL_v1", "stable-video-diffusion-img2vid-xt"])
+                diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
+                diffsynth_model_manager.load_models([os.path.join(diffsynth_dir, "models/stable_diffusion_xl/sd_xl_base_1.0.safetensors")])
+                installer.status("...loading SDXLImagePipeline")
+                pipe__diffsynth_image = SDXLImagePipeline.from_model_manager(diffsynth_model_manager)
+                diffsynth_model_manager.to("cpu")
+                installer.status("...downloading svd_xt models")
+                diffsynth_model_manager = ModelManager()
+                diffsynth_model_manager.load_models([os.path.join(diffsynth_dir, "models/stable_video_diffusion/svd_xt.safetensors")])
+                installer.status("...loading SVDVideoPipeline")
+                pipe_diffsynth = SVDVideoPipeline.from_model_manager(diffsynth_model_manager)
+        elif mode == "diffutoon":
+            installer.status("...downloading Diffutoon models")
+            download_models([
+                "AingDiffusion_v12",
+                "AnimateDiff_v2",
+                "ControlNet_v11p_sd15_lineart",
+                "ControlNet_v11f1e_sd15_tile",
+                "TextualInversion_VeryBadImageNegative_v1.3"
+            ])
+        elif mode == "sd_toon_shading":
+            if pipe_diffsynth != None:
+                installer.status("...downloading sd_toon_shading models")
+                download_models([
+                    "Flat2DAnimerge_v45Sharp",
+                    "AnimateDiff_v2",
+                    "ControlNet_v11p_sd15_lineart",
+                    "ControlNet_v11f1e_sd15_tile",
+                    "TextualInversion_VeryBadImageNegative_v1.3"
+                ])
+                diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
+                diffsynth_model_manager.load_textual_inversions(os.path.join(diffsynth_dir, "models/textual_inversion"))
+                diffsynth_model_manager.load_models([
+                    os.path.join(diffsynth_dir, "models/stable_diffusion/flat2DAnimerge_v45Sharp.safetensors"),
+                    os.path.join(diffsynth_dir, "models/AnimateDiff/mm_sd_v15_v2.ckpt"),
+                    os.path.join(diffsynth_dir, "models/ControlNet/control_v11p_sd15_lineart.pth"),
+                    os.path.join(diffsynth_dir, "models/ControlNet/control_v11f1e_sd15_tile.pth"),
+                ])
+                installer.status("...loading SDVideoPipeline")
+                pipe_diffsynth = SDVideoPipeline.from_model_manager(
+                    diffsynth_model_manager,
+                    [
+                        ControlNetConfigUnit(
+                            processor_id="lineart",
+                            model_path=os.path.join(diffsynth_dir, "models/ControlNet/control_v11p_sd15_lineart.pth"),
+                            scale=0.5
+                        ),
+                        ControlNetConfigUnit(
+                            processor_id="tile",
+                            model_path=os.path.join(diffsynth_dir, "models/ControlNet/control_v11f1e_sd15_tile.pth"),
+                            scale=0.5
+                        )
+                    ]
+                )
+        else:
+            print(f"Invalid DiffSynth mode: {mode}")
+        status['loaded_diffsynth'] = mode
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: DiffSynth failed initializing. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        os.chdir(root_dir)
+        return
+    vid_length = diffsynth_prefs['num_frames'] / diffsynth_prefs['fps']
+    clear_last()
+
+    def upscale_video(image, video):
+        # Load models
+        download_models(["stable-video-diffusion-img2vid-xt", "ExVideo-SVD-128f-v1"])
+        model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
+                                     file_path_list=[
+                                         os.path.join(diffsynth_dir, "models/stable_video_diffusion/svd_xt.safetensors"),
+                                         os.path.join(diffsynth_dir, "models/stable_video_diffusion/model.fp16.safetensors"),
+                                     ])
+        pipe = SVDVideoPipeline.from_model_manager(model_manager)
+        torch.manual_seed(2)
+        video = pipe(
+            input_image=image.resize((1024, 1024)),
+            input_video=[frame.resize((1024, 1024)) for frame in video], denoising_strength=0.5,
+            num_frames=128, fps=30, height=1024, width=1024,
+            motion_bucket_id=127,
+            num_inference_steps=25,
+            min_cfg_scale=2, max_cfg_scale=2, contrast_enhance_scale=1.2
+        )
+        model_manager.to("cpu")
+        return video
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+        nonlocal progress
+        total_steps = pipe.num_timesteps
+        percent = (step + 1) / total_steps
+        progress.progress.value = percent
+        progress.progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+        progress.progress.update()
+        
+    for pr in diffsynth_prompts:
+        progress = Progress(f"Generating {diffsynth_mode}... Length: {round(vid_length, 1)} seconds", steps=diffsynth_prefs['num_inference_steps'])
+        prt(progress)
+        pb = ProgressBar(progress.progress)
+        nudge(page.DiffSynth, page=page)
+        autoscroll(False)
+        from io import BytesIO
+        from PIL.PngImagePlugin import PngInfo
+        from PIL import ImageOps
+        init_img, init_video = [None] * 2
+        if bool(pr['init_image']):
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, diffsynth_prefs['max_size'], multiple=64)
+            init_img = init_img.resize((width, height))  # , resample=PILImage.Resampling.BICUBIC)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        if bool(diffsynth_prefs['init_video']):
+            if diffsynth_prefs['init_video'].startswith('http'):
+                progress.status("...downloading target video")
+                init_video = download_file(diffsynth_prefs['init_video'], uploads_dir)
+                progress.status()
+            else:
+                if os.path.isfile(diffsynth_prefs['init_video']):
+                    init_video = diffsynth_prefs['init_video']
+                    # shutil.copy(target_path, os.path.join(inputs_dir, os.path.basename(target_path)))
+                    # target_path = os.path.join(inputs_dir, os.path.basename(target_path))
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_video {diffsynth_prefs['init_video']}")
+                    return
+        batch_output = os.path.join(prefs['image_output'], diffsynth_prefs['batch_folder_name'])
+        makedir(batch_output)
+        # for v in range(diffsynth_prefs['num_videos']):
+        frames_batch = None
+        random_seed = get_seed(pr['seed'])
+        torch.manual_seed(random_seed)
+        fname = f"{diffsynth_prefs['file_prefix']}{format_filename(pr['prompt'] if bool(pr['prompt']) else diffsynth_prefs['batch_folder_name'])}"
+        out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+        video = None
+        try:
+            if mode == "video_rerender":
+                video = VideoData(video_file=init_video, height=pr["height"], width=pr["width"])
+                input_video = [video[i] for i in range(128)]
+                video = pipe_diffsynth(
+                    prompt=pr["prompt"],
+                    negative_prompt=pr["negative_prompt"], cfg_scale=pr["guidance_scale"],
+                    input_frames=input_video, controlnet_frames=input_video, num_frames=len(input_video),
+                    num_inference_steps=pr["num_inference_steps"], height=pr["height"], width=pr["width"],
+                    animatediff_batch_size=diffsynth_prefs["batch_size"], animatediff_stride=diffsynth_prefs["stride"], unet_batch_size=diffsynth_prefs["batch_size"],
+                    cross_frame_attention=True,
+                    smoother=smoother, smoother_progress_ids=[4, 9, 14, 19],
+                    progress_bar_st=pb
+                )
+            elif mode == "exvideo_svd":
+                if init_img != None:
+                    image = init_img
+                else:
+                    image = pipe_diffsynth_image(
+                        prompt=pr["prompt"],
+                        negative_prompt=pr["negative_prompt"],
+                        num_inference_steps=pr["num_inference_steps"], height=pr["height"], width=pr["width"],
+                    )
+                    diffsynth_model_manager.to("cpu")
+                vram = vram_free()
+                if vram < 12:
+                    print(f"May need to clear pipeline, available VRAM {vram}")
+                video = pipe_diffsynth(
+                    input_image=image.resize((pr["width"], pr["height"])),
+                    num_frames=diffsynth_prefs["num_frames"], fps=diffsynth_prefs["target_fps"], height=pr["height"], width=pr["width"],
+                    motion_bucket_id=diffsynth_prefs["motion_bucket_id"],
+                    num_inference_steps=pr["num_inference_steps"],
+                    min_cfg_scale=diffsynth_prefs["min_guidance_scale"], max_cfg_scale=diffsynth_prefs["max_guidance_scale"], contrast_enhance_scale=1.2,
+                    progress_bar_st=pb
+                )
+                diffsynth_model_manager.to("cpu")
+            elif mode == "sd_text_to_video":
+                if init_img != None:
+                    image = init_img
+                else:
+                    image = pipe_diffsynth_image(
+                        prompt=pr["prompt"],
+                        negative_prompt=pr["negative_prompt"],
+                        cfg_scale=pr["guidance_scale"],
+                        num_inference_steps=pr["num_inference_steps"], height=pr["height"], width=pr["width"],
+                        progress_bar_st=pb
+                    )
+                if vram < 8:
+                    print(f"May need to clear pipeline, available VRAM {vram}")
+                # Text + Image -> Video (6GB VRAM is enough!)
+                # pipe_diffsynth = SDVideoPipeline.from_model_manager(diffsynth_model_manager)
+                video = pipe_diffsynth(
+                    prompt=pr["prompt"],
+                    negative_prompt=pr["negative_prompt"],
+                    cfg_scale=pr["guidance_scale"],
+                    num_frames=diffsynth_prefs["num_frames"],
+                    num_inference_steps=pr["num_inference_steps"], height=pr["height"], width=pr["width"],
+                    animatediff_batch_size=diffsynth_prefs["batch_size"], animatediff_stride=diffsynth_prefs["stride"], input_frames=[image] * diffsynth_prefs["num_frames"], denoising_strength=0.9,
+                    vram_limit_level=0,
+                    progress_bar_st=pb
+                )
+                # Video -> Video with high fps
+                interpolater = RIFEInterpolater.from_model_manager(diffsynth_model_manager)
+                video = interpolater.interpolate(video, num_iter=3)
+                # Save images and video
+            elif mode == "sdxl_text_to_video":
+                video = pipe_diffsynth(
+                    prompt=pr["prompt"],
+                    negative_prompt=pr["negative_prompt"],
+                    cfg_scale=pr["guidance_scale"],
+                    height=pr["height"], width=pr["width"], num_frames=diffsynth_prefs["num_frames"],
+                    num_inference_steps=pr["num_inference_steps"],
+                    progress_bar_st=pb
+                )
+            elif mode == "svd_text_to_video":
+                if init_img != None:
+                    image = init_img
+                else:
+                    image = pipe_diffsynth_image(
+                        prompt=pr["prompt"],
+                        negative_prompt=pr["negative_prompt"],
+                        cfg_scale=pr["guidance_scale"],
+                        height=pr["height"], width=pr["width"], num_inference_steps=pr["num_inference_steps"],
+                        progress_bar_st=pb
+                    )
+                vram = vram_free()
+                if vram < 12:
+                    print(f"May need to clear pipeline, available VRAM {vram}")
+                diffsynth_model_manager.to("cpu")
+                video = pipe_diffsynth(
+                    input_image=image,
+                    num_frames=diffsynth_prefs["num_frames"], fps=diffsynth_prefs["fps"], height=pr["height"], width=pr["width"],
+                    motion_bucket_id=diffsynth_prefs["motion_bucket_id"],
+                    num_inference_steps=pr["num_inference_steps"],
+                    progress_bar_st=pb
+                )
+            elif mode == "diffutoon":
+                config = {
+                    "models": {
+                        "model_list": [
+                            os.path.join(diffsynth_dir, "models/stable_diffusion/aingdiffusion_v12.safetensors"),
+                            os.path.join(diffsynth_dir, "models/AnimateDiff/mm_sd_v15_v2.ckpt"),
+                            os.path.join(diffsynth_dir, "models/ControlNet/control_v11f1e_sd15_tile.pth"),
+                            os.path.join(diffsynth_dir, "models/ControlNet/control_v11p_sd15_lineart.pth")
+                        ],
+                        "textual_inversion_folder": os.path.join(diffsynth_dir, "models/textual_inversion"),
+                        "device": "cuda",
+                        "lora_alphas": [],
+                        "controlnet_units": [
+                            {
+                                "processor_id": "tile",
+                                "model_path": os.path.join(diffsynth_dir, "models/ControlNet/control_v11f1e_sd15_tile.pth"),
+                                "scale": diffsynth_prefs["controlnet_strength"],
+                            },
+                            {
+                                "processor_id": "lineart",
+                                "model_path": os.path.join(diffsynth_dir, "models/ControlNet/control_v11p_sd15_lineart.pth"),
+                                "scale": diffsynth_prefs["controlnet_strength"],
+                            }
+                        ]
+                    },
+                    "data": {
+                        "input_frames": {
+                            "video_file": init_video,
+                            "image_folder": None,
+                            "height": 1536,
+                            "width": 1536,
+                            "start_frame_id": 0,
+                            "end_frame_id": 30,
+                        },
+                        "controlnet_frames": [
+                            {
+                                "video_file": init_video,
+                                "image_folder": None,
+                                "height": 1536,
+                                "width": 1536,
+                                "start_frame_id": 0,
+                                "end_frame_id": 30,
+                            },
+                            {
+                                "video_file": init_video,
+                                "image_folder": None,
+                                "height": 1536,
+                                "width": 1536,
+                                "start_frame_id": 0,
+                                "end_frame_id": 30,
+                            }
+                        ],
+                        "output_folder": batch_output,
+                        "fps": diffsynth_prefs["target_fps"]
+                    },
+                    "pipeline": {
+                        "seed": random_seed,
+                        "pipeline_inputs": {
+                            "prompt": pr["prompt"],
+                            "negative_prompt": pr["negative_prompt"],
+                            "cfg_scale": pr["guidance_scale"],
+                            "clip_skip": diffsynth_prefs["clip_skip"],
+                            "denoising_strength": 1.0,
+                            "num_inference_steps": pr["num_inference_steps"],
+                            "animatediff_batch_size": diffsynth_prefs["batch_size"],
+                            "animatediff_stride": diffsynth_prefs["stride"],
+                            "unet_batch_size": 1,
+                            "controlnet_batch_size": 1,
+                            "cross_frame_attention": False,
+                            # The following parameters will be overwritten. You don't need to modify them.
+                            "input_frames": [],
+                            "num_frames": diffsynth_prefs["num_frames"],
+                            "width": pr["width"],
+                            "height": pr["height"],
+                            "controlnet_frames": [],
+                        }
+                    }
+                }
+                runner = SDVideoPipelineRunner()
+                runner.run(config)
+            elif mode == "sd_toon_shading":
+                video = VideoData(
+                    video_file=init_video,
+                    height=pr["height"], width=pr["width"])
+                input_video = [video[i] for i in range(40 * 60, 41 * 60)]
+                # Toon shading (20G VRAM)
+                video = pipe_diffsynth(
+                    prompt=pr["prompt"],
+                    negative_prompt=pr["negative_prompt"],
+                    cfg_scale=pr["guidance_scale"], clip_skip=diffsynth_prefs["clip_skip"],
+                    controlnet_frames=input_video, num_frames=len(input_video),
+                    num_inference_steps=pr["num_inference_steps"], height=pr["height"], width=pr["width"],
+                    animatediff_batch_size=diffsynth_prefs["batch_size"], animatediff_stride=diffsynth_prefs["stride"],
+                    vram_limit_level=0,
+                )
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: DiffSynth failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            os.chdir(root_dir)
+            return
+        clear_last()
+        autoscroll(True)
+        save_video(video, out_file, fps=diffsynth_prefs["target_fps"])
+        if diffsynth_prefs["interpolate_video"]:
+            progress.status("...RIFE Interpolater")
+            diffsynth_model_manager.load_models([os.path.join(diffsynth_dir, "models/RIFE/flownet.pkl")])
+            interpolater = RIFEInterpolater.from_model_manager(diffsynth_model_manager)
+            video = interpolater.interpolate(video, num_iter=3)
+        if diffsynth_prefs['export_to_gif']:
+            try:
+                installer = Installing("Saving Animated GIF image sequence...")
+                prt(installer)
+                from diffusers.utils import export_to_gif
+                gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+                export_to_gif(video, gif_file, fps=diffsynth_prefs['fps'])
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR: Couldn't export gif, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                pass
+            clear_last()
+            if not os.path.isfile(gif_file):
+                prt(f"Problem creating gif file, but frames still saved...")
+            else:
+                prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+        '''if diffsynth_prefs['export_to_video']:
+            try:
+                installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+                prt(installer)
+                out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+                if diffsynth_prefs['interpolate_video']:
+                    interpolate_video(video, input_fps=diffsynth_prefs['fps'], output_fps=diffsynth_prefs['target_fps'], output_video=out_file, installer=installer)
+                else:
+                    installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                    pattern = create_pattern(new_file)  # fname+"-%04d.png"
+                    frames_to_video(video, pattern=pattern, input_fps=diffsynth_prefs['fps'], output_fps=diffsynth_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                pass
+            clear_last()'''
+        autoscroll(True)
+        if not os.path.isfile(out_file):
+            prt(f"Problem creating video file...")
+        else:
+            prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+            # prt(Row([VideoContainer(out_file)], alignment=MainAxisAlignment.CENTER))
+            b += 1
+    # filename = filename[:int(prefs['file_max_length'])]
+    # if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    os.chdir(root_dir)
+    video_path = ""
+    #prt(f"Done creating animation... Check {batch_output}")
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
 
 def run_pia(page, from_list=False, with_params=False):
     global pia_prefs, pipe_pia, prefs, status
@@ -50044,7 +50805,7 @@ def run_rerender_a_video(page):
             run_sp("git clone https://github.com/williamyang1991/Rerender_A_Video.git --recursive", cwd=root_dir, realtime=False)
             installer.status("...installing Rerender_A_Video requirements")
             #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
-            pip_install("addict==2.4.0 albumentations==1.3.0 basicsr==1.4.2 blendmodes einops gradio imageio imageio-ffmpeg invisible-watermark kornia==0.6 numba omegaconf open_clip_torch prettytable==3.6.0 pytorch-lightning safetensors streamlit==1.12.1 streamlit-drawable-canvas==0.8.0 test-tube==0.7.5 timm torchmetrics transformers webdataset yapf==0.32.0 watchdog", installer=installer, upgrade=True)
+            pip_install("addict==2.4.0 albumentations==1.4.10 basicsr==1.4.2 blendmodes einops gradio imageio imageio-ffmpeg invisible-watermark kornia==0.6 numba omegaconf open_clip_torch prettytable==3.6.0 pytorch-lightning safetensors streamlit==1.12.1 streamlit-drawable-canvas==0.8.0 test-tube==0.7.5 timm torchmetrics transformers webdataset yapf==0.32.0 watchdog", installer=installer, upgrade=True)
             installer.status("...downloading SD models")
             run_sp("python install.py", cwd=rerender_a_video_dir, realtime=True)
         except Exception as e:
@@ -55732,6 +56493,11 @@ def chmod_recursive(path, mode):
         for file in files:
             file_path = os.path.join(root, file)
             os.chmod(file_path, mode)
+
+def vram_free():
+    global status
+    status['gpu_used'] = torch.cuda.max_memory_allocated(device=torch.device("cuda")) / (1024 * 1024 * 1024)
+    return status['gpu_memory'] - status['gpu_used']
 
 stop_thread = False
 def background_update(page):
