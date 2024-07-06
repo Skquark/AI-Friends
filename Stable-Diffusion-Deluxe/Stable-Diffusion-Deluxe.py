@@ -47792,7 +47792,7 @@ def run_live_portrait(page):
             alert_msg(page, "Error Installing LivePortrait Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
     makedir(live_portrait_weights)
-    if not os.path.isfile(live_portrait_weights, 'liveportrait', 'landmark.onnx'):
+    if not os.path.isfile(os.path.join(live_portrait_weights, 'liveportrait', 'landmark.onnx')):
         installer.status("...downloading pretrained weights")
         from gdown import download_folder
         download_folder(f"https://drive.google.com/uc?id=1UtKgzKjFAOmZkhNK-OYT0caJ_w2XAnib", live_portrait_weights, quiet=False)
@@ -49796,7 +49796,7 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
-class ProgressBar:
+class ProgressBar_gr:
     def __init__(self, progress_bar_object):
         self.progress_bar = progress_bar_object
         self.current_progress = 0
@@ -49868,7 +49868,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
     autoscroll(True)
     installer = Installing("Installing DiffSynth Image-To-Video Pipeline...")
     prt(installer)
-    pip_install("cupy-cuda12x controlnet-aux imageio imageio[ffmpeg] safetensors einops sentencepiece", installer=installer)
+    pip_install("cupy-cuda12x controlnet-aux imageio imageio[ffmpeg]|imageio safetensors einops sentencepiece", installer=installer)
     diffsynth_dir = os.path.join(root_dir, "DiffSynth-Studio")
     models = os.path.join(diffsynth_dir, "models")
     if not os.path.exists(diffsynth_dir):
@@ -50072,7 +50072,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
     for pr in diffsynth_prompts:
         progress = Progress(f"Generating {diffsynth_mode}... Length: {round(vid_length, 1)} seconds", steps=diffsynth_prefs['num_inference_steps'])
         prt(progress)
-        pb = ProgressBar(progress.progress)
+        pb = ProgressBar_gr(progress.progress)
         nudge(page.DiffSynth, page=page)
         autoscroll(False)
         from io import BytesIO
@@ -56503,6 +56503,7 @@ def pip_install(packages, installer=None, print=False, prt=None, cwd=None, upgra
             exec(f"import {pkg.lower()}")
         except ImportError:
             if '|' in package: package = package.rpartition('|')[0]
+            if '[' in package: package = package.rpartition('[')[0]
             if installer != None:
                 installer.status(f"...installing {pkg}")
             try:
