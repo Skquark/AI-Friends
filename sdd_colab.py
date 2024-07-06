@@ -49834,14 +49834,14 @@ def run_diffsynth(page, from_list=False, with_params=False):
             return
         for p in prompts:
             if with_params:
-                diffsynth_prompts.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'guidance_scale': diffsynth_prefs['guidance_scale'], 'num_inference_steps': diffsynth_prefs['num_inference_steps'], 'width': diffsynth_prefs['width'], 'height': diffsynth_prefs['height'], 'init_image': diffsynth_prefs['init_image'], 'controlnet_strength': diffsynth_prefs['controlnet_strength'], 'num_images': diffsynth_prefs['num_images'], 'seed': diffsynth_prefs['seed']})
+                diffsynth_prompts.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'guidance_scale': diffsynth_prefs['guidance_scale'], 'num_inference_steps': diffsynth_prefs['num_inference_steps'], 'width': diffsynth_prefs['width'], 'height': diffsynth_prefs['height'], 'init_image': diffsynth_prefs['init_image'], 'controlnet_strength': diffsynth_prefs['controlnet_strength'], 'num_videos': diffsynth_prefs['num_videos'], 'seed': diffsynth_prefs['seed']})
             else:
-                diffsynth_prompts.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'guidance_scale': p['guidance_scale'], 'num_inference_steps': p['steps'], 'width': p['width'], 'height': p['height'], 'init_image': p['init_image'], 'controlnet_strength': p['init_image_strength'], 'num_images': p['batch_size'], 'seed': p['seed']})
+                diffsynth_prompts.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'guidance_scale': p['guidance_scale'], 'num_inference_steps': p['steps'], 'width': p['width'], 'height': p['height'], 'init_image': p['init_image'], 'controlnet_strength': p['init_image_strength'], 'num_videos': p['batch_size'], 'seed': p['seed']})
     else:
         '''if not bool(diffsynth_prefs['prompt']):
             alert_msg(page, "You must provide a text prompt to process your image generation...")
             return'''
-        diffsynth_prompts.append({'prompt': diffsynth_prefs['prompt'], 'negative_prompt': diffsynth_prefs['negative_prompt'], 'guidance_scale': diffsynth_prefs['guidance_scale'], 'num_inference_steps': diffsynth_prefs['num_inference_steps'], 'width': diffsynth_prefs['width'], 'height': diffsynth_prefs['height'], 'init_image': diffsynth_prefs['init_image'], 'controlnet_strength': diffsynth_prefs['controlnet_strength'], 'num_images': diffsynth_prefs['num_images'], 'seed': diffsynth_prefs['seed']})
+        diffsynth_prompts.append({'prompt': diffsynth_prefs['prompt'], 'negative_prompt': diffsynth_prefs['negative_prompt'], 'guidance_scale': diffsynth_prefs['guidance_scale'], 'num_inference_steps': diffsynth_prefs['num_inference_steps'], 'width': diffsynth_prefs['width'], 'height': diffsynth_prefs['height'], 'init_image': diffsynth_prefs['init_image'], 'controlnet_strength': diffsynth_prefs['controlnet_strength'], 'num_videos': diffsynth_prefs['num_videos'], 'seed': diffsynth_prefs['seed']})
     def prt(line, update=True):
         if type(line) == str:
             line = Text(line, size=17)
@@ -56420,10 +56420,10 @@ class Installing(Stack):
         self.details = Text("")
         self.progress = ProgressRing()
         return Container(content=Row([self.progress, Container(content=None, width=1), self.message_txt, Container(content=None, expand=True), self.details]), padding=padding.only(left=9, bottom=10))
-    def set_message(self, msg):
+    def set_message(self, msg=""):
         self.message_txt.value = msg
         self.message_txt.update()
-    def status(self, msg):
+    def status(self, msg=""):
         self.details.value = msg
         self.details.update()
     def show_progress(self, show):
@@ -56443,10 +56443,10 @@ class Progress(Stack):
         self.details = Text("")
         self.progress = ProgressBar(bar_height=8)
         return Container(content=Column([Row([self.message_txt, Container(content=None, expand=True), self.details]), self.progress]), padding=padding.only(left=9, bottom=10))
-    def set_message(self, msg):
+    def set_message(self, msg=""):
         self.message_txt.value = msg
         self.message_txt.update()
-    def status(self, msg):
+    def status(self, msg=""):
         self.details.value = msg
         self.details.update()
     def show_progress(self, show):
