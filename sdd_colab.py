@@ -954,6 +954,7 @@ def buildVideoAIs(page):
     page.TemporalNet_XL = buildTemporalNet_XL(page)
     page.Roop = buildROOP(page)
     page.Video_ReTalking = buildVideoReTalking(page)
+    page.LivePortrait = buildLivePortrait(page)
     page.StyleCrafter = buildStyleCrafter(page)
     page.RAVE = buildRAVE(page)
     page.Fresco = buildFrescoV2V(page)
@@ -977,6 +978,7 @@ def buildVideoAIs(page):
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
             Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
+            Tab(text="LivePortrait", content=page.LivePortrait, icon=icons.FACE_2),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
             Tab(text="FRESCO", content=page.Fresco, icon=icons.PARK),
             Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
@@ -14318,6 +14320,69 @@ def buildVideoReTalking(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+live_portrait_prefs = {
+    'input_image': '',
+    'target_video': '',
+    'fps': 25,
+    'img_size': 512,
+    'disable_pasteback': False,
+    'disable_relative': False,
+    'disable_lip_zero': False,
+    'eye_retargeting': False,
+    'lip_retargeting': False,
+    'prepare_video': False,
+    'output_name': '',
+    'batch_folder_name': '',
+}
+def buildLivePortrait(page):
+    global live_portrait_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          live_portrait_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def live_portrait_help(e):
+      def close_live_portrait_dlg(e):
+        nonlocal live_portrait_help_dlg
+        live_portrait_help_dlg.open = False
+        page.update()
+      live_portrait_help_dlg = AlertDialog(title=Text("💁   Help with LivePortrait"), content=Column([
+          Text("Record yourself with little shoulder movement, in a video editing app change the resolution to 512x512, then zoom in on the face so it takes up 60-90% of the screen. It should output a 512x512 of just your face, recommended 25fps. Portrait animation aims to synthesize a lifelike video from a single source image, using it as an appearance reference, with motion (i.e., facial expressions and head pose) derived from a driving video, audio, text, or generation. Instead of following mainstream diffusion-based methods, we explore and extend the potential of the implicit-keypoint-based framework, which effectively balances computational efficiency and controllability. Building upon this, we develop a videodriven portrait animation framework named LivePortrait with a focus on better generalization, controllability, and efficiency for practical usage. To enhance the generation quality and generalization ability, we scale up the training data to about 69 million high-quality frames, adopt a mixed image-video training strategy, upgrade the network architecture, and design better motion transformation and optimization objectives. Additionally, we discover that compact implicit keypoints can effectively represent a kind of blendshapes and meticulously propose a stitching and two retargeting modules, which utilize a small MLP with negligible computational overhead, to enhance the controllability. Experimental results demonstrate the efficacy of our framework even compared to diffusion-based methods. The generation speed remarkably reaches 12.8ms on an RTX 4090 GPU with PyTorch."),
+          Text("Credit goes to Jianzhu Guo, Dingyun Zhang, Xiaoqiang Liu, Zhizhou Zhong, Yuan Zhang, Pengfei Wan, Di Zhang, Kuaishou Technology, University of Science and Technology of China, Fudan University"),
+          Markdown("[Paper](https://arxiv.org/pdf/2407.03168) | [GitHub Page](https://github.com/KwaiVGI/LivePortrait) | [Project Page](https://liveportrait.github.io)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("👱  Funny face time... ", on_click=close_live_portrait_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(live_portrait_help_dlg)
+      live_portrait_help_dlg.open = True
+      page.update()
+    target_video = FileInput(label="Driving Video with Face (cropped 512x512)", pref=live_portrait_prefs, key='target_video', ftype="video", page=page)
+    input_image = FileInput(label="Source Portrait Image to Animate", pref=live_portrait_prefs, key='input_image', ftype="image", page=page)
+    output_name = TextField(label="Output File Name", value=live_portrait_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
+    #fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=live_portrait_prefs, key='fps', tooltip="The FPS to save target video clip.", col={'lg':6})
+    disable_pasteback = Switcher(label="Disable Paste-Back", value=live_portrait_prefs['disable_pasteback'], on_change=lambda e:changed(e,'disable_pasteback'), tooltip="Whether to paste-back/stitch the animated face cropping from the face-cropping space to the original image space.")
+    disable_relative = Switcher(label="Disable Relative Motion", value=live_portrait_prefs['disable_relative'], on_change=lambda e:changed(e,'disable_relative'), tooltip="")
+    disable_lip_zero = Switcher(label="Disable Lip Zero", value=live_portrait_prefs['disable_lip_zero'], on_change=lambda e:changed(e,'disable_lip_zero'), tooltip="Whether to set lips to close state before animation. Only takes effect when eye_retargeting and lip_retargeting is False.")
+    eye_retargeting = Switcher(label="Eye Retargeting", value=live_portrait_prefs['eye_retargeting'], on_change=lambda e:changed(e,'eye_retargeting'), tooltip="")
+    lip_retargeting = Switcher(label="Lip Retargeting", value=live_portrait_prefs['lip_retargeting'], on_change=lambda e:changed(e,'lip_retargeting'), tooltip="")
+    prepare_video = Switcher(label="Prepare Driving Video", value=live_portrait_prefs['prepare_video'], on_change=lambda e:changed(e,'prepare_video'), tooltip="")
+    #img_size = SliderRow(label="Max Image Size", min=256, max=1024, divisions=48, multiple=16, suffix="px", pref=live_portrait_prefs, key='img_size', col={'lg':6})
+    batch_folder_name = TextField(label="Batch Folder Name", value=live_portrait_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("👧  LivePortrait", "Portrait Animation with Stitching and Retargeting Control... Transfers Face Movements to Source Image.", actions=[save_default(live_portrait_prefs, ['target_video', 'input_image']), IconButton(icon=icons.HELP, tooltip="Help with LivePortrait", on_click=live_portrait_help)]),
+        target_video,
+        input_image,
+        #ResponsiveRow([fps]),
+        Row([disable_pasteback, disable_relative, disable_lip_zero]),
+        Row([eye_retargeting, lip_retargeting, prepare_video]),
+        Row([output_name, batch_folder_name]),
+        ElevatedButton(content=Text("😏  Run LivePortrait", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_live_portrait(page)),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 style_crafter_prefs = {
     'init_video': '',
     'init_image': '',
@@ -15934,9 +15999,9 @@ def buildDiffSynth(page):
                                        segments=[
         ft.Segment(value="video_rerender", label=ft.Text("Video ReRender"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO), tooltip="Video stylization without video models."),
         ft.Segment(value="exvideo_svd", label=ft.Text("ExVideo SVD"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO), tooltip="Post-tuning technique aimed at enhancing the capability of video generation models. Up to 128 frames."),
-        ft.Segment(value="sd_text_to_video", label=ft.Text("SD Text-to-Image"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO)),
-        ft.Segment(value="sdxl_text_to_video", label=ft.Text("SDXL Text-to-Image"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO)),
-        ft.Segment(value="svd_text_to_video", label=ft.Text("SVD Text-to-Image"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO)),
+        ft.Segment(value="sd_text_to_video", label=ft.Text("SD Text-to-Video"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO)),
+        ft.Segment(value="sdxl_text_to_video", label=ft.Text("SDXL Text-to-Video"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO)),
+        ft.Segment(value="svd_text_to_video", label=ft.Text("SVD Text-to-Video"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO)),
         ft.Segment(value="diffutoon", label=ft.Text("Diffutoon Shading"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO), tooltip="Render realistic videos in a flatten style and enable video editing features."),
         ft.Segment(value="sd_toon_shading", label=ft.Text("SD Toon Shading"), icon=ft.Icon(ft.icons.ONDEMAND_VIDEO), tooltip="Render realistic videos in a flatten style and enable video editing features."),
     ],
@@ -15992,7 +16057,7 @@ def buildDiffSynth(page):
         content=Column([
             Header("🔥  DiffSynth Studio", "Diffusion engine with multiple optimized modes, restructured architectures including Text Encoder, UNet, VAE, among others...", actions=[save_default(diffsynth_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with DiffSynth Settings", on_click=diffsynth_help)]),
             # ResponsiveRow([prompt, negative_prompt]),
-            Row([Text("DiffSynth Mode:"), selected_mode]),
+            Row([Text("Mode:"), selected_mode]),
             text_prompts,
             init_image,
             init_video,
@@ -30598,7 +30663,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             installer.status("...download InstantID")
             antelopev2_zip = os.path.join(instantid_dir, "antelopev2.zip")
             import gdown
-            gdown("https://drive.google.com/uc?id=18wEUfMNohBJ4K3Ly5wpTejPfDzp-8fI8", antelopev2_zip)
+            gdown.download("https://drive.google.com/uc?id=18wEUfMNohBJ4K3Ly5wpTejPfDzp-8fI8", antelopev2_zip)
             run_sp(f"unzip {antelopev2_zip} -d {os.path.join(instantid_dir, 'antelopev2')}", realtime=False)
             os.remove(antelopev2_zip)
             from huggingface_hub import hf_hub_download
@@ -47707,6 +47772,145 @@ def run_video_retalking(page):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+def run_live_portrait(page):
+    global live_portrait_prefs, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.LivePortrait.controls.append(line)
+      page.LivePortrait.update()
+    def clear_last(lines=1):
+      clear_line(page.LivePortrait, lines=lines)
+    def autoscroll(scroll=True):
+        page.LivePortrait.auto_scroll = scroll
+        page.LivePortrait.update()
+    if not bool(live_portrait_prefs['input_image']) or not bool(live_portrait_prefs['target_video']):
+        alert_msg(page, "You must provide a source image and driving video...")
+        return
+    page.LivePortrait.controls = page.LivePortrait.controls[:1]
+    autoscroll()
+    installer = Installing("Installing LivePortrait Packages...")
+    prt(installer)
+    live_portrait_dir = os.path.join(root_dir, "LivePortrait")
+    live_portrait_weights = os.path.join(live_portrait_dir, "pretrained_weights")
+    if not os.path.exists(live_portrait_dir) or force_update("liveportrait"):
+        try:
+            installer.status("...cloning KwaiVGI/LivePortrait")
+            run_process("git clone https://github.com/KwaiVGI/LivePortrait", cwd=root_dir)
+            installer.status("...installing requirements")
+            get_ffmpeg(installer)
+            pip_install("numpy pyyaml opencv-python|cv2 scipy imageio lmdb tqdm rich onnxruntime-gpu|onnxruntime onnx==1.16.1 scikit-image albumentations==1.4.10 matplotlib imageio-ffmpeg tyro==0.8.5 gdown", installer=installer)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing LivePortrait Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    makedir(live_portrait_weights)
+    if not os.path.isfile(live_portrait_weights, 'liveportrait', 'landmark.onnx'):
+        installer.status("...downloading pretrained weights")
+        from gdown import download_folder
+        download_folder(f"https://drive.google.com/uc?id=1UtKgzKjFAOmZkhNK-OYT0caJ_w2XAnib", live_portrait_weights, quiet=False)
+        # Could also get from https://huggingface.co/camenduru/LivePortrait
+    os.chdir(live_portrait_dir)
+    clear_pipes()
+    if bool(live_portrait_prefs['output_name']):
+        fname = format_filename(live_portrait_prefs['output_name'], force_underscore=True)
+    elif bool(live_portrait_prefs['batch_folder_name']):
+        fname = format_filename(live_portrait_prefs['batch_folder_name'], force_underscore=True)
+    else:
+        fname = "output"
+    #TODO: Add prefix
+    if bool(live_portrait_prefs['batch_folder_name']):
+        batch_output = os.path.join(stable_dir, live_portrait_prefs['batch_folder_name'])
+    else:
+        batch_output = stable_dir
+    makedir(batch_output)
+    results_dir = os.path.join(live_portrait_dir, "animations")
+    makedir(results_dir)
+    inputs_dir = os.path.join(live_portrait_dir, "assets")
+    #makedir(inputs_dir)
+    output_path = os.path.join(prefs['image_output'], live_portrait_prefs['batch_folder_name'])
+    makedir(output_path)
+    target_path = ""
+    if live_portrait_prefs['target_video'].startswith('http'):
+        installer.status("...downloading target video")
+        target_path = download_file(live_portrait_prefs['target_video'], inputs_dir)
+    else:
+        if os.path.isfile(live_portrait_prefs['target_video']):
+            target_path = live_portrait_prefs['target_video']
+            shutil.copy(target_path, os.path.join(inputs_dir, os.path.basename(target_path)))
+            target_path = os.path.join(inputs_dir, os.path.basename(target_path))
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your target_video {live_portrait_prefs['target_video']}")
+            return
+    input_image = ""
+    if live_portrait_prefs['input_image'].startswith('http'):
+        installer.status("...downloading input image")
+        input_image = download_file(live_portrait_prefs['input_image'], inputs_dir)
+    else:
+        if os.path.isfile(live_portrait_prefs['input_image']):
+            input_image = live_portrait_prefs['input_image']
+            shutil.copy(input_image, os.path.join(inputs_dir, os.path.basename(input_image)))
+            input_image = os.path.join(inputs_dir, os.path.basename(input_image))
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your input_image {live_portrait_prefs['input_image']}")
+            return
+    clear_last()
+    progress = ProgressBar(bar_height=8)
+    prt(f"Generating your LivePortrait Video... See Connsole for Progress.")
+    prt(progress)
+    autoscroll(False)
+    total_steps = 100 #?
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()
+    #output_file = os.path.join(results_dir, os.path.basename(output_file))
+    output_file = available_file(output_path, fname, 0, ext='mp4', no_num=True)
+    video_file = os.path.join(results_dir, f"{os.path.basename(input_image).rpartition('.')[0]}--{os.path.basename(target_path).rpartition('.')[0]}.mp4")
+    extras = ""
+    if live_portrait_prefs['disable_pasteback']:
+        extras += f" --no_flag_pasteback"
+    if live_portrait_prefs['disable_relative']:
+        extras += f" --no_flag_relative"
+    if live_portrait_prefs['disable_lip_zero']:
+        extras += f" --no_flag_lip_zero"
+    if live_portrait_prefs['eye_retargeting']:
+        extras += f" --flag_eye_retargeting"
+    if live_portrait_prefs['lip_retargeting']:
+        extras += f" --no_flag_lip_retargeting"
+    if live_portrait_prefs['prepare_video']:
+        run_process("python inference.py -h", cwd=live_portrait_dir, page=page, realtime=True)
+    cmd = f'python inference.py -s {input_image} -d {target_path} -o {results_dir}{extras}'
+    #--face "inputs/{os.path.basename(target_path)}"  --audio "inputs/{os.path.basename(input_image)}"{extras} --outfile "results/{os.path.basename(output_file)}"'
+    print(f"Running {cmd}")
+    try:
+        run_process(cmd, cwd=live_portrait_dir, page=page, realtime=True)
+    except Exception as e:
+        clear_last(2)
+        alert_msg(page, "Error running Python inference.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        os.chdir(root_dir)
+        return
+    shutil.copy(video_file, output_file)
+    clear_last(2)
+    autoscroll(True)
+    #TODO: Upscale Image
+    if os.path.isfile(output_file):
+        prt(Markdown(f"Video saved to [{output_file}]({output_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        #prt(Row([Text("Saved to {output_file}")], alignment=MainAxisAlignment.CENTER))
+        try:
+            prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
+        except:
+            pass
+    else:
+        prt("💢  Error Generating Output File!")
+    os.chdir(root_dir)
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
 def run_style_crafter(page):
     global style_crafter_prefs, prefs, status
     def prt(line):
@@ -49630,14 +49834,14 @@ def run_diffsynth(page, from_list=False, with_params=False):
             return
         for p in prompts:
             if with_params:
-                diffsynth_prompts.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'guidance_scale': diffsynth_prefs['guidance_scale'], 'num_inference_steps': diffsynth_prefs['num_inference_steps'], 'width': diffsynth_prefs['width'], 'height': diffsynth_prefs['height'], 'init_image': diffsynth_prefs['init_image'], 'init_image_strength': diffsynth_prefs['init_image_strength'], 'num_images': diffsynth_prefs['num_images'], 'seed': diffsynth_prefs['seed']})
+                diffsynth_prompts.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'guidance_scale': diffsynth_prefs['guidance_scale'], 'num_inference_steps': diffsynth_prefs['num_inference_steps'], 'width': diffsynth_prefs['width'], 'height': diffsynth_prefs['height'], 'init_image': diffsynth_prefs['init_image'], 'controlnet_strength': diffsynth_prefs['controlnet_strength'], 'num_images': diffsynth_prefs['num_images'], 'seed': diffsynth_prefs['seed']})
             else:
-                diffsynth_prompts.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'guidance_scale': p['guidance_scale'], 'num_inference_steps': p['steps'], 'width': p['width'], 'height': p['height'], 'init_image': p['init_image'], 'init_image_strength': p['init_image_strength'], 'num_images': p['batch_size'], 'seed': p['seed']})
+                diffsynth_prompts.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'guidance_scale': p['guidance_scale'], 'num_inference_steps': p['steps'], 'width': p['width'], 'height': p['height'], 'init_image': p['init_image'], 'controlnet_strength': p['init_image_strength'], 'num_images': p['batch_size'], 'seed': p['seed']})
     else:
-        if not bool(diffsynth_prefs['prompt']):
+        '''if not bool(diffsynth_prefs['prompt']):
             alert_msg(page, "You must provide a text prompt to process your image generation...")
-            return
-        diffsynth_prompts.append({'prompt': diffsynth_prefs['prompt'], 'negative_prompt': diffsynth_prefs['negative_prompt'], 'guidance_scale': diffsynth_prefs['guidance_scale'], 'num_inference_steps': diffsynth_prefs['num_inference_steps'], 'width': diffsynth_prefs['width'], 'height': diffsynth_prefs['height'], 'init_image': diffsynth_prefs['init_image'], 'init_image_strength': diffsynth_prefs['init_image_strength'], 'num_images': diffsynth_prefs['num_images'], 'seed': diffsynth_prefs['seed']})
+            return'''
+        diffsynth_prompts.append({'prompt': diffsynth_prefs['prompt'], 'negative_prompt': diffsynth_prefs['negative_prompt'], 'guidance_scale': diffsynth_prefs['guidance_scale'], 'num_inference_steps': diffsynth_prefs['num_inference_steps'], 'width': diffsynth_prefs['width'], 'height': diffsynth_prefs['height'], 'init_image': diffsynth_prefs['init_image'], 'controlnet_strength': diffsynth_prefs['controlnet_strength'], 'num_images': diffsynth_prefs['num_images'], 'seed': diffsynth_prefs['seed']})
     def prt(line, update=True):
         if type(line) == str:
             line = Text(line, size=17)
@@ -49665,15 +49869,13 @@ def run_diffsynth(page, from_list=False, with_params=False):
         if from_list:
             page.imageColumn.auto_scroll = scroll
             page.imageColumn.update()
-            page.DiffSynth.auto_scroll = scroll
-            page.DiffSynth.update()
         else:
             page.DiffSynth.auto_scroll = scroll
             page.DiffSynth.update()
     if from_list:
         page.tabs.selected_index = 4
         page.tabs.update()
-    modes = {"video_rerender": "Video ReRender", "exvideo_svd": "ExVideo SVD", "sd_text_to_video": "SD Text-to-Image", "sdxl_text_to_video": "SDXL Text-to-Image", "svd_text_to_video": "SVD Text-to-Image", "diffutoon": "Diffutoon Shading"}
+    modes = {"video_rerender": "Video ReRender", "exvideo_svd": "ExVideo SVD", "sd_text_to_video": "SD Text-to-Video", "sdxl_text_to_video": "SDXL Text-to-Video", "svd_text_to_video": "SVD Text-to-Video", "diffutoon": "Diffutoon Shading", "sd_toon_shading": "SD Toon Shading"}
     diffsynth_mode = switchcase(diffsynth_prefs["diffsynth_mode"], modes)
     clear_list()
     autoscroll(True)
@@ -49685,7 +49887,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
     if not os.path.exists(diffsynth_dir):
         installer.status("...cloning lllyasviel/LayerDiffuse_DiffusersCLI")
         run_sp("git clone https://github.com/modelscope/DiffSynth-Studio.git", cwd=root_dir, realtime=False)
-    if layer_diffuse_dir not in sys.path:
+    if diffsynth_dir not in sys.path:
         sys.path.append(diffsynth_dir)
     os.chdir(diffsynth_dir)
     mode = diffsynth_prefs["diffsynth_mode"]
@@ -49924,6 +50126,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
         torch.manual_seed(random_seed)
         fname = f"{diffsynth_prefs['file_prefix']}{format_filename(pr['prompt'] if bool(pr['prompt']) else diffsynth_prefs['batch_folder_name'])}"
         out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+        RIFE_file = available_file(batch_output, fname+"-RIFE", no_num=True, ext="mp4")
         video = None
         try:
             if mode == "video_rerender":
@@ -49989,7 +50192,6 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 # Video -> Video with high fps
                 interpolater = RIFEInterpolater.from_model_manager(diffsynth_model_manager)
                 video = interpolater.interpolate(video, num_iter=3)
-                # Save images and video
             elif mode == "sdxl_text_to_video":
                 video = pipe_diffsynth(
                     prompt=pr["prompt"],
@@ -50123,12 +50325,14 @@ def run_diffsynth(page, from_list=False, with_params=False):
             return
         clear_last()
         autoscroll(True)
+        progress.status("...saving video")
         save_video(video, out_file, fps=diffsynth_prefs["target_fps"])
         if diffsynth_prefs["interpolate_video"]:
             progress.status("...RIFE Interpolater")
             diffsynth_model_manager.load_models([os.path.join(diffsynth_dir, "models/RIFE/flownet.pkl")])
             interpolater = RIFEInterpolater.from_model_manager(diffsynth_model_manager)
             video = interpolater.interpolate(video, num_iter=3)
+            save_video(video, RIFE_file, fps=diffsynth_prefs["target_fps"])
         if diffsynth_prefs['export_to_gif']:
             try:
                 installer = Installing("Saving Animated GIF image sequence...")
@@ -50165,7 +50369,8 @@ def run_diffsynth(page, from_list=False, with_params=False):
         if not os.path.isfile(out_file):
             prt(f"Problem creating video file...")
         else:
-            prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+            interpolate = f" and [{os.path.basename(RIFE_file)}]({RIFE_file})" if diffsynth_prefs["interpolate_video"] else ""
+            prt(Markdown(f"Video saved to [{out_file}]({out_file}){interpolate}", on_tap_link=lambda e: e.page.launch_url(e.data)))
             # prt(Row([VideoContainer(out_file)], alignment=MainAxisAlignment.CENTER))
             b += 1
     # filename = filename[:int(prefs['file_max_length'])]
@@ -56954,7 +57159,9 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
             sys.path.append(frame_interpolation_dir)
     if not os.path.exists(saved_model_dir):
         makedir(saved_model_dir)
-        run_sp(f"gdown -q --folder 1q8110-qp225asX3DQvZnfLfJPkCHmDpy -O {saved_model_dir}", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+        import gdown
+        gdown.download_folder("https://drive.google.com/uc?id=1q8110-qp225asX3DQvZnfLfJPkCHmDpy", output=saved_model_dir)
+        #run_sp(f"gdown -q --folder 1q8110-qp225asX3DQvZnfLfJPkCHmDpy -O {saved_model_dir}", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp('rm -rf pretrained_models-20220214T214839Z-001.zip', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
