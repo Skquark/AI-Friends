@@ -14330,7 +14330,8 @@ live_portrait_prefs = {
     'disable_lip_zero': False,
     'eye_retargeting': False,
     'lip_retargeting': False,
-    'prepare_video': False,
+    #'prepare_video': False,
+    'keep_audio': True,
     'output_name': '',
     'batch_folder_name': '',
 }
@@ -14365,7 +14366,8 @@ def buildLivePortrait(page):
     disable_lip_zero = Switcher(label="Disable Lip Zero", value=live_portrait_prefs['disable_lip_zero'], on_change=lambda e:changed(e,'disable_lip_zero'), tooltip="Whether to set lips to close state before animation. Only takes effect when eye_retargeting and lip_retargeting is False.")
     eye_retargeting = Switcher(label="Eye Retargeting", value=live_portrait_prefs['eye_retargeting'], on_change=lambda e:changed(e,'eye_retargeting'), tooltip="")
     lip_retargeting = Switcher(label="Lip Retargeting", value=live_portrait_prefs['lip_retargeting'], on_change=lambda e:changed(e,'lip_retargeting'), tooltip="")
-    prepare_video = Switcher(label="Prepare Driving Video", value=live_portrait_prefs['prepare_video'], on_change=lambda e:changed(e,'prepare_video'), tooltip="")
+    #prepare_video = Switcher(label="Prepare Driving Video", value=live_portrait_prefs['prepare_video'], on_change=lambda e:changed(e,'prepare_video'), tooltip="")
+    keep_audio = Switcher(label="Keep Audio", value=live_portrait_prefs['keep_audio'], on_change=lambda e:changed(e,'keep_audio'), tooltip="Transfers the audio layer from driving video and apply it to output animation.")
     #img_size = SliderRow(label="Max Image Size", min=256, max=1024, divisions=48, multiple=16, suffix="px", pref=live_portrait_prefs, key='img_size', col={'lg':6})
     batch_folder_name = TextField(label="Batch Folder Name", value=live_portrait_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     c = Column([Container(
@@ -14376,7 +14378,7 @@ def buildLivePortrait(page):
         input_image,
         #ResponsiveRow([fps]),
         Row([disable_pasteback, disable_relative, disable_lip_zero]),
-        Row([eye_retargeting, lip_retargeting, prepare_video]),
+        Row([eye_retargeting, lip_retargeting, keep_audio]),
         Row([output_name, batch_folder_name]),
         ElevatedButton(content=Text("😏  Run LivePortrait", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_live_portrait(page)),
       ]
@@ -24556,7 +24558,10 @@ def get_ESRGAN(page, model=None, installer=None):
         stat(f"downloading {model}.pth")
         if 'drive.google' in model_url:
             import gdown
-            gdown.download(model_url, os.path.join(ESRGAN_folder, 'experiments', 'pretrained_models', f'{model}.pth'), quiet=True)
+            if 'folders' in model_url:
+                gdown.download_folder(url=model_url, output=os.path.join(ESRGAN_folder, 'experiments', 'pretrained_models', f'{model}.pth'), quiet=True)
+            else:
+                gdown.download(url=model_url, output=os.path.join(ESRGAN_folder, 'experiments', 'pretrained_models', f'{model}.pth'), quiet=True)
         else:
             download_file(model_url, os.path.join(ESRGAN_folder, "experiments", "pretrained_models"))
             #run_sp(f"wget {model_url} -P experiments/pretrained_models --quiet", cwd=ESRGAN_folder)
@@ -30663,7 +30668,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             installer.status("...download InstantID")
             antelopev2_zip = os.path.join(instantid_dir, "antelopev2.zip")
             import gdown
-            gdown.download("https://drive.google.com/uc?id=18wEUfMNohBJ4K3Ly5wpTejPfDzp-8fI8", antelopev2_zip)
+            gdown.download(id="18wEUfMNohBJ4K3Ly5wpTejPfDzp-8fI8", output=antelopev2_zip)
             run_sp(f"unzip {antelopev2_zip} -d {os.path.join(instantid_dir, 'antelopev2')}", realtime=False)
             os.remove(antelopev2_zip)
             from huggingface_hub import hf_hub_download
@@ -33590,7 +33595,7 @@ def run_dance_diffusion(page):
         if bool(community['download']):
           dance_model_file = os.path.join(models_path, community['ckpt'])
           if community['download'].startswith('https://drive'):
-            gdown.download(community['download'], dance_model_file, quiet=True)
+            gdown.download(url=community['download'], output=dance_model_file, quiet=True)
           elif community['download'].startswith('http'):
             local = download_file(community['download'])
             print(f"Download {community['download']} local:{local}")
@@ -33620,7 +33625,7 @@ def run_dance_diffusion(page):
       if bool(dance_prefs['custom_model']):
         if dance_prefs['custom_model'].startswith('https://drive'):
           dance_model_file = os.path.join(models_path, "custom_dance.ckpt")
-          gdown.download(dance_prefs['custom_model'], dance_model_file, quiet=True)
+          gdown.download(url=dance_prefs['custom_model'], output=dance_model_file, quiet=True)
         elif dance_prefs['custom_model'].startswith('http'):
           fname = dance_prefs['custom_model'].rpartition('/')[2]
           local = download_file(dance_prefs['custom_model'])
@@ -35145,7 +35150,7 @@ def run_converter(page):
     installer.status("...downloading")
     if model_path.startswith('https://drive'):
       import gdown
-      gdown.download(model_path, checkpoint_file, quiet=True)
+      gdown.download(url=model_path, output=checkpoint_file, quiet=True)
     elif model_path.startswith('http'):
       local = download_file(model_path)
       print(f"Download {model_path} local:{local}")
@@ -43456,6 +43461,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
                 pipe_hunyuan.enable_model_cpu_offload()
             else:
                 pipe_hunyuan.to("cuda")
+            pipe_hunyuan.set_progress_bar_config(disable=True)
             status['loaded_hunyuan_model'] = model_id
         except Exception as e:
             clear_last()
@@ -47799,7 +47805,13 @@ def run_live_portrait(page):
             run_process("git clone https://github.com/KwaiVGI/LivePortrait", cwd=root_dir)
             installer.status("...installing requirements")
             get_ffmpeg(installer)
-            pip_install("numpy pyyaml opencv-python|cv2 scipy imageio lmdb tqdm rich onnxruntime-gpu|onnxruntime onnx==1.16.1 scikit-image albumentations==1.4.10 matplotlib imageio-ffmpeg tyro==0.8.5 gdown", installer=installer)
+            try:
+                import onnxruntime
+            except:
+                installer.status("...installing onnxruntime-gpu")
+                run_sp("pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/")
+                pass # onnxruntime-gpu==1.18.0|onnxruntime
+            pip_install("numpy pyyaml|yaml opencv-python|cv2 scipy imageio patch-ng lmdb tqdm rich onnx==1.16.1 scikit-image|skimage albumentations==1.4.10 matplotlib imageio-ffmpeg tyro==0.8.5 gradio gdown", installer=installer)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing LivePortrait Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -47808,7 +47820,7 @@ def run_live_portrait(page):
     if not os.path.isfile(os.path.join(live_portrait_weights, 'liveportrait', 'landmark.onnx')):
         installer.status("...downloading pretrained weights")
         from gdown import download_folder
-        download_folder(f"https://drive.google.com/uc?id=1UtKgzKjFAOmZkhNK-OYT0caJ_w2XAnib", live_portrait_weights, quiet=False)
+        download_folder(id="1UtKgzKjFAOmZkhNK-OYT0caJ_w2XAnib", output=live_portrait_weights, quiet=True)
         # Could also get from https://huggingface.co/camenduru/LivePortrait
     os.chdir(live_portrait_dir)
     clear_pipes()
@@ -47868,6 +47880,7 @@ def run_live_portrait(page):
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}"
       progress.update()
+    torch.backends.cudnn.benchmark = True
     #output_file = os.path.join(results_dir, os.path.basename(output_file))
     output_file = available_file(output_path, fname, 0, ext='mp4', no_num=True)
     video_file = os.path.join(results_dir, f"{os.path.basename(input_image).rpartition('.')[0]}--{os.path.basename(target_path).rpartition('.')[0]}.mp4")
@@ -47882,23 +47895,37 @@ def run_live_portrait(page):
         extras += f" --flag_eye_retargeting"
     if live_portrait_prefs['lip_retargeting']:
         extras += f" --no_flag_lip_retargeting"
-    if live_portrait_prefs['prepare_video']:
-        run_process("python inference.py -h", cwd=live_portrait_dir, page=page, realtime=True)
-    cmd = f'python inference.py -s {input_image} -d {target_path} -o {results_dir}{extras}'
+    if not live_portrait_prefs['keep_audio']:
+        extras += f" --no_flag_add_sound"
+    #if live_portrait_prefs['prepare_video']:
+    #    run_process("python inference.py -h", cwd=live_portrait_dir, page=page, realtime=True)
+    cmd = f'python inference.py -s assets/{os.path.basename(input_image)} -d assets/{os.path.basename(target_path)} -o {results_dir}{extras}'
     #--face "inputs/{os.path.basename(target_path)}"  --audio "inputs/{os.path.basename(input_image)}"{extras} --outfile "results/{os.path.basename(output_file)}"'
     print(f"Running {cmd}")
-    try:
+    try:#TODO: Use RunConsole UI
         run_process(cmd, cwd=live_portrait_dir, page=page, realtime=True)
     except Exception as e:
         clear_last(2)
         alert_msg(page, "Error running Python inference.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
         os.chdir(root_dir)
         return
-    shutil.copy(video_file, output_file)
     clear_last(2)
     autoscroll(True)
-    #TODO: Upscale Image
-    if os.path.isfile(output_file):
+    def apply_audio_to_video(source_video, target_video, output_video):
+        import imageio_ffmpeg as ffmpeg
+        import tempfile
+        audio_file = tempfile.NamedTemporaryFile(delete=False, suffix='.aac')
+        audio_file.close()
+        ffmpeg.ffmpeg_extract_audio(source_video, audio_file.name)
+        stream = ffmpeg.output(ffmpeg.input(target_video), ffmpeg.input(audio_file.name), output_video, vcodec='libx264', acodec='aac', strict='experimental')
+        ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)
+        os.unlink(audio_file.name)
+    #TODO: Upscale Video and keep_audio
+    if os.path.isfile(video_file):
+        '''if live_portrait_prefs['keep_audio']:
+            apply_audio_to_video(target_path, video_file, output_file)
+        else:'''
+        shutil.copy(video_file, output_file)
         prt(Markdown(f"Video saved to [{output_file}]({output_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
         #prt(Row([Text("Saved to {output_file}")], alignment=MainAxisAlignment.CENTER))
         try:
@@ -48914,7 +48941,7 @@ def run_animate_diff(page):
                     elif ip_image.startswith('https://drive'):
                         pip_install("gdown==4.7.3", installer=installer)
                         import gdown
-                        gdown.download(ip_image, img_path, quiet=True)
+                        gdown.download(url=ip_image, output=img_path, quiet=True)
                     elif ip_image.startswith('http'):
                         download_file(ip_image, img_path)
         controlnet_map[controlnet_task] = {
@@ -48940,7 +48967,7 @@ def run_animate_diff(page):
             elif ip_image.startswith('https://drive'):
                 pip_install("gdown==4.7.3", installer=installer)
                 import gdown
-                gdown.download(ip_image, img_path, quiet=True)
+                gdown.download(url=ip_image, output=img_path, quiet=True)
             elif ip_image.startswith('http'):
                 download_file(ip_image, img_path)
     ip_adapter_map = {
@@ -48968,7 +48995,7 @@ def run_animate_diff(page):
                 elif img2img_image.startswith('https://drive'):
                     pip_install("gdown==4.7.3", installer=installer)
                     import gdown
-                    gdown.download(img2img_image, img_path, quiet=True)
+                    gdown.download(url=img2img_image, output=img_path, quiet=True)
                 elif img2img_image.startswith('http'):
                     download_file(img2img_image, img_path)
         img2img_map = {
@@ -49904,7 +49931,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
             from diffsynth.processors.FastBlend import FastBlendSmoother
             from diffsynth.processors.PILEditor import ContrastEditor, SharpnessEditor
             from diffsynth.processors.sequencial_processor import SequencialProcessor
-            if pipe_diffsynth != None:
+            if pipe_diffsynth is None:
                 installer.status("...downloading models")
                 download_models([
                     "ControlNet_v11f1p_sd15_depth",
@@ -49936,7 +49963,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 )
             smoother = SequencialProcessor([FastBlendSmoother(), ContrastEditor(rate=1.1), SharpnessEditor(rate=1.1)])
         elif mode == "exvideo_svd":
-            if pipe_diffsynth != None:
+            if pipe_diffsynth is None:
                 installer.status("...downloading HunyuanDiT models")
                 os.environ["TOKENIZERS_PARALLELISM"] = "True"
                 download_models(["HunyuanDiT"])
@@ -49960,7 +49987,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 pipe_diffsynth = SVDVideoPipeline.from_model_manager(model_manager)
         elif mode == "sd_text_to_video":
             from diffsynth import SDImagePipeline
-            if pipe_diffsynth != None and pipe__diffsynth_image != None:
+            if pipe_diffsynth is None and pipe__diffsynth_image is None:
                 installer.status("...downloading dreamshaper_8 mm_sd_v15_v2 & flownet")
                 download_models(["DreamShaper_8", "AnimateDiff_v2", "RIFE"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
@@ -49975,7 +50002,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 pipe_diffsynth = SDVideoPipeline.from_model_manager(diffsynth_model_manager)
         elif mode == "sdxl_text_to_video":
             from diffsynth import SDXLVideoPipeline
-            if pipe_diffsynth != None:
+            if pipe_diffsynth is None:
                 installer.status("...downloading mm_sdxl models")
                 download_models(["StableDiffusionXL_v1", "AnimateDiff_xl_beta"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
@@ -49987,7 +50014,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 pipe_diffsynth = SDXLVideoPipeline.from_model_manager(diffsynth_model_manager)
         elif mode == "svd_text_to_video":
             from diffsynth import SDXLImagePipeline, SVDVideoPipeline
-            if pipe_diffsynth != None and pipe__diffsynth_image != None:
+            if pipe_diffsynth is None and pipe__diffsynth_image is None:
                 installer.status("...downloading img2vid models")
                 download_models(["StableDiffusionXL_v1", "stable-video-diffusion-img2vid-xt"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
@@ -50010,7 +50037,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 "TextualInversion_VeryBadImageNegative_v1.3"
             ])
         elif mode == "sd_toon_shading":
-            if pipe_diffsynth != None:
+            if pipe_diffsynth is None:
                 installer.status("...downloading sd_toon_shading models")
                 download_models([
                     "Flat2DAnimerge_v45Sharp",
@@ -57161,7 +57188,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
     if not os.path.exists(saved_model_dir):
         makedir(saved_model_dir)
         import gdown
-        gdown.download_folder("https://drive.google.com/uc?id=1q8110-qp225asX3DQvZnfLfJPkCHmDpy", output=saved_model_dir)
+        gdown.download_folder(id="1q8110-qp225asX3DQvZnfLfJPkCHmDpy", output=saved_model_dir)
         #run_sp(f"gdown -q --folder 1q8110-qp225asX3DQvZnfLfJPkCHmDpy -O {saved_model_dir}", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
