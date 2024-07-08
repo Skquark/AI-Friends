@@ -14352,7 +14352,7 @@ def buildLivePortrait(page):
       live_portrait_help_dlg = AlertDialog(title=Text("💁   Help with LivePortrait"), content=Column([
           Text("Record yourself with little shoulder movement, in a video editing app change the resolution to 512x512, then zoom in on the face so it takes up 60-90% of the screen. It should output a 512x512 of just your face, recommended 25fps. Portrait animation aims to synthesize a lifelike video from a single source image, using it as an appearance reference, with motion (i.e., facial expressions and head pose) derived from a driving video, audio, text, or generation. Instead of following mainstream diffusion-based methods, we explore and extend the potential of the implicit-keypoint-based framework, which effectively balances computational efficiency and controllability. Building upon this, we develop a videodriven portrait animation framework named LivePortrait with a focus on better generalization, controllability, and efficiency for practical usage. To enhance the generation quality and generalization ability, we scale up the training data to about 69 million high-quality frames, adopt a mixed image-video training strategy, upgrade the network architecture, and design better motion transformation and optimization objectives. Additionally, we discover that compact implicit keypoints can effectively represent a kind of blendshapes and meticulously propose a stitching and two retargeting modules, which utilize a small MLP with negligible computational overhead, to enhance the controllability. Experimental results demonstrate the efficacy of our framework even compared to diffusion-based methods. The generation speed remarkably reaches 12.8ms on an RTX 4090 GPU with PyTorch."),
           Text("Credit goes to Jianzhu Guo, Dingyun Zhang, Xiaoqiang Liu, Zhizhou Zhong, Yuan Zhang, Pengfei Wan, Di Zhang, Kuaishou Technology, University of Science and Technology of China, Fudan University"),
-          Markdown("[Paper](https://arxiv.org/pdf/2407.03168) | [GitHub Page](https://github.com/KwaiVGI/LivePortrait) | [Project Page](https://liveportrait.github.io)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Paper](https://arxiv.org/pdf/2407.03168) | [GitHub Page](https://github.com/KwaiVGI/LivePortrait) | [Project Page](https://liveportrait.github.io) | [HF Space](https://huggingface.co/spaces/KwaiVGI/liveportrait)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("👱  Funny face time... ", on_click=close_live_portrait_dlg)], actions_alignment=MainAxisAlignment.END)
       page.overlay.append(live_portrait_help_dlg)
       live_portrait_help_dlg.open = True
@@ -49940,9 +49940,9 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 ])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
                                                        file_path_list=[
-                                                           os.path.join(models, "stable_diffusion", "dreamshaper_8.safetensors"),
-                                                           os.path.join(models, "ControlNet", "control_v11f1p_sd15_depth.pth"),
-                                                           os.path.join(models, "ControlNet", "control_v11p_sd15_softedge.pth"),
+                                                           "models/stable_diffusion/dreamshaper_8.safetensors",
+                                                           "models/ControlNet/control_v11f1p_sd15_depth.pth",
+                                                           "models/ControlNet/control_v11p_sd15_softedge.pth",
                                                        ]
                                                        )
                 installer.status("...loading SDVideoPipeline")
@@ -49951,12 +49951,12 @@ def run_diffsynth(page, from_list=False, with_params=False):
                     [
                         ControlNetConfigUnit(
                             processor_id="depth",
-                            model_path=os.path.join(models, "ControlNet", "control_v11f1p_sd15_depth.pth"),
+                            model_path="models/ControlNet/control_v11f1p_sd15_depth.pth",
                             scale=0.5
                         ),
                         ControlNetConfigUnit(
                             processor_id="softedge",
-                            model_path=os.path.join(models, "ControlNet", "control_v11p_sd15_softedge.pth"),
+                            model_path="models/ControlNet/control_v11p_sd15_softedge.pth",
                             scale=0.5
                         )
                     ]
@@ -49969,10 +49969,10 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 download_models(["HunyuanDiT"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
                                                        file_path_list=[
-                                                           os.path.join(diffsynth_dir, "models/HunyuanDiT/t2i/clip_text_encoder/pytorch_model.bin"),
-                                                           os.path.join(diffsynth_dir, "models/HunyuanDiT/t2i/mt5/pytorch_model.bin"),
-                                                           os.path.join(diffsynth_dir, "models/HunyuanDiT/t2i/model/pytorch_model_ema.pt"),
-                                                           os.path.join(diffsynth_dir, "models/HunyuanDiT/t2i/sdxl-vae-fp16-fix/diffusion_pytorch_model.bin"),
+                                                           "models/HunyuanDiT/t2i/clip_text_encoder/pytorch_model.bin",
+                                                           "models/HunyuanDiT/t2i/mt5/pytorch_model.bin",
+                                                           "models/HunyuanDiT/t2i/model/pytorch_model_ema.pt",
+                                                           "models/HunyuanDiT/t2i/sdxl-vae-fp16-fix/diffusion_pytorch_model.bin",
                                                        ])
                 installer.status("...loading HunyuanDiTImagePipeline")
                 pipe_diffsynth_image = HunyuanDiTImagePipeline.from_model_manager(diffsynth_model_manager)
@@ -49980,24 +49980,24 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 download_models(["stable-video-diffusion-img2vid-xt", "ExVideo-SVD-128f-v1"])
                 model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
                                              file_path_list=[
-                                                 os.path.join("models/stable_video_diffusion/svd_xt.safetensors"),
-                                                 os.path.join("models/stable_video_diffusion/model.fp16.safetensors"),
+                                                 "models/stable_video_diffusion/svd_xt.safetensors",
+                                                 "models/stable_video_diffusion/model.fp16.safetensors",
                                              ])
                 installer.status("...loading SVDVideoPipeline")
                 pipe_diffsynth = SVDVideoPipeline.from_model_manager(model_manager)
         elif mode == "sd_text_to_video":
             from diffsynth import SDImagePipeline
-            if pipe_diffsynth is None and pipe__diffsynth_image is None:
+            if pipe_diffsynth is None:
                 installer.status("...downloading dreamshaper_8 mm_sd_v15_v2 & flownet")
                 download_models(["DreamShaper_8", "AnimateDiff_v2", "RIFE"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
                 diffsynth_model_manager.load_models([
-                    os.path.join(diffsynth_dir, "models/stable_diffusion/dreamshaper_8.safetensors"),
-                    os.path.join(diffsynth_dir, "models/AnimateDiff/mm_sd_v15_v2.ckpt"),
-                    os.path.join(diffsynth_dir, "models/RIFE/flownet.pkl")
+                    "models/stable_diffusion/dreamshaper_8.safetensors",
+                    "models/AnimateDiff/mm_sd_v15_v2.ckpt",
+                    "models/RIFE/flownet.pkl",
                 ])
                 installer.status("...loading SDImagePipeline")
-                pipe__diffsynth_image = SDImagePipeline.from_model_manager(diffsynth_model_manager)
+                pipe_diffsynth_image = SDImagePipeline.from_model_manager(diffsynth_model_manager)
                 installer.status("...loading SDVideoPipeline")
                 pipe_diffsynth = SDVideoPipeline.from_model_manager(diffsynth_model_manager)
         elif mode == "sdxl_text_to_video":
@@ -50007,24 +50007,24 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 download_models(["StableDiffusionXL_v1", "AnimateDiff_xl_beta"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
                 diffsynth_model_manager.load_models([
-                    os.path.join(diffsynth_dir, "models/stable_diffusion_xl/sd_xl_base_1.0.safetensors"),
-                    os.path.join(diffsynth_dir, "models/AnimateDiff/mm_sdxl_v10_beta.ckpt")
+                    "models/stable_diffusion_xl/sd_xl_base_1.0.safetensors",
+                    "models/AnimateDiff/mm_sdxl_v10_beta.ckpt",
                 ])
                 installer.status("...loading SDXLVideoPipeline")
                 pipe_diffsynth = SDXLVideoPipeline.from_model_manager(diffsynth_model_manager)
         elif mode == "svd_text_to_video":
             from diffsynth import SDXLImagePipeline, SVDVideoPipeline
-            if pipe_diffsynth is None and pipe__diffsynth_image is None:
+            if pipe_diffsynth is None:
                 installer.status("...downloading img2vid models")
                 download_models(["StableDiffusionXL_v1", "stable-video-diffusion-img2vid-xt"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
-                diffsynth_model_manager.load_models([os.path.join(diffsynth_dir, "models/stable_diffusion_xl/sd_xl_base_1.0.safetensors")])
+                diffsynth_model_manager.load_models(["models/stable_diffusion_xl/sd_xl_base_1.0.safetensors"])
                 installer.status("...loading SDXLImagePipeline")
-                pipe__diffsynth_image = SDXLImagePipeline.from_model_manager(diffsynth_model_manager)
+                pipe_diffsynth_image = SDXLImagePipeline.from_model_manager(diffsynth_model_manager)
                 diffsynth_model_manager.to("cpu")
                 installer.status("...downloading svd_xt models")
                 diffsynth_model_manager = ModelManager()
-                diffsynth_model_manager.load_models([os.path.join(diffsynth_dir, "models/stable_video_diffusion/svd_xt.safetensors")])
+                diffsynth_model_manager.load_models(["models/stable_video_diffusion/svd_xt.safetensors"])
                 installer.status("...loading SVDVideoPipeline")
                 pipe_diffsynth = SVDVideoPipeline.from_model_manager(diffsynth_model_manager)
         elif mode == "diffutoon":
@@ -50047,12 +50047,12 @@ def run_diffsynth(page, from_list=False, with_params=False):
                     "TextualInversion_VeryBadImageNegative_v1.3"
                 ])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
-                diffsynth_model_manager.load_textual_inversions(os.path.join(diffsynth_dir, "models/textual_inversion"))
+                diffsynth_model_manager.load_textual_inversions("models/textual_inversion")
                 diffsynth_model_manager.load_models([
-                    os.path.join(diffsynth_dir, "models/stable_diffusion/flat2DAnimerge_v45Sharp.safetensors"),
-                    os.path.join(diffsynth_dir, "models/AnimateDiff/mm_sd_v15_v2.ckpt"),
-                    os.path.join(diffsynth_dir, "models/ControlNet/control_v11p_sd15_lineart.pth"),
-                    os.path.join(diffsynth_dir, "models/ControlNet/control_v11f1e_sd15_tile.pth"),
+                    "models/stable_diffusion/flat2DAnimerge_v45Sharp.safetensors",
+                    "models/AnimateDiff/mm_sd_v15_v2.ckpt",
+                    "models/ControlNet/control_v11p_sd15_lineart.pth",
+                    "models/ControlNet/control_v11f1e_sd15_tile.pth",
                 ])
                 installer.status("...loading SDVideoPipeline")
                 pipe_diffsynth = SDVideoPipeline.from_model_manager(
@@ -50060,12 +50060,12 @@ def run_diffsynth(page, from_list=False, with_params=False):
                     [
                         ControlNetConfigUnit(
                             processor_id="lineart",
-                            model_path=os.path.join(diffsynth_dir, "models/ControlNet/control_v11p_sd15_lineart.pth"),
+                            model_path="models/ControlNet/control_v11p_sd15_lineart.pth",
                             scale=0.5
                         ),
                         ControlNetConfigUnit(
                             processor_id="tile",
-                            model_path=os.path.join(diffsynth_dir, "models/ControlNet/control_v11f1e_sd15_tile.pth"),
+                            model_path="models/ControlNet/control_v11f1e_sd15_tile.pth",
                             scale=0.5
                         )
                     ]
@@ -50086,8 +50086,8 @@ def run_diffsynth(page, from_list=False, with_params=False):
         download_models(["stable-video-diffusion-img2vid-xt", "ExVideo-SVD-128f-v1"])
         model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
                                      file_path_list=[
-                                         os.path.join(diffsynth_dir, "models/stable_video_diffusion/svd_xt.safetensors"),
-                                         os.path.join(diffsynth_dir, "models/stable_video_diffusion/model.fp16.safetensors"),
+                                         "models/stable_video_diffusion/svd_xt.safetensors",
+                                         "models/stable_video_diffusion/model.fp16.safetensors",
                                      ])
         pipe = SVDVideoPipeline.from_model_manager(model_manager)
         torch.manual_seed(2)
@@ -50254,23 +50254,23 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 config = {
                     "models": {
                         "model_list": [
-                            os.path.join(diffsynth_dir, "models/stable_diffusion/aingdiffusion_v12.safetensors"),
-                            os.path.join(diffsynth_dir, "models/AnimateDiff/mm_sd_v15_v2.ckpt"),
-                            os.path.join(diffsynth_dir, "models/ControlNet/control_v11f1e_sd15_tile.pth"),
-                            os.path.join(diffsynth_dir, "models/ControlNet/control_v11p_sd15_lineart.pth")
+                            "models/stable_diffusion/aingdiffusion_v12.safetensors",
+                            "models/AnimateDiff/mm_sd_v15_v2.ckpt",
+                            "models/ControlNet/control_v11f1e_sd15_tile.pth",
+                            "models/ControlNet/control_v11p_sd15_lineart.pth"
                         ],
-                        "textual_inversion_folder": os.path.join(diffsynth_dir, "models/textual_inversion"),
+                        "textual_inversion_folder": "models/textual_inversion",
                         "device": "cuda",
                         "lora_alphas": [],
                         "controlnet_units": [
                             {
                                 "processor_id": "tile",
-                                "model_path": os.path.join(diffsynth_dir, "models/ControlNet/control_v11f1e_sd15_tile.pth"),
+                                "model_path": "models/ControlNet/control_v11f1e_sd15_tile.pth",
                                 "scale": diffsynth_prefs["controlnet_strength"],
                             },
                             {
                                 "processor_id": "lineart",
-                                "model_path": os.path.join(diffsynth_dir, "models/ControlNet/control_v11p_sd15_lineart.pth"),
+                                "model_path": "models/ControlNet/control_v11p_sd15_lineart.pth",
                                 "scale": diffsynth_prefs["controlnet_strength"],
                             }
                         ]
@@ -50356,7 +50356,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
         save_video(video, out_file, fps=diffsynth_prefs["target_fps"])
         if diffsynth_prefs["interpolate_video"]:
             progress.status("...RIFE Interpolater")
-            diffsynth_model_manager.load_models([os.path.join(diffsynth_dir, "models/RIFE/flownet.pkl")])
+            diffsynth_model_manager.load_models(["models/RIFE/flownet.pkl"])
             interpolater = RIFEInterpolater.from_model_manager(diffsynth_model_manager)
             video = interpolater.interpolate(video, num_iter=3)
             save_video(video, RIFE_file, fps=diffsynth_prefs["target_fps"])
