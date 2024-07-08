@@ -838,10 +838,10 @@ def buildImageAIs(page):
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
             Tab(text="DALL•E", content=page.DallE, icon=icons.BLUR_ON),
+            Tab(text="Lumina-Next", content=page.Lumina, icon=icons.SYNAGOGUE),
+            Tab(text="Hunyuan-DiT", content=page.Hunyuan, icon=icons.TEMPLE_BUDDHIST),
             Tab(text="Stable Cascade", content=page.StableCascade, icon=icons.SPA),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
-            Tab(text="Hunyuan-DiT", content=page.Hunyuan, icon=icons.TEMPLE_BUDDHIST),
-            Tab(text="Lumina-Next", content=page.Lumina, icon=icons.SYNAGOGUE),
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="PixArt-Σ", content=page.PixArtSigma, icon=icons.FUNCTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
@@ -1225,6 +1225,9 @@ prefs['prompt_brainstormer'].setdefault('AIHorde_model', 'LLaMA-13B-Psyfighter2'
 prefs['prompt_generator'].setdefault('Perplexity_model', 'llama-3-sonar-small-32k-chat')
 prefs['prompt_remixer'].setdefault('Perplexity_model', 'llama-3-sonar-small-32k-chat')
 prefs['prompt_brainstormer'].setdefault('Perplexity_model', 'llama-3-sonar-small-32k-chat')
+prefs['prompt_generator'].setdefault('TextSynth_model', 'Mixtral Instruct')
+prefs['prompt_remixer'].setdefault('TextSynth_model', 'Mixtral Instruct')
+prefs['prompt_brainstormer'].setdefault('TextSynth_model', 'Mixtral Instruct')
 prefs.setdefault('PaLM_api_key', '')
 prefs.setdefault('Anthropic_api_key', '')
 prefs.setdefault('enable_torch_compile', False)
@@ -3859,15 +3862,19 @@ def buildPromptRemixer(page):
       AIHorde_model_container.update()
       Perplexity_model_container.visible = prefs['prompt_remixer']['AI_engine']=="Perplexity"
       Perplexity_model_container.update()
+      TextSynth_model_container.visible = prefs['prompt_remixer']['AI_engine']=="TextSynth"
+      TextSynth_model_container.update()
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     request_slider.label = remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde", "Perplexity"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed_engine(e))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde", "Perplexity"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed_engine(e))
     AIHorde_model = Dropdown(label="Horde AI Engine", width=400, options=[], value=prefs['prompt_remixer']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_remixer']['AI_engine']=="AI-Horde")
     page.AIHorde_model_remixer = AIHorde_model
     Perplexity_model = Dropdown(label="Perplexity AI Engine", width=400, options=[dropdown.Option(m) for m in ["llama-3-sonar-small-32k-chat", "llama-3-sonar-small-32k-online", "llama-3-sonar-large-32k-chat", "llama-3-sonar-large-32k-online", "llama-3-8b-instruct", "llama-3-70b-instruct", "mixtral-8x7b-instruct"]], value=prefs['prompt_remixer']['Perplexity_model'], on_change=lambda e: changed(e, 'Perplexity_model'))
     Perplexity_model_container = Container(Row([Perplexity_model]), visible=prefs['prompt_remixer']['AI_engine']=="Perplexity")
+    TextSynth_model = Dropdown(label="TextSynth Engine", width=400, options=[dropdown.Option(m) for m in ["GPT-J", "Mistral", "Mistral Instruct", "Mixtral Instruct", "Llama2 7B", "Llama2 70B"]], value=prefs['prompt_remixer']['TextSynth_model'], on_change=lambda e: changed(e, 'TextSynth_model'))
+    TextSynth_model_container = Container(Row([TextSynth_model]), visible=prefs['prompt_remixer']['AI_engine']=="TextSynth")
 
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
@@ -3888,7 +3895,7 @@ def buildPromptRemixer(page):
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_remixer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
-        Row([AI_engine, AIHorde_model_container, Perplexity_model_container]),
+        Row([AI_engine, AIHorde_model_container, Perplexity_model_container, TextSynth_model_container]),
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
@@ -3947,12 +3954,16 @@ def buildPromptBrainstormer(page):
       AIHorde_model_container.update()
       Perplexity_model_container.visible = prefs['prompt_brainstormer']['AI_engine']=="Perplexity"
       Perplexity_model_container.update()
+      TextSynth_model_container.visible = prefs['prompt_brainstormer']['AI_engine']=="TextSynth"
+      TextSynth_model_container.update()
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     AIHorde_model = Dropdown(label="Horde AI Engine", width=400, options=[], value=prefs['prompt_brainstormer']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_brainstormer']['AI_engine']=="AI-Horde")
     page.AIHorde_model_brainstormer = AIHorde_model
     Perplexity_model = Dropdown(label="Perplexity AI Engine", width=400, options=[dropdown.Option(m) for m in ["llama-3-sonar-small-32k-chat", "llama-3-sonar-small-32k-online", "llama-3-sonar-large-32k-chat", "llama-3-sonar-large-32k-online", "llama-3-8b-instruct", "llama-3-70b-instruct", "mixtral-8x7b-instruct"]], value=prefs['prompt_brainstormer']['Perplexity_model'], on_change=lambda e: changed(e, 'Perplexity_model'))
     Perplexity_model_container = Container(Row([Perplexity_model]), visible=prefs['prompt_brainstormer']['AI_engine']=="Perplexity")
+    TextSynth_model = Dropdown(label="TextSynth Engine", width=400, options=[dropdown.Option(m) for m in ["GPT-J", "Mistral", "Mistral Instruct", "Mixtral Instruct", "Llama2 7B", "Llama2 70B"]], value=prefs['prompt_brainstormer']['TextSynth_model'], on_change=lambda e: changed(e, 'TextSynth_model'))
+    TextSynth_model_container = Container(Row([TextSynth_model]), visible=prefs['prompt_brainstormer']['AI_engine']=="TextSynth")
     new_prompt_text = TextField(label="New Prompt Text", expand=True, filled=True, suffix=IconButton(icons.CLEAR, on_click=clear_prompt_text), autofocus=True, on_submit=add_to_prompts)
     add_to_prompts_button = ElevatedButton("➕  Add to Prompts", on_click=add_to_prompts)#, icon=icons.ADD_ROUNDED
     brainstormer_list_buttons = Row([
@@ -3967,8 +3978,8 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT, Gemini & HuggingFace Bloom AI",
                "Get Inspiration on Prompt Engineering with Rewrite, Edit, Story, Description, Details, etc.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde", "Perplexity"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed_engine(e)),
-          AIHorde_model_container, Perplexity_model_container,
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde", "Perplexity"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed_engine(e)),
+          AIHorde_model_container, Perplexity_model_container, TextSynth_model_container,
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -11488,7 +11499,7 @@ def buildLuminaNext(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=lumina_next_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=lumina_next_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=lumina_next_prefs, key='height')
-    lumina_model = Dropdown(label="Lumina-Next Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("Lumina-Next-SFT-diffusers")], value=lumina_next_prefs['lumina_model'], on_change=changed_model)
+    lumina_model = Dropdown(label="Lumina-Next Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("Lumina-Next-SFT-diffusers")], value=lumina_next_prefs['lumina_model'], on_change=changed_model)
     lumina_custom_model = TextField(label="Custom Lumina Model (URL or Path)", value=lumina_next_prefs['custom_model'], expand=True, visible=lumina_next_prefs['lumina_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=lumina_next_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     #distilled_model = Switcher(label="Use Distilled Model", value=lumina_next_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
@@ -11509,7 +11520,7 @@ def buildLuminaNext(page):
     page.Lumina_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
-            Header("🌞  Lumina-Next-DiT (under construction)", "Next-generation Diffusion Transformer that Enhances Text-to-Image Generation, Multilingual, Multitasked Performance...", actions=[save_default(lumina_next_prefs), IconButton(icon=icons.HELP, tooltip="Help with Lumina Settings", on_click=lumina_next_help)]),
+            Header("🌞  Lumina-Next-DiT", "Next-Gen Diffusion Transformer that Enhances Text-to-Image Generation, Multilingual, Multitasked Performance, and really good style...", actions=[save_default(lumina_next_prefs), IconButton(icon=icons.HELP, tooltip="Help with Lumina Settings", on_click=lumina_next_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             steps,
             guidance, width_slider, height_slider,
@@ -27819,7 +27830,11 @@ def run_prompt_remixer(page):
         #clear_output()
       finally:
         from textsynthpy import TextSynth, Complete
-      textsynth_engine = "gptj_6B" if 'GPT-J' in engine else "mistral_7B_instruct" if 'Mistral Instruct' in engine else "mistral_7B" if 'Mistral' in engine else "mixtral_47B_instruct" if 'Mixtral Instruct' in engine else "llama2_7B" if 'Llama2 7B' in engine else "llama2_70B" if 'Llama2 70B' in engine else "mistral_7B"
+      if engine =="TextSynth":
+        model = prefs['prompt_remixer']['TextSynth_model']
+        textsynth_engine = "gptj_6B" if 'GPT-J' in model else "mistral_7B_instruct" if 'Mistral Instruct' in model else "mistral_7B" if 'Mistral' in model else "mixtral_47B_instruct" if 'Mixtral Instruct' in model else "llama2_7B" if 'Llama2 7B' in model else "llama2_70B" if 'Llama2 70B' in model else "mistral_7B"
+      else:
+        textsynth_engine = "gptj_6B" if 'GPT-J' in engine else "mistral_7B_instruct" if 'Mistral Instruct' in engine else "mistral_7B" if 'Mistral' in engine else "mixtral_47B_instruct" if 'Mixtral Instruct' in engine else "llama2_7B" if 'Llama2 7B' in engine else "llama2_70B" if 'Llama2 70B' in engine else "mistral_7B"
       textsynth = TextSynth(prefs['TextSynth_api_key'], engine=textsynth_engine)
   elif 'GPT' in engine:
     try:
@@ -28102,7 +28117,9 @@ def run_prompt_brainstormer(page):
           #clear_output()
         finally:
           from textsynthpy import TextSynth, Complete
-        textsynth_engine = "gptj_6B" if 'GPT-J' in engine else "mistral_7B_instruct" if 'Mistral Instruct' in engine else "mistral_7B" if 'Mistral' in engine else "mixtral_47B_instruct" if 'Mixtral Instruct' in engine else "llama2_7B" if 'Llama2 7B' in engine else "llama2_70B" if 'Llama2 70B' in engine else "mistral_7B"
+        model = prefs['prompt_brainstormer']['TextSynth_model']
+        textsynth_engine = "gptj_6B" if 'GPT-J' in model else "mistral_7B_instruct" if 'Mistral Instruct' in model else "mistral_7B" if 'Mistral' in model else "mixtral_47B_instruct" if 'Mixtral Instruct' in model else "llama2_7B" if 'Llama2 7B' in model else "llama2_70B" if 'Llama2 70B' in model else "mistral_7B"
+        #textsynth_engine = "gptj_6B" if 'GPT-J' in engine else "mistral_7B_instruct" if 'Mistral Instruct' in engine else "mistral_7B" if 'Mistral' in engine else "mixtral_47B_instruct" if 'Mixtral Instruct' in engine else "llama2_7B" if 'Llama2 7B' in engine else "llama2_70B" if 'Llama2 70B' in engine else "mistral_7B"
         textsynth = TextSynth(prefs['TextSynth_api_key'], engine=textsynth_engine) # Insert your API key in the previous cell
     elif 'GPT' in engine:
       try:
@@ -43710,7 +43727,7 @@ def run_lumina(page, from_list=False, with_params=False):
                 num_inference_steps=pr['steps'],
                 guidance_scale=pr['guidance_scale'],
                 generator=generator,
-                #callback_on_step_end=callback_fn,
+                callback_on_step_end=callback_fn,
             ).images
         except Exception as e:
             clear_last(2)
@@ -47799,7 +47816,7 @@ def run_live_portrait(page):
     prt(installer)
     live_portrait_dir = os.path.join(root_dir, "LivePortrait")
     live_portrait_weights = os.path.join(live_portrait_dir, "pretrained_weights")
-    if not os.path.exists(live_portrait_dir) or force_update("liveportrait"):
+    if not os.path.exists(live_portrait_dir):
         try:
             installer.status("...cloning KwaiVGI/LivePortrait")
             run_process("git clone https://github.com/KwaiVGI/LivePortrait", cwd=root_dir)
@@ -47816,6 +47833,9 @@ def run_live_portrait(page):
             clear_last()
             alert_msg(page, "Error Installing LivePortrait Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
+    elif force_update("liveportrait"):
+        installer.status("...fetching KwaiVGI/LivePortrait")
+        run_process("git fetch https://github.com/KwaiVGI/LivePortrait", cwd=root_dir)
     makedir(live_portrait_weights)
     if not os.path.isfile(os.path.join(live_portrait_weights, 'liveportrait', 'landmark.onnx')):
         installer.status("...downloading pretrained weights")
