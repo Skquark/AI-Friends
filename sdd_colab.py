@@ -1325,7 +1325,7 @@ def initState(page):
       #start_polling(prefs['stats_update'], update_stats(page))
     #time.sleep(8)
     #page.update()
-    #print_tabs(page, True)
+    #print_tabs(page, False)
 
 def buildSettings(page):
   global prefs, status
@@ -1889,7 +1889,7 @@ def buildInstallers(page):
   #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
   SDXL_params = Container(Column([SDXL_compel]), padding=padding.only(top=0, left=32), height=None if prefs['install_SDXL'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   #SDXL_params.visible = False
-  install_SD3 = Switcher(label="Install Stable Diffusion 3 text2image & image2image Pipeline", value=prefs['install_SD3'], on_change=toggle_SD3, tooltip="Latest SD3 with three text encoders and special Flow-Match Euler Discrete Scheduler. Great prompt coherance & text writing, but currently has some limitations..")
+  install_SD3 = Switcher(label="Install Stable Diffusion 3 text2image, image2image & Inpaint Pipeline", value=prefs['install_SD3'], on_change=toggle_SD3, tooltip="Latest SD3 with three text encoders and special Flow-Match Euler Discrete Scheduler. Great prompt coherance & text writing, but currently has some limitations..")
   SD3_compel = Checkbox(label="Use Compel Long Prompt Weighting", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SD3_compel'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_compel'))
   SD3_cpu_offload = Checkbox(label="CPU Offload Model", tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.", value=prefs['SD3_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_cpu_offload'))
   SD3_bitsandbytes_8bit = Checkbox(label="BitsAndBytes 8-bit", tooltip="Load and quantize the T5-XXL text encoder to 8-bit precision. This allows you to keep using all three text encoders while only slightly impacting performance.", value=prefs['SD3_bitsandbytes_8bit'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_bitsandbytes_8bit'))
@@ -9702,6 +9702,7 @@ def buildControlNetXL(page):
           #Text("Normal Map - A normal mapped image."),
           Text("Segmented - An ADE20K's semantic segmentation protocol image."),
           Text("LineArt - An image with line art, usually black lines on a white background."),
+          Text("ControlNet++ Union - All-in-One supporting Canny, Depth, HED, LineArt, MLSD, Normal, Pose, Scribble, Segment & SoftEdge. Provide Post-Processed image, does not prepare from origional."),
           #Text("Shuffle - An image with shuffled patches or regions."),
           #Text("Brightness - An image based on brightness of init."),
           #Text("Instruct Pix2Pix - Trained with pixel to pixel instruction."),
@@ -9833,7 +9834,7 @@ def buildControlNetXL(page):
     prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xl_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xl_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet-SDXL Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Canny Map Edge mid"), dropdown.Option("Canny Map Edge small"), dropdown.Option("Depth"), dropdown.Option("Depth mid"), dropdown.Option("Depth small"), dropdown.Option("Marigold Depth"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose"), dropdown.Option("Scribble"), dropdown.Option("Scribble Anime")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet-SDXL Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Canny Map Edge mid"), dropdown.Option("Canny Map Edge small"), dropdown.Option("Depth"), dropdown.Option("Depth mid"), dropdown.Option("Depth small"), dropdown.Option("Marigold Depth"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose"), dropdown.Option("Scribble"), dropdown.Option("Scribble Anime"), dropdown.Option("ControlNet++ Union")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xl_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xl_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
@@ -14384,7 +14385,7 @@ def buildLivePortrait(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👧  LivePortrait", "Portrait Animation with Stitching and Retargeting Control... Transfers Face Movements to Source Image.", actions=[save_default(live_portrait_prefs, ['target_video', 'input_image']), IconButton(icon=icons.HELP, tooltip="Help with LivePortrait", on_click=live_portrait_help)]),
+        Header("👧  LivePortrait (under construction, but may work)", "Portrait Animation with Stitching and Retargeting Control... Transfers Face Movements to Source Image.", actions=[save_default(live_portrait_prefs, ['target_video', 'input_image']), IconButton(icon=icons.HELP, tooltip="Help with LivePortrait", on_click=live_portrait_help)]),
         target_video,
         input_image,
         #ResponsiveRow([fps]),
@@ -16068,7 +16069,7 @@ def buildDiffSynth(page):
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10),
         content=Column([
-            Header("🔥  DiffSynth Studio", "Diffusion engine with multiple optimized modes, restructured architectures including Text Encoder, UNet, VAE, among others...", actions=[save_default(diffsynth_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with DiffSynth Settings", on_click=diffsynth_help)]),
+            Header("🔥  DiffSynth Studio (under construction, but may work)", "Diffusion engine with multiple optimized modes, restructured architectures including Text Encoder, UNet, VAE, among others...", actions=[save_default(diffsynth_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with DiffSynth Settings", on_click=diffsynth_help)]),
             # ResponsiveRow([prompt, negative_prompt]),
             Row([Text("Mode:"), selected_mode]),
             text_prompts,
@@ -23724,7 +23725,7 @@ def get_SD3(page):
 
 def get_SD3_pipe(task="text2image"):
   global pipe_SD3, prefs, status, compel_base
-  from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image#, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL # , AutoencoderTiny
+  from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpaint#, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL # , AutoencoderTiny
   if prefs['SD3_compel']:
       pip_install("compel", upgrade=True)
   SD3_model = get_SD3_model(prefs['SD3_model'])
@@ -23738,6 +23739,8 @@ def get_SD3_pipe(task="text2image"):
               pipe_SD3 = AutoPipelineForText2Image.from_pipe(pipe_SD3)
           elif task == "image2image":
               pipe_SD3 = AutoPipelineForImage2Image.from_pipe(pipe_SD3)
+          elif task == "inpainting":
+              pipe_SD3 = AutoPipelineForInpaint.from_pipe(pipe_SD3)
           status['loaded_SD3'] = task
       pipe_SD3 = apply_LoRA(pipe_SD3, SD3=True)
       #if prefs['scheduler_mode'] != status['loaded_scheduler']:
@@ -23844,6 +23847,49 @@ def get_SD3_pipe(task="text2image"):
               pipe_SD3.to("cuda")
   elif task == "inpainting":
       status['loaded_SD3'] = task
+      if prefs['enable_torch_compile']:
+          torch.set_float32_matmul_precision("high")
+          torch._inductor.config.conv_1x1_as_mm = True
+          torch._inductor.config.coordinate_descent_tuning = True
+          torch._inductor.config.epilogue_fusion = False
+          torch._inductor.config.coordinate_descent_check_all_directions = True
+      if not prefs['SD3_bitsandbytes_8bit']:
+          pipe_SD3 = AutoPipelineForInpaint.from_pretrained(
+              model_id,
+              torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
+              #vae=vae,
+              #use_safetensors=safetensors,
+              #add_watermarker=watermark,
+              cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+              **variant, **safety,
+          )
+      else:
+          from transformers import T5EncoderModel, BitsAndBytesConfig
+          quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+          text_encoder = T5EncoderModel.from_pretrained(
+              model_id,
+              subfolder="text_encoder_3",
+              quantization_config=quantization_config,
+          )
+          pipe_SD3 = AutoPipelineForInpaint.from_pretrained(
+              model_id,
+              text_encoder_3=text_encoder,
+              device_map="balanced",
+              torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
+              cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+              **variant, **safety,
+          )
+      if prefs['enable_torch_compile']:
+          pipe_SD3.to("cuda")
+          pipe_SD3.transformer.to(memory_format=torch.channels_last)
+          pipe_SD3.vae.to(memory_format=torch.channels_last)
+          pipe_SD3.transformer = torch.compile(pipe_SD3.transformer, mode="max-autotune", fullgraph=True)
+          pipe_SD3.vae.decode = torch.compile(pipe_SD3.vae.decode, mode="max-autotune", fullgraph=True)
+      else:
+          if prefs['SD3_cpu_offload']:
+              pipe_SD3.enable_model_cpu_offload()
+          elif not prefs['SD3_bitsandbytes_8bit']:
+              pipe_SD3.to("cuda")
   if prefs['SD3_compel']:
       from compel import Compel, ReturnedEmbeddingsType
       compel_base = Compel(tokenizer=[pipe_SD3.tokenizer, pipe_SD3.tokenizer_2], text_encoder=[pipe_SD3.text_encoder, pipe_SD3.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
@@ -26486,6 +26532,15 @@ def start_diffusion(page):
                   ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == prefs['ip_adapter_SDXL_model'])
                   pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                   pipe_SDXL.set_ip_adapter_scale(prefs['ip_adapter_strength'])
+              elif prefs['use_SD3'] and status['installed_SD3']:
+                if get_SD3_model(prefs['SD3_model'])['path'] == status['loaded_SD3_model']:
+                  clear_pipes("SD3")
+                else:
+                  clear_pipes()
+                if pipe_SD3 is None or status['loaded_SD3'] != "inpainting":
+                  prt(Installing("Initializing Stable Diffusion 3 Inpainting Pipeline..."))
+                  get_SD3_pipe("inpainting")
+                  clear_last()
               else:
                 clear_pipes("txt2img")
                 if pipe is None or status['loaded_task'] != "inpaint" or status['loaded_model'] != get_model(prefs['model_ckpt'])['path']:
@@ -26577,8 +26632,20 @@ def start_diffusion(page):
               if prefs['use_inpaint_model'] and status['installed_img2img']:
                 pipe_used = "Diffusers Inpaint"
                 images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+              elif prefs['use_SD3'] and status['installed_SD3']:
+                pipe_used = "Stable Diffusion 3 Inpaint"
+                total_steps = int(arg['steps'])
+                cross_attention_kwargs = {"joint_attention_kwargs": {"scale": 1.0}} if prefs['use_LoRA_model'] and len(prefs['active_SD3_LoRA_layers']) > 0 else {}
+                if prefs['SD3_compel']:
+                  prompt_embed, pooled = compel_base(pr)
+                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly")
+                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, strength= 1 - arg['init_image_strength'], output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  del pooled, negative_pooled
+                else:
+                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", image=init_img, mask_image=mask_img, strength= 1 - arg['init_image_strength'], output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                flush()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
-                pipe_used = "Stable Diffusion XL Inpainting"
+                pipe_used = "Stable Diffusion XL Inpaint"
                 high_noise_frac = prefs['SDXL_high_noise_frac']
                 total_steps = int(arg['steps'] * high_noise_frac)
                 cross_attention_kwargs = {"cross_attention_kwargs": {"scale": 1.0}} if prefs['use_LoRA_model'] and len(prefs['active_SDXL_LoRA_layers']) > 0 else {}
@@ -39663,6 +39730,7 @@ def run_controlnet_xl(page, from_list=False):
     shuffle_checkpoint = "lllyasviel/control_v11e_sd15_shuffle"
     tile_checkpoint = "lllyasviel/control_v11f1e_sd15_tile"
     brightness_checkpoint = "ioclab/control_v1p_sd15_brightness"
+    union_checkpoint = "xinsir/controlnet-union-sdxl-1.0"
     hed = None
     openpose = None
     depth_estimator = None
@@ -39745,7 +39813,8 @@ def run_controlnet_xl(page, from_list=False):
             controlnet_xl_models[task] = ControlNetModel.from_pretrained(brightness_checkpoint, torch_dtype=torch.float16, use_safetensors=True)
         elif task == "Instruct Pix2Pix":
             controlnet_xl_models[task] = ControlNetModel.from_pretrained(ip2p_checkpoint, torch_dtype=torch.float16).to(torch_device)
-
+        elif task == "ControlNet++ Union":
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(union_checkpoint, torch_dtype=torch.float16, use_safetensors=True).to(torch_device)
         return controlnet_xl_models[task]
     width, height = 0, 0
     def resize_for_condition_image(input_image: PILImage, resolution: int):
@@ -47923,7 +47992,7 @@ def run_live_portrait(page):
     #--face "inputs/{os.path.basename(target_path)}"  --audio "inputs/{os.path.basename(input_image)}"{extras} --outfile "results/{os.path.basename(output_file)}"'
     print(f"Running {cmd}")
     try:#TODO: Use RunConsole UI
-        run_process(cmd, cwd=live_portrait_dir, page=page, realtime=True)
+        run_sp(cmd, cwd=live_portrait_dir, page=page, realtime=True)
     except Exception as e:
         clear_last(2)
         alert_msg(page, "Error running Python inference.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
@@ -47953,7 +48022,7 @@ def run_live_portrait(page):
         except:
             pass
     else:
-        prt("💢  Error Generating Output File!")
+        prt("💢  Error Generating Output File. Sorry, probably compatibility issues with onnxruntime-gpu and torch CUDA we're trying to work out...")
     os.chdir(root_dir)
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -49928,12 +49997,15 @@ def run_diffsynth(page, from_list=False, with_params=False):
     autoscroll(True)
     installer = Installing("Installing DiffSynth Image-To-Video Pipeline...")
     prt(installer)
-    pip_install("cupy-cuda12x controlnet-aux imageio imageio[ffmpeg]|imageio safetensors einops sentencepiece", installer=installer)
+    pip_install("cupy-cuda12x|cupy controlnet-aux imageio imageio[ffmpeg]|imageio safetensors einops sentencepiece", installer=installer)
     diffsynth_dir = os.path.join(root_dir, "DiffSynth-Studio")
     models = os.path.join(diffsynth_dir, "models")
     if not os.path.exists(diffsynth_dir):
-        installer.status("...cloning lllyasviel/LayerDiffuse_DiffusersCLI")
+        installer.status("...cloning modelscope/DiffSynth-Studio")
         run_sp("git clone https://github.com/modelscope/DiffSynth-Studio.git", cwd=root_dir, realtime=False)
+    elif force_update("diffsynth"):
+        installer.status("...updating modelscope/DiffSynth-Studio")
+        run_sp("git fetch https://github.com/modelscope/DiffSynth-Studio.git", cwd=root_dir, realtime=False)
     if diffsynth_dir not in sys.path:
         sys.path.append(diffsynth_dir)
     os.chdir(diffsynth_dir)
@@ -49957,7 +50029,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
                     "ControlNet_v11f1p_sd15_depth",
                     "ControlNet_v11p_sd15_softedge",
                     "DreamShaper_8"
-                ])
+                ], downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
                                                        file_path_list=[
                                                            "models/stable_diffusion/dreamshaper_8.safetensors",
@@ -49983,10 +50055,11 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 )
             smoother = SequencialProcessor([FastBlendSmoother(), ContrastEditor(rate=1.1), SharpnessEditor(rate=1.1)])
         elif mode == "exvideo_svd":
+            os.environ["TOKENIZERS_PARALLELISM"] = "True"
             if pipe_diffsynth is None:
                 installer.status("...downloading HunyuanDiT models")
                 os.environ["TOKENIZERS_PARALLELISM"] = "True"
-                download_models(["HunyuanDiT"])
+                download_models(["HunyuanDiT"], downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
                                                        file_path_list=[
                                                            "models/HunyuanDiT/t2i/clip_text_encoder/pytorch_model.bin",
@@ -50009,7 +50082,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
             from diffsynth import SDImagePipeline
             if pipe_diffsynth is None:
                 installer.status("...downloading dreamshaper_8 mm_sd_v15_v2 & flownet")
-                download_models(["DreamShaper_8", "AnimateDiff_v2", "RIFE"])
+                download_models(["DreamShaper_8", "AnimateDiff_v2", "RIFE"], downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
                 diffsynth_model_manager.load_models([
                     "models/stable_diffusion/dreamshaper_8.safetensors",
@@ -50024,7 +50097,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
             from diffsynth import SDXLVideoPipeline
             if pipe_diffsynth is None:
                 installer.status("...downloading mm_sdxl models")
-                download_models(["StableDiffusionXL_v1", "AnimateDiff_xl_beta"])
+                download_models(["StableDiffusionXL_v1", "AnimateDiff_xl_beta"], downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
                 diffsynth_model_manager.load_models([
                     "models/stable_diffusion_xl/sd_xl_base_1.0.safetensors",
@@ -50036,7 +50109,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
             from diffsynth import SDXLImagePipeline, SVDVideoPipeline
             if pipe_diffsynth is None:
                 installer.status("...downloading img2vid models")
-                download_models(["StableDiffusionXL_v1", "stable-video-diffusion-img2vid-xt"])
+                download_models(["StableDiffusionXL_v1", "stable-video-diffusion-img2vid-xt"], downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
                 diffsynth_model_manager.load_models(["models/stable_diffusion_xl/sd_xl_base_1.0.safetensors"])
                 installer.status("...loading SDXLImagePipeline")
@@ -50055,7 +50128,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 "ControlNet_v11p_sd15_lineart",
                 "ControlNet_v11f1e_sd15_tile",
                 "TextualInversion_VeryBadImageNegative_v1.3"
-            ])
+            ], downloading_priority = ["HuggingFace", "ModelScope"])
         elif mode == "sd_toon_shading":
             if pipe_diffsynth is None:
                 installer.status("...downloading sd_toon_shading models")
@@ -50065,7 +50138,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
                     "ControlNet_v11p_sd15_lineart",
                     "ControlNet_v11f1e_sd15_tile",
                     "TextualInversion_VeryBadImageNegative_v1.3"
-                ])
+                ], downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
                 diffsynth_model_manager.load_textual_inversions("models/textual_inversion")
                 diffsynth_model_manager.load_models([
