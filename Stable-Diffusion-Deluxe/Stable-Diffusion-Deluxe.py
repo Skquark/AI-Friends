@@ -47875,7 +47875,7 @@ def run_live_portrait(page):
     if not os.path.exists(live_portrait_dir):
         try:
             installer.status("...cloning KwaiVGI/LivePortrait")
-            run_process("git clone https://github.com/KwaiVGI/LivePortrait", cwd=root_dir)
+            run_sp("git clone https://github.com/KwaiVGI/LivePortrait", cwd=root_dir)
             installer.status("...installing requirements")
             get_ffmpeg(installer)
             try:
@@ -47884,14 +47884,16 @@ def run_live_portrait(page):
                 installer.status("...installing onnxruntime-gpu")
                 run_sp("pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/")
                 pass # onnxruntime-gpu==1.18.0|onnxruntime
-            pip_install("numpy pyyaml|yaml opencv-python|cv2 scipy imageio patch-ng lmdb tqdm rich onnx==1.16.1 scikit-image|skimage albumentations==1.4.10 matplotlib imageio-ffmpeg tyro==0.8.5 gradio gdown", installer=installer)
+            pip_install("numpy pyyaml|yaml opencv-python|cv2 scipy imageio patch-ng lmdb tqdm rich onnx==1.16.1 scikit-image|skimage albumentations==1.4.10 matplotlib imageio-ffmpeg tyro==0.8.5 gradio==4.37.1 colorama gdown", installer=installer)
+            #installer.status("...building insightface 3D mesh cython")
+            #run_sp("python setup.py builld_ext --inplace", cwd=os.path.join(live_portrait_dir, "src/utils/dependencies/insightface/thirdparty/face3d/mesh/cython"))
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing LivePortrait Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
     elif force_update("liveportrait"):
         installer.status("...fetching KwaiVGI/LivePortrait")
-        run_process("git fetch https://github.com/KwaiVGI/LivePortrait", cwd=root_dir)
+        run_sp("git fetch https://github.com/KwaiVGI/LivePortrait", cwd=root_dir)
     makedir(live_portrait_weights)
     if not os.path.isfile(os.path.join(live_portrait_weights, 'liveportrait', 'landmark.onnx')):
         installer.status("...downloading pretrained weights")
@@ -47979,7 +47981,7 @@ def run_live_portrait(page):
     #--face "inputs/{os.path.basename(target_path)}"  --audio "inputs/{os.path.basename(input_image)}"{extras} --outfile "results/{os.path.basename(output_file)}"'
     print(f"Running {cmd}")
     try:#TODO: Use RunConsole UI
-        run_sp(cmd, cwd=live_portrait_dir, page=page, realtime=True)
+        run_sp(cmd, cwd=live_portrait_dir, realtime=True)
     except Exception as e:
         clear_last(2)
         alert_msg(page, "Error running Python inference.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
