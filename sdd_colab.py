@@ -805,6 +805,8 @@ def buildImageAIs(page):
     page.PixArtSigma = buildPixArtSigma(page)
     page.Hunyuan = buildHunyuanDiT(page)
     page.Lumina = buildLuminaNext(page)
+    page.Kolors = buildKolors(page)
+    page.AuraFlow = buildAuraFlow(page)
     page.LayerDiffusion = buildLayerDiffusion(page)
     page.Differential_Diffusion = buildDifferential_Diffusion(page)
     page.LMD_Plus = buildLMD_Plus(page)
@@ -845,6 +847,8 @@ def buildImageAIs(page):
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="PixArt-Σ", content=page.PixArtSigma, icon=icons.FUNCTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
+            Tab(text="Kolors", content=page.Kolors, icon=icons.DIRTY_LENS),
+            Tab(text="AuraFlow", content=page.AuraFlow, icon=icons.MONOCHROME_PHOTOS),
             Tab(text="Layer Diffusion", content=page.LayerDiffusion, icon=icons.WINE_BAR),
             Tab(text="Differential Diffusion", content=page.Differential_Diffusion, icon=icons.SENTIMENT_NEUTRAL),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
@@ -942,12 +946,14 @@ def buildVideoAIs(page):
     page.VideoToVideo = buildVideoToVideo(page)
     page.InfiniteZoom = buildInfiniteZoom(page)
     page.Potat1 = buildPotat1(page)
+    page.Latte = buildLatte(page)
     page.StableAnimation = buildStableAnimation(page)
     page.SVD = buildSVD(page)
     page.AnimateDiffImage2Video = buildAnimateDiffImage2Video(page)
     page.AnimateDiffSDXL = buildAnimateDiffSDXL(page)
     page.DiffSynth = buildDiffSynth(page)
     page.PIA = buildPIA(page)
+    page.EasyAnimate = buildEasyAnimate(page)
     page.I2VGenXL = buildI2VGenXL(page)
     page.ControlNet = buildControlNet(page)
     page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
@@ -971,10 +977,12 @@ def buildVideoAIs(page):
             Tab(text="AnimateDiff to-Video", content=page.AnimateDiffImage2Video, icon=icons.CATCHING_POKEMON),
             Tab(text="AnimateDiff SDXL", content=page.AnimateDiffSDXL, icon=icons.TWO_WHEELER),
             Tab(text="DiffSynth", content=page.DiffSynth, icon=icons.FIREPLACE),
+            Tab(text="EasyAnimate", content=page.EasyAnimate, icon=icons.PHOTO_CAMERA_BACK),
             Tab(text="I2VGen-XL", content=page.I2VGenXL, icon=icons.TIPS_AND_UPDATES),
             Tab(text="PIA Image Animator", content=page.PIA, icon=icons.EMERGENCY_RECORDING),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
+            Tab(text="Latte", content=page.Latte, icon=icons.COFFEE),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
             Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
@@ -2360,6 +2368,8 @@ def buildInstallers(page):
           page.ESRGAN_block_pixart_sigma,
           page.ESRGAN_block_hunyuan,
           page.ESRGAN_block_lumina,
+          page.ESRGAN_block_kolors,
+          page.ESRGAN_block_auraflow,
           page.ESRGAN_block_layer_diffusion,
           page.ESRGAN_block_lcm,
           page.ESRGAN_block_lmd_plus,
@@ -11534,6 +11544,200 @@ def buildLuminaNext(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+kolors_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "kolors-",
+    "num_images": 1,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":5.0,
+    'num_inference_steps': 50,
+    "seed": 0,
+    'init_image': '',
+    'init_image_strength': 0.3,
+    "cpu_offload": False,
+    "kolors_model": "Kolors-diffusers",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildKolors(page):
+    global prefs, kolors_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          kolors_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def kolors_help(e):
+      def close_kolors_dlg(e):
+        nonlocal kolors_help_dlg
+        kolors_help_dlg.open = False
+        page.update()
+      kolors_help_dlg = AlertDialog(title=Text("🙅   Help with Kolors Pipeline"), content=Column([
+          Text("Kolors is a large-scale text-to-image generation model based on latent diffusion, developed by the Kuaishou Kolors team. Trained on billions of text-image pairs, Kolors exhibits significant advantages over both open-source and closed-source models in visual quality, complex semantic accuracy, and text rendering for both Chinese and English characters. Furthermore, Kolors supports both Chinese and English inputs, demonstrating strong performance in understanding and generating Chinese-specific content."),
+          Text("We present Kolors, a latent diffusion model for text-to-image synthesis, characterized by its profound understanding of both English and Chinese, as well as an impressive degree of photorealism. There are three key insights contributing to the development of Kolors. Firstly, unlike large language model T5 used in Imagen and Stable Diffusion 3, Kolors is built upon the General Language Model (GLM), which enhances its comprehension capabilities in both English and Chinese. Moreover, we employ a multimodal large language model to recaption the extensive training dataset for fine-grained text understanding. These strategies significantly improve Kolors’ ability to comprehend intricate semantics, particularly those involving multiple entities, and enable its advanced text rendering capabilities. Secondly, we divide the training of Kolors into two phases: the concept learning phase with broad knowledge and the quality improvement phase with specifically curated high-aesthetic data. Furthermore, we investigate the critical role of the noise schedule and introduce a novel schedule to optimize high-resolution image generation. These strategies collectively enhance the visual appeal of the generated high-resolution images. Lastly, we propose a category-balanced benchmark KolorsPrompts, which serves as a guide for the training and evaluation of Kolors. Consequently, even when employing the commonly used U-Net backbone, Kolors has demonstrated remarkable performance in human evaluations, surpassing the existing open-source models and achieving Midjourney-v6 level performance, especially in terms of visual appeal."),
+          Markdown("[Project](https://kolors.kuaishou.com/) | [GitHub](https://github.com/Kwai-Kolors/Kolors) | [Paper](https://github.com/Kwai-Kolors/Kolors/blob/master/imgs/Kolors_paper.pdf) | [Checkpoint](https://huggingface.co/Kwai-Kolors/Kolors-diffusers)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🖼  For real real?", on_click=close_kolors_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(kolors_help_dlg)
+      kolors_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        kolors_prefs['kolors_model'] = e.control.value
+        kolors_custom_model.visible = e.control.value == "Custom"
+        kolors_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        kolors_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=kolors_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=kolors_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image (optional)", pref=kolors_prefs, key='init_image', page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=kolors_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=kolors_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=kolors_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=kolors_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=70, divisions=70, pref=kolors_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kolors_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=kolors_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=kolors_prefs, key='height')
+    kolors_model = Dropdown(label="Kolors Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("Kolors-diffusers")], value=kolors_prefs['kolors_model'], on_change=changed_model)
+    kolors_custom_model = TextField(label="Custom Kolors Model (URL or Path)", value=kolors_prefs['custom_model'], expand=True, visible=kolors_prefs['kolors_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=kolors_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    seed = TextField(label="Seed", width=90, value=str(kolors_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kolors_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kolors_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kolors_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kolors_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_kolors = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_kolors.height = None if status['installed_ESRGAN'] else 0
+    if not kolors_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🦜   Run Kolors", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kolors(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kolors(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kolors(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.kolors_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🎨  Kolors", "Diffusion Model for Photorealistic Text-to-Image Synthesis...", actions=[save_default(kolors_prefs, ['init_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with Kolors Settings", on_click=kolors_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            ResponsiveRow([init_image, init_image_strength]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            Row([kolors_model, kolors_custom_model]),
+            #Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+            #ip_adapter_container,
+            Row([cpu_offload]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_kolors,
+            parameters_row,
+            page.kolors_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+auraflow_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "auraflow-",
+    "num_images": 1,
+    "steps":50,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":4.0,
+    "cpu_offload": True,
+    "seed": 0,
+    "auraflow_model": "fal/AuraFlow",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildAuraFlow(page):
+    global prefs, auraflow_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          auraflow_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def auraflow_help(e):
+      def close_auraflow_dlg(e):
+        nonlocal auraflow_help_dlg
+        auraflow_help_dlg.open = False
+        page.update()
+      auraflow_help_dlg = AlertDialog(title=Text("🙅   Help with AuraFlow Pipeline"), content=Column([
+          Markdown("AuraFlow is inspired by [Stable Diffusion 3](../pipelines/stable_diffusion/stable_diffusion_3.md) and is by far the largest text-to-image generation model that comes with an Apache 2.0 license. This model achieves state-of-the-art results on the [GenEval](https://github.com/djghosh13/geneval) benchmark. It was developed by the Fal team and more details about it can be found in [this blog post](https://blog.fal.ai/auraflow/). AuraFlow can be quite expensive to run on consumer hardware devices. However, you can perform a suite of optimizations to run it faster and in a more memory-friendly manner. Check out [this section](https://huggingface.co/blog/sd3#memory-optimizations-for-sd3) for more details.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("AuraFlow v0.1 is the fully open-sourced largest flow-based text-to-image generation model. We are excited to present you the first release of our AuraFlow model series, the largest yet completely open sourced flow-based generation model that is capable of text-to-image generation. AuraFlow is a reaffirmation of the open-source community's resilience and relentless determination. We wanted to bring serious resources and compute to scale up the model. We were aligned very well, and thus begun the collaboration. AuraFlow demonstrates that collaborative, transparent AI development is not only alive but thriving, ready to tackle the challenges and opportunities of tomorrow's AI landscape.."),
+          Markdown("[Paper/Blog](https://blog.fal.ai/auraflow/) | [Model Checkpoint](https://huggingface.co/fal/AuraFlow) | [HF Space](https://huggingface.co/spaces/multimodalart/AuraFlow) | [fal.ai](https://fal.ai/models/fal-ai/aura-flow)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🔅  It just Glows... ", on_click=close_auraflow_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(auraflow_help_dlg)
+      auraflow_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        auraflow_prefs['auraflow_model'] = e.control.value
+        auraflow_custom_model.visible = e.control.value == "Custom"
+        auraflow_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        auraflow_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=auraflow_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=auraflow_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=auraflow_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=auraflow_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=auraflow_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=auraflow_prefs, key='steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=auraflow_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=auraflow_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=auraflow_prefs, key='height')
+    auraflow_model = Dropdown(label="AuraFlow Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("fal/AuraFlow")], value=auraflow_prefs['auraflow_model'], on_change=changed_model)
+    auraflow_custom_model = TextField(label="Custom AuraFlow Model (URL or Path)", value=auraflow_prefs['custom_model'], expand=True, visible=auraflow_prefs['auraflow_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=auraflow_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
+    #distilled_model = Switcher(label="Use Distilled Model", value=auraflow_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
+    seed = TextField(label="Seed", width=90, value=str(auraflow_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=auraflow_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=auraflow_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=auraflow_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=auraflow_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_auraflow = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_auraflow.height = None if status['installed_ESRGAN'] else 0
+    if not auraflow_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="👶   Run AuraFlow", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_auraflow(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_auraflow(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_auraflow(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.AuraFlow_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
+            Header("🌗  AuraFlow SD3+", "Open Exploration of Large Rectified Flow Models. Achieves State-of-the-Art Results on GenEval...", actions=[save_default(auraflow_prefs), IconButton(icon=icons.HELP, tooltip="Help with AuraFlow Settings", on_click=auraflow_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            steps,
+            guidance, width_slider, height_slider,
+            Row([auraflow_model, auraflow_custom_model]),
+            page.ESRGAN_block_auraflow,
+            ResponsiveRow([Row([n_images, seed, cpu_offload], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            parameters_row,
+            page.AuraFlow_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 layer_diffusion_prefs = {
     "prompt": '',
     "negative_prompt": 'face asymmetry, eyes asymmetry, deformed eyes, open mouth',
@@ -16300,6 +16504,171 @@ def buildPIA(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+easyanimate_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "easyanimate-",
+    "num_images": 1,
+    "width": 1008,
+    "height":576,
+    "guidance_scale": 7.0,
+    'num_inference_steps': 30,
+    "seed": 0,
+    'init_image': '',
+    'end_image': '',
+    'video_length': 48,
+    'fps': 24,
+    'target_fps': 30,
+    'lora_alpha': 0.8,
+    'custom_lora': '',
+    'lora_layer': '3D Redmond',
+    'lora_layer_alpha': 0.8,
+    'custom_lora_layer': '',
+    'lora_map': [],
+    "easyanimate_model": "EasyAnimateV3-XL-2-InP-512x512",
+    "custom_model": "",
+    "sampler": "DPM++",#"Euler" "Euler A" "DPM++" "PNDM" and "DDIM"
+    'generate_image': False,
+    'export_to_video': True,
+    "interpolate_video": True,
+    "cpu_offload": True,
+}
+
+def buildEasyAnimate(page):
+    global prefs, easyanimate_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          easyanimate_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def easyanimate_help(e):
+      def close_easyanimate_dlg(e):
+        nonlocal easyanimate_help_dlg
+        easyanimate_help_dlg.open = False
+        page.update()
+      easyanimate_help_dlg = AlertDialog(title=Text("🙅   Help with EasyAnimate Pipeline"), content=Column([
+          Text("EasyAnimate is an end-to-end solution for generating high-resolution and long videos. We can train transformer based diffusion generators, train VAEs for processing long videos, and preprocess metadata. Based on Sora like structure and DIT, we use transformer as a diffuser for video generation. We built easyanimate based on motion module, u-vit and slice-vae. In the future, we will try more training programs to improve the effect."),
+          Text("EasyAnimate is a pipeline based on the transformer architecture that can be used to generate AI photos and videos, train baseline models and Lora models for the Diffusion Transformer. We support making predictions directly from the pre-trained EasyAnimate model to generate videos of about different resolutions, 6 seconds with 24 fps (1 ~ 144 frames, in the future, we will support longer videos). Updated v3 supports up to 720p 144 frames (960x960, 6s, 24fps) video generation, and supports text and image generated video models."),
+          Markdown("[Project](https://easyanimate.github.io/) | [GitHub](https://github.com/aigc-apps/EasyAnimate) | [Paper](https://arxiv.org/abs/2405.18991) | [Model Checkpoint](https://huggingface.co/alibaba-pai/EasyAnimateV2-XL-2-512x512) | [HF Space](https://huggingface.co/spaces/alibaba-pai/EasyAnimate)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Jiaqi Xu, Xinyi Zou, Kunzhe Huang, Yunkuo Chen, Bo Liu, MengLi Cheng, Xing Shi, Jun Huang, Platform of AI (PAI), and Alibaba Group"),
+          #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🛞  Surprisingly cool...", on_click=close_easyanimate_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(easyanimate_help_dlg)
+      easyanimate_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        easyanimate_prefs['easyanimate_model'] = e.control.value
+        easyanimate_custom_model.visible = e.control.value == "Custom"
+        easyanimate_custom_model.update()
+    def changed_lora_layer(e):
+      easyanimate_prefs['lora_layer'] = e.control.value
+      custom_lora_layer.visible = e.control.value == "Custom"
+      custom_lora_layer.update()
+    def toggle_image(e):
+      easyanimate_prefs['generate_image'] = e.control.value
+      video_length.visible = not e.control.value
+      video_length.update()
+    def add_lora(e):
+      lora = easyanimate_prefs['lora_layer']
+      lora_scale = easyanimate_prefs['lora_layer_alpha']
+      lora_layer = {}
+      if lora == "Custom":
+        lora_layer = {'name': 'Custom', 'file':'', 'path':easyanimate_prefs['custom_lora_layer'], 'scale': lora_scale}
+      else:
+        for l in SDXL_LoRA_models:
+          if l['name'] == lora:
+            lora_layer = l.copy()
+            lora_layer['scale'] = lora_scale
+        for l in easyanimate_prefs['lora_map']:
+          if l['name'] == lora:
+            return
+      easyanimate_prefs['lora_map'].append(lora_layer)
+      title = Markdown(f"**{lora_layer['name']}** - Alpha Scale: [{lora_layer['scale']}] - {lora_layer['path']}")
+      lora_layer_map.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        items=[
+            PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_lora_layer, data=lora_layer),
+            PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_lora_layers, data=lora_layer),
+        ]), data=lora_layer))
+      lora_layer_map.update()
+    def delete_lora_layer(e):
+        for l in easyanimate_prefs['lora_map']:
+          if l['name'] == e.control.data['name']:
+            easyanimate_prefs['lora_map'].remove(l)
+          #del l #easyanimate_prefs['lora_map'][]
+        for c in lora_layer_map.controls:
+          if c.data['name'] == e.control.data['name']:
+             lora_layer_map.controls.remove(c)
+             break
+        lora_layer_map.update()
+    def delete_all_lora_layers(e):
+        easyanimate_prefs['lora_map'].clear()
+        lora_layer_map.controls.clear()
+        lora_layer_map.update()
+    prompt = TextField(label="Prompt Text", value=easyanimate_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=easyanimate_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image (optional)", pref=easyanimate_prefs, key='init_image', ftype="image", page=page, col={'md':6})
+    end_image = FileInput(label="End Image (optional)", pref=easyanimate_prefs, key='end_image', ftype="image", page=page, col={'md':6})
+    generate_image = Switcher(label="Generate Still Image", value=easyanimate_prefs['generate_image'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_image, tooltip="Create a single image instead of an animated sequence. Good for testing..")
+    video_length = SliderRow(label="Video Length", min=1, max=144, divisions=143, pref=easyanimate_prefs, key='video_length', tooltip="The number of frames to animate.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=easyanimate_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=easyanimate_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Videos", min=1, max=9, step=1, value=easyanimate_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=80, divisions=80, pref=easyanimate_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=easyanimate_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=easyanimate_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=easyanimate_prefs, key='height')
+    easyanimate_model = Dropdown(label="EasyAnimate Model", width=305, options=[dropdown.Option("Custom"), dropdown.Option("EasyAnimateV3-XL-2-InP-512x512"), dropdown.Option("EasyAnimateV3-XL-2-InP-768x768"), dropdown.Option("EasyAnimateV3-XL-2-InP-960x960")], value=easyanimate_prefs['easyanimate_model'], on_change=changed_model)
+    easyanimate_custom_model = TextField(label="Custom EasyAnimate Model (URL or Path)", value=easyanimate_prefs['custom_model'], expand=True, visible=easyanimate_prefs['easyanimate_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    sampler = Dropdown(label="Sampler", width=150, options=[dropdown.Option(s) for s in ["Euler", "Euler A", "DPM++", "PNDM", "DDIM"]], value=easyanimate_prefs['sampler'], on_change=lambda e:changed(e,'sampler'), col={'xs':12, 'md':6})
+    #lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=easyanimate_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    lora_layer = Dropdown(label="SDXL LoRA Layer Map", options=[dropdown.Option("Custom")], value=easyanimate_prefs['lora_layer'], on_change=changed_lora_layer)
+    custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=easyanimate_prefs['custom_lora_layer'], expand=True, visible=easyanimate_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
+    if len(prefs['custom_SDXL_LoRA_models']) > 0:
+        for l in prefs['custom_SDXL_LoRA_models']:
+            lora_layer.options.append(dropdown.Option(l['name']))
+    for m in SDXL_LoRA_models:
+        lora_layer.options.append(dropdown.Option(m['name']))
+    #lora_layer.options.append(dropdown.Option("Custom SDXL LoRA Path"))
+    #for lora in animatediff_motion_loras:
+    #    lora_layer.options.insert(1, dropdown.Option(lora['name']))
+    lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=easyanimate_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
+    lora_layer_map = Column([], spacing=0)
+    cpu_offload = Switcher(label="CPU Offload", value=easyanimate_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=easyanimate_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    interpolate_video = Switcher(label="Interpolate Video", value=easyanimate_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
+    fps = SliderRow(label="Target FPS", min=1, max=30, divisions=29, suffix='fps', pref=easyanimate_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. This is also used as a 'micro-condition' while generation.")
+    seed = TextField(label="Seed", width=90, value=str(easyanimate_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    parameters_button = ElevatedButton(content=Text(value="😊   Run EasyAnimate", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_easyanimate(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_easyanimate(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_easyanimate(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.easyanimate_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("📷  EasyAnimate v3 Text/Image-to-Video", "End-to-End Solution for High-Resolution and Long Video Generation, by Alibaba...", actions=[save_default(easyanimate_prefs, ['init_image', 'lora_map']), IconButton(icon=icons.HELP, tooltip="Help with EasyAnimate Settings", on_click=easyanimate_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            ResponsiveRow([init_image, end_image]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            generate_image,
+            video_length,
+            fps,
+            #Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
+            #lora_layer_map,
+            #Divider(thickness=4, height=4),
+            Row([easyanimate_model, easyanimate_custom_model]),
+            Row([sampler, cpu_offload]),#, export_to_video, interpolate_video
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            parameters_row,
+            page.easyanimate_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 i2vgen_xl_prefs = {
     "prompt": '',
     "negative_prompt": '',
@@ -17122,6 +17491,89 @@ def buildFrescoV2V(page):
         Row([
             ElevatedButton(content=Text("🌱  Run Fresco", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_fresco_v2v(page)),
         ]),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+latte_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'num_inference_steps': 25,
+    'guidance_scale': 23.0,
+    'fps': 24,
+    'num_frames': 16,
+    'export_to_video': False,
+    'seed': 0,
+    'width': 1024,
+    'height': 576,
+    'clean_caption': True,
+    'cpu_offload': True,
+    'batch_folder_name': '',
+}
+
+def buildLatte(page):
+    global latte_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          latte_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      play_snd(Snd.DELETE, page)
+      page.latte_output.controls = []
+      page.latte_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def latte_help(e):
+      def close_latte_dlg(e):
+        nonlocal latte_help_dlg
+        latte_help_dlg.open = False
+        page.update()
+      latte_help_dlg = AlertDialog(title=Text("💁   Help with Latte Text-To-Video"), content=Column([
+          Text("We propose a novel Latent Diffusion Transformer, namely Latte, for video generation. Latte first extracts spatio-temporal tokens from input videos and then adopts a series of Transformer blocks to model video distribution in the latent space. In order to model a substantial number of tokens extracted from videos, four efficient variants are introduced from the perspective of decomposing the spatial and temporal dimensions of input videos. To improve the quality of generated videos, we determine the best practices of Latte through rigorous experimental analysis, including video clip patch embedding, model variants, timestep-class information injection, temporal positional embedding, and learning strategies. Our comprehensive evaluation demonstrates that Latte achieves state-of-the-art performance across four standard video generation datasets, i.e., FaceForensics, SkyTimelapse, UCF101, and Taichi-HD. In addition, we extend Latte to text-to-video generation (T2V) task, where Latte achieves comparable results compared to recent T2V models. We strongly believe that Latte provides valuable insights for future research on incorporating Transformers into diffusion models for video generation."),
+          Markdown("[Project Page](https://maxin-cn.github.io/latte_project/) | [GitHub](https://github.com/Vchitect/Latte) | [Paper](https://arxiv.org/abs/2401.03048) | [Model](https://huggingface.co/maxin-cn/Latte-1)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🫖  Strong Cup... ", on_click=close_latte_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(latte_help_dlg)
+      latte_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        latte_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Animation Prompt Text", value=latte_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=latte_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=latte_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=latte_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=latte_prefs, key='guidance_scale')
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=latte_prefs, key='fps')
+    clean_caption = Switcher(label="Clean Caption", value=latte_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=latte_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=latte_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=latte_prefs, key='height')
+    cpu_offload = Switcher(label="CPU Offload", value=latte_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    batch_folder_name = TextField(label="Video Folder Name", value=latte_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(latte_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    page.latte_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.latte_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("☕️  Latte-1 Text-To-Video Synthesis", "Latent Diffusion Transformer for Video Generation...", actions=[save_default(latte_prefs), IconButton(icon=icons.HELP, tooltip="Help with Latte Settings", on_click=latte_help)]),
+        ResponsiveRow([prompt, negative_prompt]),
+        num_frames,
+        fps,
+        num_inference_row,
+        guidance,
+        width_slider, height_slider,
+        Row([clean_caption, cpu_offload, seed, batch_folder_name]),
+        Row([
+            ElevatedButton(content=Text("🧋  Run Latte", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_latte(page)),
+        ]),
+        page.latte_output,
+        clear_button,
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
@@ -22153,6 +22605,8 @@ pipe_pixart_sigma = None
 pipe_pixart_sigma_encoder = None
 pipe_hunyuan = None
 pipe_lumina = None
+pipe_kolors = None
+pipe_auraflow = None
 pipe_layer_diffusion, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_unet, ld_transparent_decoder, ld_transparent_encoder = [None] * 7
 pipe_differential_diffusion = None
 pipe_magic_mix = None
@@ -22177,6 +22631,7 @@ pipe_diffsynth, pipe_diffsynth_image, diffsynth_model_manager = [None] * 3
 pipe_animatediff_img2video = None
 pipe_animatediff_sdxl = None
 pipe_pia = None
+pipe_easyanimate, easyanimate_transformer = [None] *2
 pipe_i2vgen_xl = None
 pipe_panorama = None
 pipe_DiT = None
@@ -22199,6 +22654,7 @@ pipe_text_to_video = None
 pipe_text_to_video_zero = None
 pipe_video_to_video = None
 pipe_fresco_v2v = None
+pipe_latte = None
 pipe_infinite_zoom = None
 pipe_deepfloyd = None
 pipe_deepfloyd2 = None
@@ -23799,6 +24255,8 @@ def get_SD3_pipe(task="text2image"):
               pipe_SD3.enable_model_cpu_offload()
           elif not prefs['SD3_bitsandbytes_8bit']:
               pipe_SD3.to("cuda")
+      if prefs['vae_tiling']:
+          pipe_SD3.enable_vae_tiling()
       #pipe_SD3 = optimize_SDXL(pipe_SDXL, vae_slicing=True)
   elif task == "image2image":
       status['loaded_SD3'] = task
@@ -23845,6 +24303,8 @@ def get_SD3_pipe(task="text2image"):
               pipe_SD3.enable_model_cpu_offload()
           elif not prefs['SD3_bitsandbytes_8bit']:
               pipe_SD3.to("cuda")
+      if prefs['vae_tiling']:
+          pipe_SD3.enable_vae_tiling()
   elif task == "inpainting":
       status['loaded_SD3'] = task
       if prefs['enable_torch_compile']:
@@ -23890,6 +24350,8 @@ def get_SD3_pipe(task="text2image"):
               pipe_SD3.enable_model_cpu_offload()
           elif not prefs['SD3_bitsandbytes_8bit']:
               pipe_SD3.to("cuda")
+      if prefs['vae_tiling']:
+          pipe_SD3.enable_vae_tiling()
   if prefs['SD3_compel']:
       from compel import Compel, ReturnedEmbeddingsType
       compel_base = Compel(tokenizer=[pipe_SD3.tokenizer, pipe_SD3.tokenizer_2], text_encoder=[pipe_SD3.text_encoder, pipe_SD3.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
@@ -25044,6 +25506,18 @@ def clear_lumina_pipe():
     del pipe_lumina
     flush()
     pipe_lumina = None
+def clear_kolors_pipe():
+  global pipe_kolors
+  if pipe_kolors is not None:
+    del pipe_kolors
+    flush()
+    pipe_kolors = None
+def clear_auraflow_pipe():
+  global pipe_auraflow
+  if pipe_auraflow is not None:
+    del pipe_auraflow
+    flush()
+    pipe_auraflow = None
 def clear_layer_diffusion_pipe():
   global pipe_layer_diffusion
   if pipe_layer_diffusion is not None:
@@ -25186,6 +25660,12 @@ def clear_pia_pipe():
     del pipe_pia
     flush()
     pipe_pia = None
+def clear_easyanimate_pipe():
+  global pipe_easyanimate, easyanimate_transformer
+  if pipe_easyanimate is not None:
+    del pipe_easyanimate, easyanimate_transformer
+    flush()
+    pipe_easyanimate, easyanimate_transformer = [None] *2
 def clear_i2vgen_xl_pipe():
   global pipe_i2vgen_xl
   if pipe_i2vgen_xl is not None:
@@ -25266,6 +25746,12 @@ def clear_fresco_pipe():
     del pipe_fresco_v2v
     flush()
     pipe_fresco_v2v = None
+def clear_latte_pipe():
+  global pipe_latte
+  if pipe_latte is not None:
+    del pipe_latte
+    flush()
+    pipe_latte = None
 def clear_infinite_zoom_pipe():
   global pipe_infinite_zoom
   if pipe_infinite_zoom is not None:
@@ -25539,6 +26025,8 @@ def clear_pipes(allbut=None):
     if not 'pixart_sigma' in but: clear_pixart_sigma_pipe()
     if not 'hunyuan' in but: clear_hunyuan_pipe()
     if not 'lumina' in but: clear_lumina_pipe()
+    if not 'kolors' in but: clear_kolors_pipe()
+    if not 'auraflow' in but: clear_auraflow_pipe()
     if not 'layer_diffusion' in but: clear_layer_diffusion_pipe()
     if not 'differential_diffusion' in but: clear_differential_diffusion_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
@@ -25562,6 +26050,7 @@ def clear_pipes(allbut=None):
     if not 'animatediff_img2video' in but: clear_animatediff_img2video_pipe()
     if not 'animatediff_sdxl' in but: clear_animatediff_sdxl_pipe()
     if not 'pia' in but: clear_pia_pipe()
+    if not 'easyanimate' in but: clear_easyanimate_pipe()
     if not 'i2vgen_xl' in but: clear_i2vgen_xl_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'amused' in but: clear_amused_pipe()
@@ -25589,6 +26078,7 @@ def clear_pipes(allbut=None):
     if not 'text_to_video_zero' in but: clear_text_to_video_zero_pipe()
     if not 'video_to_video' in but: clear_video_to_video_pipe()
     if not 'fresco' in but: clear_fresco_pipe()
+    if not 'latte' in but: clear_latte_pipe()
     if not 'infinite_zoom' in but: clear_infinite_zoom_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
@@ -27595,7 +28085,8 @@ generator_request_modes = ["visually detailed",
   "that is technical, wordy, extra detailed, confusingly tangental, colorfully worded, dramatically narrative",
   "that is creative, imaginative, funny, interesting, scenic, dark, witty, visual, unexpected, wild",
   "that includes many subjects with descriptions, color details, artistic expression, point of view",
-  "complete sentence using many words to describe a landscape in an epic fantasy genre that includes a lot adjectives",]
+  "complete sentence using many words to describe a landscape in an epic fantasy genre that includes a lot adjectives",
+  "in a way that a person would describe an image separated by commas when necessary. All in lower case. Expand the input below into a more detailed caption without changing the original relative positions or interactions between objects, colors or any other specific attributes if they are disclosed in the original prompt. Clarify positional information, colors, counts of objects, other visual aspects and features. Make sure to include as much detail as possible. Make sure to describe the spatial relationships seen in the image. You can use words like left/right, above/below, front/behind, far/near/adjacent, inside/outside. Make sure to include object interactions like 'a table is in front of the kitchen pot' and 'there are baskets on the table'. Also describe relative sizes of objects seen in the image. Make sure to include counts of prominent objects in the image, especially when there is humans in the image. When its a photograph, include photographic details like bokeh, large field of view etc but dont just say it to say something, do it only when it makes sense. When its art, include details about the style like minimalist, impressionist, oil painting etc. Include world and period knowledge if it makes sense to, like 1950s chevrolet etc."]
 
 def run_prompt_generator(page):
   import random as rnd
@@ -43845,6 +44336,393 @@ def run_lumina(page, from_list=False, with_params=False):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+def run_kolors(page, from_list=False, with_params=False):
+    global kolors_prefs, pipe_kolors, prefs, status
+    if not check_diffusers(page): return
+    kolors_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            kolors_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':kolors_prefs['guidance_scale'], 'num_inference_steps':kolors_prefs['num_inference_steps'], 'width':kolors_prefs['width'], 'height':kolors_prefs['height'], 'init_image':kolors_prefs['init_image'], 'init_image_strength':kolors_prefs['init_image_strength'], 'num_images':kolors_prefs['num_images'], 'seed':kolors_prefs['seed']})
+        else:
+            kolors_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(kolors_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      kolors_prompts.append({'prompt': kolors_prefs['prompt'], 'negative_prompt':kolors_prefs['negative_prompt'], 'guidance_scale':kolors_prefs['guidance_scale'], 'num_inference_steps':kolors_prefs['num_inference_steps'], 'width':kolors_prefs['width'], 'height':kolors_prefs['height'], 'init_image':kolors_prefs['init_image'], 'init_image_strength':kolors_prefs['init_image_strength'], 'num_images':kolors_prefs['num_images'], 'seed':kolors_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.Kolors.controls.append(line)
+        if update:
+          page.Kolors.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.Kolors, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.Kolors.auto_scroll = scroll
+        page.Kolors.update()
+      else:
+        page.Kolors.auto_scroll = scroll
+        page.Kolors.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.Kolors.controls = page.Kolors.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = kolors_prefs['num_inference_steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Kolors Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("kolors")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = kolors_prefs['cpu_offload']
+    kolors_model = "Kwai-Kolors/Kolors-diffusers" if kolors_prefs['kolors_model'] == "Kolors-diffusers" else kolors_prefs['kolors_custom_model']
+    status.setdefaults['loaded_kolors', '']
+    status.setdefaults['loaded_kolors_mode', '']
+    if kolors_model != status['loaded_kolors']:
+        clear_pipes()
+    #from optimum.intel import OVLatentConsistencyModelPipeline
+    #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/Kolors-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
+    
+    from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, KolorsScheduler
+    if pipe_kolors == None:
+        installer.status(f"...initialize Kolors Pipeline")
+        try:
+            if bool(kolors_prefs['init_image']):
+                pipe_kolors = AutoPipelineForImage2Image.from_pretrained(kolors_model, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                status['loaded_kolors_mode'] = "Image2Image"
+            else:
+                pipe_kolors = AutoPipelineForText2Image.from_pretrained(kolors_model, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                status['loaded_kolors_mode'] = "Text2Image"
+            #pipe_kolors.scheduler = KolorsScheduler.from_config(pipe_kolors.scheduler.config)
+            if cpu_offload:
+                pipe_kolors.enable_model_cpu_offload()
+            else:
+                pipe_kolors.to(torch_device)
+            pipe_kolors = pipeline_scheduler(pipe_kolors, use_karras_sigmas=True)
+            pipe_kolors.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Kolors...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_kolors'] = kolors_model
+    else:
+        clear_pipes('kolors')
+    clear_last()
+    s = "" if len(kolors_prompts) == 0 else "s"
+    prt(f"Generating your Kolors Image{s}...")
+    for pr in kolors_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = get_seed(int(pr['seed']))
+        generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        init_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        try:
+            if init_img is not None:
+                if status['loaded_kolors_mode'] != "Image2Image":
+                    pipe_kolors = AutoPipelineForImage2Image.from_pipe(pipe_kolors)
+                    status['loaded_kolors_mode'] = "Image2Image"
+                images = pipe_kolors(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    init_image=init_img,
+                    init_image_strength=pr['init_image_strength'],
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                ).images
+            else:
+                if status['loaded_kolors_mode'] != "Text2Image":
+                    pipe_kolors = AutoPipelineForText2Image.from_pipe(pipe_kolors)
+                    status['loaded_kolors_mode'] = "Text2Image"
+                images = pipe_kolors(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                ).images
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(kolors_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, kolors_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{kolors_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not kolors_prefs['display_upscaled_image'] or not kolors_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, kolors_prefs, f"Kolors", kolors_model, random_seed, extra=pr)
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], kolors_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': kolors_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if kolors_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=kolors_prefs["enlarge_scale"], face_enhance=kolors_prefs["face_enhance"])
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                save_metadata(image_path, kolors_prefs, f"Kolors", kolors_model, random_seed, extra=pr)
+                if kolors_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(kolors_prefs["enlarge_scale"]), height=pr['height'] * float(kolors_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], kolors_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], kolors_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+
+def run_auraflow(page, from_list=False, with_params=False):
+    global auraflow_prefs, pipe_auraflow, prefs
+    if not check_diffusers(page): return
+    if int(status['cpu_memory']) <= 8:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run AuraFlow right now. Either Change runtime type to High-RAM mode and restart.")
+      return
+    auraflow_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            auraflow_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':auraflow_prefs['guidance_scale'], 'steps':auraflow_prefs['steps'], 'width':auraflow_prefs['width'], 'height':auraflow_prefs['height'], 'num_images':auraflow_prefs['num_images'], 'seed':auraflow_prefs['seed']})
+        else:
+            auraflow_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(auraflow_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      auraflow_prompts.append({'prompt': auraflow_prefs['prompt'], 'negative_prompt':auraflow_prefs['negative_prompt'], 'guidance_scale':auraflow_prefs['guidance_scale'], 'steps':auraflow_prefs['steps'], 'width':auraflow_prefs['width'], 'height':auraflow_prefs['height'], 'num_images':auraflow_prefs['num_images'], 'seed':auraflow_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.AuraFlow.controls.append(line)
+        if update:
+          page.AuraFlow.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.AuraFlow, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.AuraFlow.auto_scroll = scroll
+        page.AuraFlow.update()
+      else:
+        page.AuraFlow.auto_scroll = scroll
+        page.AuraFlow.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.AuraFlow.controls = page.AuraFlow.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = auraflow_prefs['steps']
+    def callback_fnc(step: int, timestep: int, callback_kwargs) -> None: #(pipe, step, timestep, callback_kwargs):#
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    def callback_fn(pipe, step, timestep, callback_kwargs):
+      callback_fn.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    model_id = "fal/AuraFlow" if auraflow_prefs['auraflow_model'] == "fal/AuraFlow" else auraflow_prefs['custom_model']
+    if 'loaded_auraflow_model' not in status: status['loaded_auraflow_model'] = ''
+    installer = Installing(f"Installing AuraFlow Engine & Models... See console log for progress.")
+    cpu_offload = auraflow_prefs['cpu_offload']
+    prt(installer)
+    if status['loaded_auraflow_model'] != model_id:
+        clear_pipes()
+    else:
+        clear_pipes('auraflow')
+    if pipe_auraflow == None:
+        try:
+            from diffusers import AuraFlowPipeline
+            pipe_auraflow = AuraFlowPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            '''if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling unet")
+                pipe_auraflow = pipe_auraflow.to("cuda")
+                pipe_auraflow.transformer.to(memory_format=torch.channels_last)
+                pipe_auraflow.vae.to(memory_format=torch.channels_last)
+                pipe_auraflow.transformer = torch.compile(pipe_auraflow.transformer, mode="max-autotune", fullgraph=True)
+                pipe_auraflow.vae.decode = torch.compile(pipe_auraflow.vae.decode, mode="max-autotune", fullgraph=True)
+            el'''
+            if cpu_offload:
+                pipe_auraflow.enable_model_cpu_offload()
+            else:
+                pipe_auraflow = pipe_auraflow.to("cuda")
+                #pipe_auraflow.transformer.enable_forward_chunking(chunk_size=1, dim=1)
+            #pipe_auraflow.set_progress_bar_config(disable=True)
+            status['loaded_auraflow_model'] = model_id
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing AuraFlow, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_last()
+    n = 0
+    for pr in auraflow_prompts:
+        prt(f"{f'[{n + 1}/{len(auraflow_prompts)}]  ' if from_list else ''}{pr['prompt']}")
+        prt(progress)
+        nudge(page.imageColumn if from_list else page.AuraFlow, page=page)
+        autoscroll(False)
+        total_steps = pr['steps']
+        random_seed = get_seed(pr['seed'])
+        generator = torch.Generator(device="cpu" if cpu_offload else torch_device).manual_seed(random_seed)
+        try:
+            images = pipe_auraflow(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                num_images_per_prompt=pr['num_images'],
+                width=pr['width'],
+                height=pr['height'],
+                num_inference_steps=pr['steps'],
+                guidance_scale=pr['guidance_scale'],
+                generator=generator,
+                #callback_on_step_end=callback_fn,
+            ).images
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        clear_last(2)
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(auraflow_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, auraflow_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        #print(str(images))
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            fname = f'{auraflow_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not auraflow_prefs['display_upscaled_image'] or not auraflow_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, auraflow_prefs, f"AuraFlow", model_id, random_seed, extra=pr)
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], auraflow_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+            if auraflow_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=auraflow_prefs["enlarge_scale"], face_enhance=auraflow_prefs["face_enhance"])
+                image_path = upscaled_path
+                save_metadata(upscaled_path, auraflow_prefs, f"AuraFlow", model_id, random_seed, extra=pr)
+                if auraflow_prefs['display_upscaled_image']:
+                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(auraflow_prefs["enlarge_scale"]), height=pr['height'] * float(auraflow_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            new_file = available_file(os.path.join(prefs['image_output'], auraflow_prefs['batch_folder_name']), fname, 0)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        n += 1
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
 def run_layer_diffusion(page, from_list=False, with_params=False):
     global layer_diffusion_prefs, pipe_layer_diffusion, prefs, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_unet, ld_transparent_decoder, ld_transparent_encoder
     if not check_diffusers(page): return
@@ -50750,6 +51628,347 @@ def run_pia(page, from_list=False, with_params=False):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+
+def run_easyanimate(page, from_list=False, with_params=False):
+    global easyanimate_prefs, pipe_easyanimate, easyanimate_transformer, prefs, status
+    if not check_diffusers(page): return
+    easyanimate_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            easyanimate_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':easyanimate_prefs['guidance_scale'], 'num_inference_steps':easyanimate_prefs['num_inference_steps'], 'width':easyanimate_prefs['width'], 'height':easyanimate_prefs['height'], 'init_image':easyanimate_prefs['init_image'], 'num_images':easyanimate_prefs['num_images'], 'seed':easyanimate_prefs['seed']})
+        else:
+            easyanimate_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(easyanimate_prefs['init_image']):
+        alert_msg(page, "You must provide an Init Image to process your video generation...")
+        return
+      easyanimate_prompts.append({'prompt': easyanimate_prefs['prompt'], 'negative_prompt':easyanimate_prefs['negative_prompt'], 'guidance_scale':easyanimate_prefs['guidance_scale'], 'num_inference_steps':easyanimate_prefs['num_inference_steps'], 'width':easyanimate_prefs['width'], 'height':easyanimate_prefs['height'], 'init_image':easyanimate_prefs['init_image'], 'num_images':easyanimate_prefs['num_images'], 'seed':easyanimate_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.EasyAnimate.controls.append(line)
+        if update:
+          page.EasyAnimate.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.EasyAnimate, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.EasyAnimate.auto_scroll = scroll
+        page.EasyAnimate.update()
+      else:
+        page.EasyAnimate.auto_scroll = scroll
+        page.EasyAnimate.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.EasyAnimate.controls = page.EasyAnimate.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = easyanimate_prefs['num_inference_steps']
+    def callback_step(pipe, step, timestep, callback_kwargs):
+      callback_step.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    #mode = "Video2Video" if easyanimate_prompts[0]['init_image'].endswith('mp4') or easyanimate_prompts[0]['init_image'].endswith('gif') else "Image2Video"
+    installer = Installing(f"Installing EasyAnimate Engine & Models... See console for progress.")
+    prt(installer)
+    easyanimate_dir = os.path.join(root_dir, "EasyAnimate")
+    if not os.path.exists(easyanimate_dir):
+        try:
+            installer.status("...cloning aigc-apps/EasyAnimate")
+            run_sp("git clone https://github.com/aigc-apps/EasyAnimate.git", cwd=root_dir)
+            installer.status("...installing requirements")
+            get_ffmpeg(installer)
+            pip_install("einops safetensors timm tomesd torchdiffeq torchsde xformers decord datasets numpy scikit-image|skimage opencv-python|cv2 omegaconf SentencePiece albumentations imageio[pyav]|imageio imageio[ffmpeg]|imageio tensorboard gradio beautifulsoup4 ftfy", installer=installer)
+            #installer.status("...building insightface 3D mesh cython")
+            #run_sp("python setup.py builld_ext --inplace", cwd=os.path.join(easyanimate_dir, "src/utils/dependencies/insightface/thirdparty/face3d/mesh/cython"))
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing EasyAnimate Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    elif force_update("easyanimate"):
+        installer.status("...fetching aigc-apps/EasyAnimate")
+        run_sp("git fetch https://github.com/aigc-apps/EasyAnimate.git", cwd=root_dir)
+    transformer_dir = os.path.join(easyanimate_dir, "models", "Diffusion_Transformer")
+    if not os.path.exists(transformer_dir):
+        makedir(transformer_dir)
+        makedir(os.path.join(easyanimate_dir, "models", "Motion_Module"))
+        makedir(os.path.join(easyanimate_dir, "models", "Personalized_Model"))
+    easyanimate_model = easyanimate_prefs['custom_model'] if easyanimate_prefs['easyanimate_model'] == "Custom" else f"alibaba-pai/{easyanimate_prefs['easyanimate_model']}"
+    model_name = easyanimate_prefs['custom_model'] if easyanimate_prefs['easyanimate_model'] == "Custom" else f"models/Diffusion_Transformer/{easyanimate_prefs['easyanimate_model']}"
+    #model_name = "models/Diffusion_Transformer/EasyAnimateV3-XL-2-InP-512x512"
+    if not os.path.exists(os.path.join(transformer_dir, easyanimate_prefs['easyanimate_model'])) and (easyanimate_prefs['easyanimate_model'] != "Custom" or easyanimate_prefs['custom_model'].count('/') == 1):
+        installer.status("...cloning pretrained weights")
+        from huggingface_hub import Repository
+        model_name = Repository(local_dir=transformer_dir, clone_from=easyanimate_model)
+    '''if not os.path.exists(transformer_dir):
+        installer.status("...downloading pretrained weights")
+        makedir(transformer_dir)
+        makedir(os.path.join(easyanimate_dir, "models", "Motion_Module"))
+        makedir(os.path.join(easyanimate_dir, "models", "Personalized_Model"))
+        download_file("https://pai-aigc-photog.oss-cn-hangzhou.aliyuncs.com/easyanimate/Diffusion_Transformer/EasyAnimateV3-XL-2-InP-512x512.tar", to=transformer_dir)
+        import tarfile
+        with tarfile.open(os.path.join(transformer_dir, "EasyAnimateV3-XL-2-InP-512x512.tar"), 'r') as tar:
+            tar.extractall(path=transformer_dir)'''
+    if easyanimate_dir not in sys.path:
+        sys.path.append(easyanimate_dir)
+    os.chdir(easyanimate_dir)
+    import numpy as np
+    from diffusers import (AutoencoderKL, DDIMScheduler,
+                        DPMSolverMultistepScheduler,
+                        EulerAncestralDiscreteScheduler, EulerDiscreteScheduler,
+                        PNDMScheduler)
+    from omegaconf import OmegaConf
+    from PIL import Image as PILImage
+    from transformers import CLIPImageProcessor, CLIPVisionModelWithProjection
+
+    from easyanimate.models.autoencoder_magvit import AutoencoderKLMagvit
+    from easyanimate.models.transformer3d import Transformer3DModel
+    from easyanimate.pipeline.pipeline_easyanimate import EasyAnimatePipeline
+    from easyanimate.pipeline.pipeline_easyanimate_inpaint import EasyAnimateInpaintPipeline
+    from easyanimate.utils.lora_utils import merge_lora, unmerge_lora
+    from easyanimate.utils.utils import get_image_to_video_latent, save_videos_grid
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    config_path = os.path.join(easyanimate_dir, "config/easyanimate_video_slicevae_motion_module_v3.yaml")
+    #model_name = "models/Diffusion_Transformer/EasyAnimateV3-XL-2-InP-512x512"
+    #easyanimate_model = "models/Diffusion_Transformer/EasyAnimateV3-XL-2-InP-512x512" if easyanimate_prefs['easyanimate_model'] == "EasyAnimateV3-XL-2-InP-512x512" else easyanimate_prefs['custom_model']
+    cpu_offload = easyanimate_prefs['cpu_offload']
+    status.setdefault("loaded_easyanimate", "")
+    if easyanimate_model != status['loaded_easyanimate']:
+        clear_pipes()
+    else:
+        clear_pipes("easyanimate")
+    config = OmegaConf.load(config_path)
+    weight_dtype = torch.bfloat16
+
+    if pipe_easyanimate == None:
+        installer.status(f"...initialize EasyAnimate Pipeline")
+        try:
+            easyanimate_transformer = Transformer3DModel.from_pretrained_2d(
+                model_name, 
+                subfolder="transformer",
+                transformer_additional_kwargs=OmegaConf.to_container(config['transformer_additional_kwargs'])
+            ).to(weight_dtype)
+            if OmegaConf.to_container(config['vae_kwargs'])['enable_magvit']:
+                Choosen_AutoencoderKL = AutoencoderKLMagvit
+            else:
+                Choosen_AutoencoderKL = AutoencoderKL
+            vae = Choosen_AutoencoderKL.from_pretrained(
+                model_name, 
+                subfolder="vae"
+            ).to(weight_dtype)
+            if easyanimate_transformer.config.in_channels == 12:
+                clip_image_encoder = CLIPVisionModelWithProjection.from_pretrained(
+                    model_name, subfolder="image_encoder"
+                ).to("cuda", weight_dtype)
+                clip_image_processor = CLIPImageProcessor.from_pretrained(
+                    model_name, subfolder="image_encoder"
+                )
+            else:
+                clip_image_encoder = None
+                clip_image_processor = None
+            Choosen_Scheduler = scheduler_dict = {
+                "Euler": EulerDiscreteScheduler,
+                "Euler A": EulerAncestralDiscreteScheduler,
+                "DPM++": DPMSolverMultistepScheduler, 
+                "PNDM": PNDMScheduler,
+                "DDIM": DDIMScheduler,
+            }[easyanimate_prefs['sampler']]
+            scheduler = Choosen_Scheduler(**OmegaConf.to_container(config['noise_scheduler_kwargs']))
+            if easyanimate_transformer.config.in_channels == 12:
+                pipe_easyanimate = EasyAnimateInpaintPipeline.from_pretrained(
+                    model_name,
+                    vae=vae,
+                    transformer=easyanimate_transformer,
+                    scheduler=scheduler,
+                    torch_dtype=weight_dtype,
+                    clip_image_encoder=clip_image_encoder,
+                    clip_image_processor=clip_image_processor,
+                )
+            else:
+                pipe_easyanimate = EasyAnimatePipeline.from_pretrained(
+                    model_name,
+                    vae=vae,
+                    transformer=easyanimate_transformer,
+                    scheduler=scheduler,
+                    torch_dtype=weight_dtype
+                )
+            if cpu_offload:
+                pipe_easyanimate.enable_sequential_cpu_offload()
+            else:
+                pipe_easyanimate.enable_model_cpu_offload()
+            #if lora_path is not None:
+            #    pipe_easyanimate = merge_lora(pipe_easyanimate, lora_path, lora_weight)
+            #pipe_easyanimate = EasyAnimatePipeline.from_pretrained(easyanimate_model, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_easyanimate.scheduler = EulerDiscreteScheduler.from_config(pipe_easyanimate.scheduler.config)
+            #pipe_easyanimate.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing EasyAnimate...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            autoscroll(False)
+            return
+        status['loaded_easyanimate'] = easyanimate_model
+    else:
+        clear_pipes('easyanimate')
+    if len(easyanimate_prefs['lora_map']) > 0:
+        installer.status(f"...loading LoRAs")
+        adapters = []
+        scales = []
+        for l in easyanimate_prefs['lora_map']:
+            adapters.append(l['name'])
+            scales.append(l['scale'])
+            weight_args = {}
+            if 'weights' in l and bool(l['weights']):
+                weight_args['weight_name'] = l['weights']
+            pipe_easyanimate.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
+        pipe_easyanimate.set_adapters(adapters, adapter_weights=scales)
+    clear_last()
+    s = "" if len(easyanimate_prompts) == 0 else "s"
+    prt(f"Generating your EasyAnimate Video{s}... See console for progress.")
+    for pr in easyanimate_prompts:
+        prt(progress)
+        nudge(page.imageColumn if from_list else page.EasyAnimate, page)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = get_seed(pr['seed'])
+        generator = torch.Generator("cuda").manual_seed(random_seed)
+        init_img = None
+        end_img = None
+        video_length = easyanimate_prefs['video_length']
+        if easyanimate_prefs['generate_image']:
+            video_length = 1
+        fname = os.path.basename(pr['init_image'])
+        if bool(pr['init_image']):
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init image {pr['init_image']}")
+                    return
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        if bool(pr['end_image']):
+            if pr['end_image'].startswith('http'):
+                end_img = PILImage.open(requests.get(pr['end_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['end_image']):
+                    end_img = PILImage.open(pr['end_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init image {pr['end_image']}")
+                    return
+            end_img = end_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            end_img = ImageOps.exif_transpose(end_img).convert("RGB")
+        if end_img is not None and init_img is None:
+            alert_msg(page, f"ERROR: Can't have an ending image without an init image.")
+            return
+        try:
+            with torch.no_grad():
+                if easyanimate_transformer.config.in_channels == 12:
+                    video_length = int(video_length // vae.mini_batch_encoder * vae.mini_batch_encoder) if video_length != 1 else 1
+                    input_video, input_video_mask, clip_image = get_image_to_video_latent(init_img, end_img, video_length=video_length, sample_size=[pr['height'], pr['width']])
+
+                    output = pipe_easyanimate(
+                        pr['prompt'], 
+                        video_length = video_length,
+                        negative_prompt = pr['negative_prompt'],
+                        height = pr['height'],
+                        width = pr['width'],
+                        generator = generator,
+                        guidance_scale = pr['guidance_scale'],
+                        num_inference_steps = pr['num_inference_steps'],
+
+                        video = input_video,
+                        mask_video = input_video_mask,
+                        clip_image = clip_image, 
+                    ).videos
+                else:
+                    output = pipe_easyanimate(
+                        pr['prompt'], 
+                        video_length = video_length,
+                        negative_prompt = pr['negative_prompt'],
+                        height = pr['height'],
+                        width = pr['width'],
+                        generator = generator,
+                        guidance_scale = pr['guidance_scale'],
+                        num_inference_steps = pr['num_inference_steps'],
+                        #callback_on_step_end=callback_step,
+                    ).videos
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating video...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        if output is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        batch_output = os.path.join(prefs['image_output'], easyanimate_prefs['batch_folder_name'])
+        makedir(batch_output)
+        fname = format_filename(pr['prompt'])
+        if video_length == 1:
+            video_path = available_file(batch_output, fname, no_num=True)
+            image = output[0, :, 0]
+            image = image.transpose(0, 1).transpose(1, 2)
+            image = (image * 255).numpy().astype(np.uint8)
+            image = PILImage.fromarray(image)
+            image.save(video_path)
+            prt(Row([ImageButton(src=video_path, width=pr['width'], height=pr['height'], data=video_path, page=page)], alignment=MainAxisAlignment.CENTER))
+        else:
+            video_path = available_file(batch_output, fname, no_num=True, ext="mp4")
+            save_videos_grid(output, video_path, fps=easyanimate_prefs['fps'])
+            if not os.path.isfile(video_path):
+                prt(f"Problem creating video file, but frames still saved...")
+            else:
+                prt(Markdown(f"Video saved to [{video_path}]({video_path})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        #gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+        #export_to_gif(frames_batch, gif_file, fps=easyanimate_prefs['fps'])
+        '''if easyanimate_prefs['export_to_video']:
+            try:
+                installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+                prt(installer)
+                out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+                if easyanimate_prefs['interpolate_video']:
+                    interpolate_video(frames_dir, input_fps=easyanimate_prefs['fps'], output_fps=easyanimate_prefs['target_fps'], output_video=out_file, installer=installer)
+                else:
+                    installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                    pattern = create_pattern(new_file) #fname+"-%04d.png"
+                    frames_to_video(frames_dir, pattern=pattern, input_fps=easyanimate_prefs['fps'], output_fps=easyanimate_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                pass'''
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
 def run_i2vgen_xl(page, from_list=False, with_params=False):
     global i2vgen_xl_prefs, pipe_i2vgen_xl, prefs, status
     if not check_diffusers(page): return
@@ -51718,6 +52937,95 @@ def run_fresco_v2v(page):
     else:
         prt("Something went wrong generating video...")
     autoscroll(False)
+
+def run_latte(page):
+    global latte_prefs, prefs, status, pipe_latte
+    if not check_diffusers(page): return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.Latte.controls.append(line)
+      page.Latte.update()
+    def clear_last(lines=1):
+      clear_line(page.Latte, lines=lines)
+    def clear_list():
+      page.Latte.controls = page.Latte.controls[:1]
+    def autoscroll(scroll=True):
+      page.Latte.auto_scroll = scroll
+      page.Latte.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = latte_prefs['num_inference_steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Latte Text-To-Video Pipeline...")
+    prt(installer)
+    model_id = "maxin-cn/Latte-1"
+    from diffusers import LattePipeline
+    from diffusers.utils import export_to_gif, export_to_video
+    clear_pipes('latte')
+    if pipe_latte == None:
+        installer.status(f"...initialize Pipeline")
+        try:
+            pipe_latte = LattePipeline.from_pretrained(model_id, torch_dtype=torch.float16).to("cuda")
+            if latte_prefs['cpu_offload']:
+                pipe_latte.enable_model_cpu_offload()
+            else:
+                pipe_latte = pipe_latte.to(torch_device)
+            #pipe_latte.scheduler = DDIMScheduler.from_config(pipe_latte.scheduler.config)
+            pipe_latte.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Personalized Image Animator...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    if latte_prefs['clean_caption']:
+        pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
+    clear_last()
+    prt("Generating Latte of your Prompt...")
+    prt(progress)
+    autoscroll(False)
+    batch_output = os.path.join(stable_dir, latte_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], latte_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    random_seed = get_seed(latte_prefs['seed'])
+    generator = torch.Generator(device="cpu").manual_seed(random_seed)
+    #generator = torch.manual_seed(random_seed)
+    width = latte_prefs['width']
+    height = latte_prefs['height']
+    try:
+        videos = pipe_latte(latte_prefs['prompt'], negative_prompt=latte_prefs['negative_prompt'], video_length=latte_prefs['num_frames'], num_inference_steps=latte_prefs['num_inference_steps'], guidance_scale=latte_prefs['guidance_scale'], clean_caption=latte_prefs['clean_caption'], width=width, height=height, generator=generator, callback_on_step_end=callback_fnc).frames[0]
+    except Exception as e:
+      clear_last()
+      clear_last()
+      alert_msg(page, f"ERROR: Latte Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+      return
+    clear_last()
+    clear_last()
+    autoscroll(True)
+    fname = f"{format_filename(latte_prefs['prompt'])}"
+    gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+    video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+    export_to_gif(videos, gif_file, fps=latte_prefs['fps'])
+    prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+    #filename = filename[:int(prefs['file_max_length'])]
+    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    autoscroll(True)
+    export_to_video(videos, video_file, fps=latte_prefs['fps'])
+    #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
+    prt(Markdown(f"Video saved to [{video_file}]({video_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    #prt(f"Done creating video... Check {batch_output}")
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
 
 
 def run_materialdiffusion(page):
