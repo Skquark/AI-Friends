@@ -23379,7 +23379,7 @@ def get_SD3(page):
 
 def get_SD3_pipe(task="text2image"):
   global pipe_SD3, prefs, status, compel_base
-  from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpaint#, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL # , AutoencoderTiny
+  from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpainting#, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL # , AutoencoderTiny
   if prefs['SD3_compel']:
       pip_install("compel", upgrade=True)
   SD3_model = get_SD3_model(prefs['SD3_model'])
@@ -23394,7 +23394,7 @@ def get_SD3_pipe(task="text2image"):
           elif task == "image2image":
               pipe_SD3 = AutoPipelineForImage2Image.from_pipe(pipe_SD3)
           elif task == "inpainting":
-              pipe_SD3 = AutoPipelineForInpaint.from_pipe(pipe_SD3)
+              pipe_SD3 = AutoPipelineForInpainting.from_pipe(pipe_SD3)
           status['loaded_SD3'] = task
       pipe_SD3 = apply_LoRA(pipe_SD3, SD3=True)
       #if prefs['scheduler_mode'] != status['loaded_scheduler']:
@@ -23512,7 +23512,7 @@ def get_SD3_pipe(task="text2image"):
           torch._inductor.config.epilogue_fusion = False
           torch._inductor.config.coordinate_descent_check_all_directions = True
       if not prefs['SD3_bitsandbytes_8bit']:
-          pipe_SD3 = AutoPipelineForInpaint.from_pretrained(
+          pipe_SD3 = AutoPipelineForInpainting.from_pretrained(
               model_id,
               torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
               #vae=vae,
@@ -23529,7 +23529,7 @@ def get_SD3_pipe(task="text2image"):
               subfolder="text_encoder_3",
               quantization_config=quantization_config,
           )
-          pipe_SD3 = AutoPipelineForInpaint.from_pretrained(
+          pipe_SD3 = AutoPipelineForInpainting.from_pretrained(
               model_id,
               text_encoder_3=text_encoder,
               device_map="balanced",
@@ -30460,11 +30460,11 @@ def run_ip_adapter(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     cpu_offload = ip_adapter_prefs['cpu_offload']
-    from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpaint
+    from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpainting
     def change_mode(pipe, mode):
         status['loaded_ip_adapter_mode'] = mode
         if mode == "inpaint":
-            return AutoPipelineForInpaint.from_pipe(pipe)
+            return AutoPipelineForInpainting.from_pipe(pipe)
         elif mode == "img2img":
             return AutoPipelineForImage2Image.from_pipe(pipe)
         else:
@@ -30473,7 +30473,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
         installer.status(f"...loading {model_id}")
         try:
             if mode == "inpaint":
-                pipe_ip_adapter = AutoPipelineForInpaint.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant, **safety)
+                pipe_ip_adapter = AutoPipelineForInpainting.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant, **safety)
                 status['loaded_ip_adapter_mode'] = "inpaint"
             elif mode == "img2img":
                 pipe_ip_adapter = AutoPipelineForImage2Image.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant, **safety)
@@ -45382,8 +45382,8 @@ def run_pag(page, from_list=False, with_params=False):
     def change_mode(pipe, mode):
         status['loaded_pag_mode'] = mode
         if mode == "inpaint":
-            from diffusers import AutoPipelineForInpaint
-            return AutoPipelineForInpaint.from_pipe(pipe, enable_pag=True)
+            from diffusers import AutoPipelineForInpainting
+            return AutoPipelineForInpainting.from_pipe(pipe, enable_pag=True)
         elif mode == "img2img":
             from diffusers import AutoPipelineForImage2Image
             return AutoPipelineForImage2Image.from_pipe(pipe, enable_pag=True)
