@@ -73,6 +73,9 @@ if save_to_GDrive:
 stable_dir = os.path.join(root_dir, 'Stable_Diffusion')
 if not os.path.exists(stable_dir):
   os.makedirs(stable_dir)
+uploads_dir = os.path.join(root_dir, "uploads")
+if not os.path.exists(uploads_dir):
+  os.makedirs(uploads_dir)
 sample_data = '/content/sample_data'
 if os.path.exists(sample_data):
   for f in os.listdir(sample_data):
@@ -225,9 +228,6 @@ if not os.path.exists(assets):
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-error.mp3?raw=true", to=assets)
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-done.mp3?raw=true", to=assets)
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-drop.mp3?raw=true", to=assets)
-uploads_dir = os.path.join(root_dir, "uploads")
-if not os.path.exists(uploads_dir):
-    os.makedirs(uploads_dir)
 clear_output()
 
 import json
@@ -2338,14 +2338,14 @@ def buildInstallers(page):
           console_msg("Installing Real-ESRGAN Upscaler...")
         status['installed_ESRGAN'] = True
       if prefs['install_ESRGAN']:
-        ESRGAN_blocks = [
-          page.ESRGAN_block,
-          page.ESRGAN_block_material,
+        '''ESRGAN_blocks = [
+          #page.ESRGAN_block,
+          #page.ESRGAN_block_material,
           #page.ESRGAN_block_dalle,
           #page.ESRGAN_block_dalle3, --Fix later
-          page.ESRGAN_block_kandinsky,
-          page.ESRGAN_block_kandinsky_fuse,
-          page.ESRGAN_block_kandinsky_controlnet,
+          #page.ESRGAN_block_kandinsky,
+          #page.ESRGAN_block_kandinsky_fuse,
+          #page.ESRGAN_block_kandinsky_controlnet,
           #page.ESRGAN_block_kandinsky21,
           #page.ESRGAN_block_kandinsky21_fuse,
           #page.ESRGAN_block_deepfloyd,
@@ -2354,27 +2354,27 @@ def buildInstallers(page):
           #page.ESRGAN_block_wuerstchen,
           #page.ESRGAN_block_pixart_alpha,
           #page.ESRGAN_block_pixart_sigma,
-          page.ESRGAN_block_hunyuan,
-          page.ESRGAN_block_lumina,
-          page.ESRGAN_block_kolors,
-          page.ESRGAN_block_auraflow,
-          page.ESRGAN_block_layer_diffusion,
-          page.ESRGAN_block_lcm,
-          page.ESRGAN_block_lmd_plus,
-          page.ESRGAN_block_ip_adapter,
-          page.ESRGAN_block_blip_diffusion,
-          page.ESRGAN_block_reference,
-          page.ESRGAN_block_instaflow,
+          #page.ESRGAN_block_hunyuan,
+          #page.ESRGAN_block_lumina,
+          #page.ESRGAN_block_kolors,
+          #page.ESRGAN_block_auraflow,
+          #page.ESRGAN_block_layer_diffusion,
+          #page.ESRGAN_block_lcm,
+          #page.ESRGAN_block_lmd_plus,
+          #page.ESRGAN_block_ip_adapter,
+          #page.ESRGAN_block_blip_diffusion,
+          #page.ESRGAN_block_reference,
+          #page.ESRGAN_block_instaflow,
           #page.ESRGAN_block_unCLIP,
           #page.ESRGAN_block_unCLIP_image_variation,
           #page.ESRGAN_block_unCLIP_interpolation,
           #page.ESRGAN_block_unCLIP_image_interpolation,
-          page.ESRGAN_block_semantic,
+          #page.ESRGAN_block_semantic,
           #page.ESRGAN_block_EDICT,
           #page.ESRGAN_block_DiffEdit,
-          page.ESRGAN_block_pag,
-          page.ESRGAN_block_hd_painter,
-          page.ESRGAN_block_anytext,
+          #page.ESRGAN_block_pag,
+          #page.ESRGAN_block_hd_painter,
+          #page.ESRGAN_block_anytext,
           #page.ESRGAN_block_null_text,
           #page.ESRGAN_block_magic_mix,
           #page.ESRGAN_block_paint_by_example,
@@ -2384,13 +2384,13 @@ def buildInstallers(page):
           #page.ESRGAN_block_controlnet_sd3,
           #page.ESRGAN_block_controlnet_qr,
           #page.ESRGAN_block_controlnet_segment,
-          page.ESRGAN_block_styler,
-          page.ESRGAN_block_deep_daze,
-          page.ESRGAN_block_DiT,
-          page.ESRGAN_block_animate_diff, 
-          page.ESRGAN_block_text_to_video,
-          page.ESRGAN_block_text_to_video_zero,
-          page.ESRGAN_block_stable_animation,
+          #page.ESRGAN_block_styler,
+          #page.ESRGAN_block_deep_daze,
+          #page.ESRGAN_block_DiT,
+          #page.ESRGAN_block_animate_diff, 
+          #page.ESRGAN_block_text_to_video,
+          #page.ESRGAN_block_text_to_video_zero,
+          #page.ESRGAN_block_stable_animation,
         ]
         for b in ESRGAN_blocks:
           try:
@@ -2398,7 +2398,7 @@ def buildInstallers(page):
             b.update()
           except Exception:
             print(f"Failed ESRGAN block {b}")
-            pass
+            pass'''
         show_upscalers(page)
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
@@ -2610,11 +2610,6 @@ def buildParameters(page):
       nonlocal pick_type
       pick_type = "mask"
       file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "JPG"], dialog_title="Pick Black & White Mask Image")
-  def toggle_ESRGAN(e):
-      ESRGAN_settings.height = None if e.control.value else 0
-      prefs['apply_ESRGAN_upscale'] = e.control.value
-      ESRGAN_settings.update()
-      has_changed = True
   def toggle_clip(e):
       if e.control.value:
         page.img_block.height = 0
@@ -2656,10 +2651,6 @@ def buildParameters(page):
       max_iter_to_alter_value.value = f" {int(e.control.value)} Iterations"
       max_iter_to_alter_value.update()
       changed(e, 'max_iter_to_alter', asInt=True, apply=False)
-  def change_enlarge_scale(e):
-      enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-      enlarge_scale_slider.update()
-      changed(e, 'enlarge_scale', apply=False)
   def change_strength(e):
       strength_value.value = f" {int(e.control.value * 100)}%"
       strength_value.update()
@@ -2945,20 +2936,11 @@ def buildParameters(page):
   page.use_safe.visible = bool(status['installed_safe'])
   page.use_upscale = Switcher(label="Upscale 4X with Stable Diffusion 2", value=prefs['use_upscale'], on_change=lambda e:changed(e,'use_upscale', apply=False), tooltip="Enlarges your Image Generations guided by the same Prompt.")
   page.use_upscale.visible = bool(status['installed_upscale'])
-  apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=prefs['apply_ESRGAN_upscale'], on_change=toggle_ESRGAN)
-  enlarge_scale_value = Text(f" {float(prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-  enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-  enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
-  face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance', apply=False))
-  display_upscaled_image = Checkbox(label="Display Upscaled Image", value=prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image', apply=False))
-  ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-  page.ESRGAN_block = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  upscaler = UpscaleBlock(prefs)
+  page.upscalers.append(upscaler)
   #page.img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
   page.use_clip_guided_model.visible = status['installed_clip']
   page.clip_block.height = None if status['installed_clip'] and prefs['use_clip_guided_model'] else 0
-  page.ESRGAN_block.height = None if status['installed_ESRGAN'] else 0
-  if not prefs['apply_ESRGAN_upscale']:
-    ESRGAN_settings.height = 0
   parameters_button = ElevatedButton(content=Text(value="📜   Continue to Image Prompts", size=20), on_click=run_parameters)
   parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
   #apply_changes_button = ElevatedButton(content=Text(value="🔀   Apply Changes to Current Prompts", size=20), on_click=apply_to_prompts)
@@ -2994,7 +2976,7 @@ def buildParameters(page):
         use_LoRA_model, LoRA_block,
         Row([use_ip_adapter, ip_adapter_model, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
         ip_adapter_container,
-        page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
+        page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, upscaler,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
         #parameters_row,
       ],
@@ -7258,10 +7240,6 @@ def buildBLIPDiffusion(page):
         blip_diffusion_prefs['controlnet_type'] = e.control.value
         control_image_container.height=None if blip_diffusion_prefs['controlnet_type'] != "None" else 0
         control_image_container.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        blip_diffusion_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=blip_diffusion_prefs['prompt'], multiline=True, filled=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=blip_diffusion_prefs['negative_prompt'], multiline=True, filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     source_subject_category = TextField(label="Source Subject Category List", value=blip_diffusion_prefs['source_subject_category'], multiline=True, col={'md':6}, on_change=lambda e:changed(e,'source_subject_category'))
@@ -7284,14 +7262,8 @@ def buildBLIPDiffusion(page):
     prompt_reps = SliderRow(label="Prompt Repetitions", min=0, max=50, divisions=50, pref=blip_diffusion_prefs, key='prompt_reps', col={'md':6}, tooltip="The number of times the prompt is repeated along with prompt_strength to amplify the prompt.")
     #img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     seed = TextField(label="Seed", width=90, value=str(blip_diffusion_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=blip_diffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=blip_diffusion_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=blip_diffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=blip_diffusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_blip_diffusion = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_blip_diffusion.height = None if status['installed_ESRGAN'] else 0
-    ESRGAN_settings.height = None if blip_diffusion_prefs['apply_ESRGAN_upscale'] else 0
+    upscaler = UpscaleBlock(blip_diffusion_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🦾   Run BLIP-Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_blip_diffusion(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_blip_diffusion(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_blip_diffusion(page, from_list=True, with_params=True))
@@ -7311,7 +7283,7 @@ def buildBLIPDiffusion(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             #Row([batch_folder_name, file_prefix]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_blip_diffusion,
+            upscaler,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
             page.blip_diffusion_output
@@ -7368,10 +7340,6 @@ def buildAnyText(page):
       page.overlay.append(anytext_help_dlg)
       anytext_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        anytext_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label='Prompt with Text in "Double" "Quotes"', value=anytext_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     a_prompt = TextField(label="Additional Prompt Text", value=anytext_prefs['a_prompt'], multiline=True, col={'md':9}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=anytext_prefs['negative_prompt'], multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
@@ -7400,15 +7368,8 @@ def buildAnyText(page):
     )
     revise_pos = Checkbox(label="Revise Position", value=anytext_prefs['revise_pos'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'revise_pos'), tooltip="Uses the bounding box of the rendered text as the revised position. However, it is occasionally found that the creativity of the generated text is slightly lower using this method.")
     seed = TextField(label="Seed", width=90, value=str(anytext_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=anytext_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=anytext_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=anytext_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=anytext_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_anytext = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_anytext.height = None if status['installed_ESRGAN'] else 0
-    if not anytext_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(anytext_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="✍️   Run AnyText", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_anytext(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_anytext(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_anytext(page, from_list=True, with_params=True))
@@ -7427,8 +7388,8 @@ def buildAnyText(page):
             width_slider, height_slider, #Divider(height=9, thickness=2),
             #Row([anytext_model, anytext_custom_model]),
             #Row([cpu_offload, cpu_only]),
+            upscaler,
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_anytext,
             parameters_row,
         ],
     ))], scroll=ScrollMode.AUTO)
@@ -7515,10 +7476,6 @@ def buildIP_Adapter(page):
         ip_adapter_SDXL_model.visible = ip_adapter_prefs['use_SDXL']
         ip_adapter_model.update()
         ip_adapter_SDXL_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        ip_adapter_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text (optional)", value=ip_adapter_prefs['prompt'], filled=True, hint_text="Leave blank for Image Variation", multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=ip_adapter_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     ip_adapter_image = FileInput(label="IP-Adapter Image", pref=ip_adapter_prefs, key='ip_adapter_image', expand=True, page=page)
@@ -7544,15 +7501,8 @@ def buildIP_Adapter(page):
     cpu_offload = Switcher(label="CPU Offload", value=ip_adapter_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     cpu_only = Switcher(label="CPU Only (not yet)", value=ip_adapter_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
     seed = TextField(label="Seed", width=90, value=str(ip_adapter_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=ip_adapter_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=ip_adapter_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=ip_adapter_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=ip_adapter_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_ip_adapter = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_ip_adapter.height = None if status['installed_ESRGAN'] else 0
-    if not ip_adapter_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(ip_adapter_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🪞   Run IP-Adapter", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ip_adapter(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ip_adapter(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ip_adapter(page, from_list=True, with_params=True))
@@ -7569,7 +7519,7 @@ def buildIP_Adapter(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_ip_adapter,
+            upscaler,
             parameters_row,
             page.ip_adapter_output
         ],
@@ -7632,10 +7582,6 @@ def buildHD_Painter(page):
         hd_painter_prefs['hd_painter_model'] = e.control.value
         hd_painter_custom_model.visible = e.control.value == "Custom"
         hd_painter_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        hd_painter_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=hd_painter_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=hd_painter_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Init Image", pref=hd_painter_prefs, key='init_image', page=page, col={'md':6})
@@ -7667,15 +7613,8 @@ def buildHD_Painter(page):
     use_painta = Switcher(label="Use PAIntA", value=hd_painter_prefs['use_painta'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_painta'), tooltip="Prompt-Aware Introverted Attention layer enhancing self-attention scores by prompt information resulting in better text aligned generations.")
     cpu_offload = Switcher(label="CPU Offload", value=hd_painter_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     seed = TextField(label="Seed", width=90, value=str(hd_painter_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=hd_painter_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=hd_painter_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=hd_painter_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=hd_painter_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_hd_painter = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_hd_painter.height = None if status['installed_ESRGAN'] else 0
-    if not hd_painter_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(hd_painter_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🖌   Run HD-Painter", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hd_painter(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hd_painter(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hd_painter(page, from_list=True, with_params=True))
@@ -7696,7 +7635,7 @@ def buildHD_Painter(page):
             Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_hd_painter,
+            upscaler,
             parameters_row,
             page.hd_painter_output
         ],
@@ -7767,10 +7706,6 @@ def buildReference(page):
       page.update()
     prompt = TextField(label="Prompt Text", value=reference_prefs['prompt'], filled=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=reference_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        reference_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     ref_image = FileInput(label="Reference Image", pref=reference_prefs, key='ref_image', page=page)
     use_SDXL = Switcher(label="Use Stable Diffusion XL Reference Pipeline", value=reference_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="Otherwise use standard Model Checkpoint set in Installation.")
     seed = TextField(label="Seed", width=90, value=str(reference_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
@@ -7791,14 +7726,8 @@ def buildReference(page):
     batch_size = NumberPicker(label="Batch Size: ", min=1, max=8, value=reference_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
     num_images = NumberPicker(label="Number of Iterations: ", min=1, max=12, value=reference_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     batch_folder_name = TextField(label="Batch Folder Name", value=reference_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=reference_prefs['apply_ESRGAN_upscale'], on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=reference_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=reference_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_reference = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_reference.height = None if status['installed_ESRGAN'] else 0
-    if not reference_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(reference_prefs)
+    page.upscalers.append(upscaler)
     page.reference_output = Column([], auto_scroll=True)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.reference_output.controls) > 0
@@ -7819,7 +7748,7 @@ def buildReference(page):
         width_slider,
         height_slider,
         ResponsiveRow([Row([batch_size, num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
-        page.ESRGAN_block_reference,
+        upscaler,
         Row([ElevatedButton(content=Text("💗  Make Reference", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_reference(page)),
              ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_reference(page, from_list=True))]),
         page.reference_output,
@@ -8511,10 +8440,6 @@ def buildUnCLIP_ImageVariation(page):
       unCLIP_image_variation_help_dlg.open = True
       page.update()
     init_image = FileInput(label="Initial Image", pref=unCLIP_image_variation_prefs, key='init_image', page=page)
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
     #prompt = TextField(label="Prompt Text", value=unCLIP_image_variation_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
     seed = TextField(label="Seed", width=90, value=str(unCLIP_image_variation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     decoder_num_inference_row = SliderRow(label="Number of Decoder Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_image_variation_prefs, key='decoder_num_inference_steps', tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -11132,10 +11057,6 @@ def buildHunyuanDiT(page):
         hunyuan_dit_prefs['hunyuan_model'] = e.control.value
         hunyuan_custom_model.visible = e.control.value == "Custom"
         hunyuan_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        hunyuan_dit_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=hunyuan_dit_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=hunyuan_dit_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=hunyuan_dit_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -11164,16 +11085,8 @@ def buildHunyuanDiT(page):
     use_refiner = Switcher(label="Use SDXL Refiner Pass", value=hunyuan_dit_prefs['use_refiner'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_refiner, tooltip="Uses Expert Ensemble Refiner to clean-up after generation.")
     SDXL_high_noise_frac = SliderRow(label="Refiner High Noise Fraction", min=0, max=1, divisions=20, round=2, pref=hunyuan_dit_prefs, key='SDXL_high_noise_frac', visible=hunyuan_dit_prefs['use_refiner'], tooltip="Percentage of Steps to use Base model, then Refiner model. Known as an Ensemble of Expert Denoisers. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'SDXL_high_noise_frac'))
     seed = TextField(label="Seed", width=90, value=str(hunyuan_dit_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=hunyuan_dit_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=hunyuan_dit_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=hunyuan_dit_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=hunyuan_dit_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_hunyuan = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_hunyuan.height = None if status['installed_ESRGAN'] else 0
-    if not hunyuan_dit_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(hunyuan_dit_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🏮   Run Hunyuan-DiT", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hunyuan(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hunyuan(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hunyuan(page, from_list=True, with_params=True))
@@ -11190,7 +11103,7 @@ def buildHunyuanDiT(page):
             use_refiner,
             SDXL_high_noise_frac,
             Row([hunyuan_model, hunyuan_custom_model]),
-            page.ESRGAN_block_hunyuan,
+            upscaler,
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Hunyuan_output
@@ -11244,10 +11157,6 @@ def buildLuminaNext(page):
         lumina_next_prefs['lumina_model'] = e.control.value
         lumina_custom_model.visible = e.control.value == "Custom"
         lumina_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        lumina_next_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=lumina_next_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=lumina_next_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=lumina_next_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -11262,15 +11171,8 @@ def buildLuminaNext(page):
     cpu_offload = Switcher(label="CPU Offload", value=lumina_next_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     #distilled_model = Switcher(label="Use Distilled Model", value=lumina_next_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
     seed = TextField(label="Seed", width=90, value=str(lumina_next_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=lumina_next_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=lumina_next_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=lumina_next_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=lumina_next_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_lumina = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_lumina.height = None if status['installed_ESRGAN'] else 0
-    if not lumina_next_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(lumina_next_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🌈   Run Lumina-Next-DiT", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lumina(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lumina(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lumina(page, from_list=True, with_params=True))
@@ -11283,7 +11185,7 @@ def buildLuminaNext(page):
             steps,
             guidance, width_slider, height_slider,
             Row([lumina_model, lumina_custom_model]),
-            page.ESRGAN_block_lumina,
+            upscaler,
             ResponsiveRow([Row([n_images, seed, cpu_offload], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Lumina_output
@@ -11340,10 +11242,6 @@ def buildKolors(page):
         kolors_prefs['kolors_model'] = e.control.value
         kolors_custom_model.visible = e.control.value == "Custom"
         kolors_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        kolors_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=kolors_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=kolors_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Init Image (optional)", pref=kolors_prefs, key='init_image', page=page, col={'md':6})
@@ -11359,15 +11257,8 @@ def buildKolors(page):
     kolors_custom_model = TextField(label="Custom Kolors Model (URL or Path)", value=kolors_prefs['custom_model'], expand=True, visible=kolors_prefs['kolors_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=kolors_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     seed = TextField(label="Seed", width=90, value=str(kolors_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kolors_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kolors_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kolors_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kolors_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kolors = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kolors.height = None if status['installed_ESRGAN'] else 0
-    if not kolors_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(kolors_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🦜   Run Kolors", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kolors(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kolors(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kolors(page, from_list=True, with_params=True))
@@ -11385,7 +11276,7 @@ def buildKolors(page):
             #ip_adapter_container,
             Row([cpu_offload]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_kolors,
+            upscaler,
             parameters_row,
             page.kolors_output
         ],
@@ -11438,10 +11329,6 @@ def buildAuraFlow(page):
         auraflow_prefs['auraflow_model'] = e.control.value
         auraflow_custom_model.visible = e.control.value == "Custom"
         auraflow_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        auraflow_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=auraflow_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=auraflow_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=auraflow_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -11456,15 +11343,8 @@ def buildAuraFlow(page):
     cpu_offload = Switcher(label="CPU Offload", value=auraflow_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     #distilled_model = Switcher(label="Use Distilled Model", value=auraflow_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
     seed = TextField(label="Seed", width=90, value=str(auraflow_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=auraflow_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=auraflow_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=auraflow_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=auraflow_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_auraflow = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_auraflow.height = None if status['installed_ESRGAN'] else 0
-    if not auraflow_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(auraflow_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="👶   Run AuraFlow", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_auraflow(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_auraflow(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_auraflow(page, from_list=True, with_params=True))
@@ -11477,7 +11357,7 @@ def buildAuraFlow(page):
             steps,
             guidance, width_slider, height_slider,
             Row([auraflow_model, auraflow_custom_model]),
-            page.ESRGAN_block_auraflow,
+            upscaler,
             ResponsiveRow([Row([n_images, seed, cpu_offload], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.AuraFlow_output
@@ -11532,10 +11412,6 @@ def buildLayerDiffusion(page):
         layer_diffusion_prefs['layer_diffusion_model'] = e.control.value
         layer_diffusion_custom_model.visible = e.control.value == "Custom"
         layer_diffusion_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        layer_diffusion_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=layer_diffusion_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=layer_diffusion_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=layer_diffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -11552,15 +11428,8 @@ def buildLayerDiffusion(page):
     #cpu_offload = Switcher(label="CPU Offload", value=layer_diffusion_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     #distilled_model = Switcher(label="Use Distilled Model", value=layer_diffusion_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
     seed = TextField(label="Seed", width=90, value=str(layer_diffusion_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=layer_diffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=layer_diffusion_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=layer_diffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=layer_diffusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_layer_diffusion = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_layer_diffusion.height = None if status['installed_ESRGAN'] else 0
-    if not layer_diffusion_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(layer_diffusion_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="💎   Run Layer Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_layer_diffusion(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_layer_diffusion(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_layer_diffusion(page, from_list=True, with_params=True))
@@ -11574,7 +11443,7 @@ def buildLayerDiffusion(page):
             steps,
             guidance, width_slider, height_slider,
             #Row([layer_diffusion_model, layer_diffusion_custom_model]),
-            page.ESRGAN_block_layer_diffusion,
+            upscaler,
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.LayerDiffusion_output
@@ -11635,10 +11504,6 @@ def buildDifferential_Diffusion(page):
         differential_diffusion_prefs['differential_diffusion_model'] = e.control.value
         differential_diffusion_custom_model.visible = e.control.value == "Custom"
         differential_diffusion_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        differential_diffusion_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=differential_diffusion_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=differential_diffusion_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Init Input Image", pref=differential_diffusion_prefs, key='init_image', page=page, col={'md':6})
@@ -11677,15 +11542,8 @@ def buildDifferential_Diffusion(page):
     differential_diffusion_custom_model = TextField(label="Custom Differential_Diffusion Model (URL or Path)", value=differential_diffusion_prefs['custom_model'], expand=True, visible=differential_diffusion_prefs['differential_diffusion_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     #cpu_offload = Switcher(label="CPU Offload", value=differential_diffusion_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     seed = TextField(label="Seed", width=90, value=str(differential_diffusion_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=differential_diffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=differential_diffusion_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=differential_diffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=differential_diffusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_differential_diffusion = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_differential_diffusion.height = None if status['installed_ESRGAN'] else 0
-    if not differential_diffusion_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(differential_diffusion_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="😕   Run Differential Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_differential_diffusion(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_differential_diffusion(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_differential_diffusion(page, from_list=True, with_params=True))
@@ -11707,7 +11565,7 @@ def buildDifferential_Diffusion(page):
             Row([use_ip_adapter, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_differential_diffusion,
+            upscaler,
             parameters_row,
             page.differential_diffusion_output
         ],
@@ -11765,10 +11623,6 @@ def buildLMD_Plus(page):
         lmd_plus_prefs['lmd_plus_model'] = e.control.value
         lmd_plus_custom_model.visible = e.control.value == "Custom"
         lmd_plus_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        lmd_plus_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=lmd_plus_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=lmd_plus_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=lmd_plus_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -11787,15 +11641,8 @@ def buildLMD_Plus(page):
     gligen_scheduled_sampling_beta = SliderRow(label="Gligen Scheduled Sampling Beta", min=0, max=1, divisions=10, round=1, pref=lmd_plus_prefs, key='gligen_scheduled_sampling_beta', tooltip="Scheduled Sampling factor from GLIGEN: Open-Set Grounded Text-to-Image Generation. Scheduled Sampling factor is only varied for scheduled sampling during inference for improved quality and controllability.", col={'lg':6})
     cpu_offload = Switcher(label="CPU Offload", value=lmd_plus_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     seed = TextField(label="Seed", width=90, value=str(lmd_plus_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=lmd_plus_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=lmd_plus_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=lmd_plus_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=lmd_plus_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_lmd_plus = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_lmd_plus.height = None if status['installed_ESRGAN'] else 0
-    if not lmd_plus_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(lmd_plus_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🦔   Run LMD+", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lmd_plus(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lmd_plus(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lmd_plus(page, from_list=True, with_params=True))
@@ -11813,7 +11660,7 @@ def buildLMD_Plus(page):
             Row([lmd_plus_model, lmd_plus_custom_model, cpu_offload]),
             #Row([clean_caption, mask_feature, cpu_offload]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_lmd_plus,
+            upscaler,
             parameters_row,
             page.lmd_plus_output
         ],
@@ -11874,10 +11721,6 @@ def buildLCM(page):
         lcm_prefs['lcm_model'] = e.control.value
         lcm_custom_model.visible = e.control.value == "Custom"
         lcm_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        lcm_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=lcm_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=lcm_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Init Image (optional)", pref=lcm_prefs, key='init_image', page=page, col={'md':6})
@@ -11902,21 +11745,13 @@ def buildLCM(page):
     ip_adapter_image = FileInput(label="IP-Adapter Image", pref=lcm_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
     ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=lcm_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if lcm_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
-
     lcm_model = Dropdown(label="LCM Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("LCM_Dreamshaper_v7"), dropdown.Option("LCM_Dreamshaper_v8")], value=lcm_prefs['lcm_model'], on_change=changed_model)
     lcm_custom_model = TextField(label="Custom LCM Model (URL or Path)", value=lcm_prefs['custom_model'], expand=True, visible=lcm_prefs['lcm_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=lcm_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     cpu_only = Switcher(label="CPU Only (not yet)", value=lcm_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
     seed = TextField(label="Seed", width=90, value=str(lcm_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=lcm_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=lcm_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=lcm_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=lcm_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_lcm = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_lcm.height = None if status['installed_ESRGAN'] else 0
-    if not lcm_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(lcm_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🏎   Run LCM", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lcm(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lcm(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lcm(page, from_list=True, with_params=True))
@@ -11934,7 +11769,7 @@ def buildLCM(page):
             ip_adapter_container,
             Row([cpu_offload, cpu_only]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_lcm,
+            upscaler,
             parameters_row,
             page.lcm_output
         ],
@@ -11975,10 +11810,6 @@ def buildLCMInterpolation(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        lcm_interpolation_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def lcm_interpolation_help(e):
       def close_lcm_interpolation_dlg(e):
         nonlocal lcm_interpolation_help_dlg
@@ -12088,15 +11919,8 @@ def buildLCMInterpolation(page):
     target_fps = SliderRow(label="Target FPS", min=0, max=30, suffix="fps", divisions=30, expand=1, pref=lcm_interpolation_prefs, key='target_fps')
     video_container = Container(content=Row([interpolate_vid, source_fps, target_fps], expand=True), expand=True, visible=lcm_interpolation_prefs['save_video'])
     seed = TextField(label="Seed", width=90, value=str(lcm_interpolation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=lcm_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=lcm_interpolation_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=lcm_interpolation_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=lcm_interpolation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_lcm_interpolation = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_lcm_interpolation.height = None if status['installed_ESRGAN'] else 0
-    if not lcm_interpolation_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(lcm_interpolation_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🧶   Run LCM Interpolation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lcm_interpolation(page))
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.lcm_interpolation_output = Column([])
@@ -12113,7 +11937,7 @@ def buildLCMInterpolation(page):
             Row([embedding_interpolation_type, latent_interpolation_type]),
             Row([save_video, video_container]),
             ResponsiveRow([Row([seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_lcm_interpolation,
+            upscaler,
             parameters_row,
             page.lcm_interpolation_output
         ],
@@ -12169,10 +11993,6 @@ def buildInstaFlow(page):
         instaflow_prefs['instaflow_model'] = e.control.value
         instaflow_custom_model.visible = e.control.value == "Custom"
         instaflow_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        instaflow_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=instaflow_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=instaflow_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     #init_image = FileInput(label="Init Image (optional)", pref=instaflow_prefs, key='init_image', page=page, col={'md':6})
@@ -12189,15 +12009,8 @@ def buildInstaFlow(page):
     cpu_offload = Switcher(label="CPU Offload", value=instaflow_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     #cpu_only = Switcher(label="CPU Only (not yet)", value=instaflow_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
     seed = TextField(label="Seed", width=90, value=str(instaflow_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=instaflow_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=instaflow_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=instaflow_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=instaflow_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_instaflow = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_instaflow.height = None if status['installed_ESRGAN'] else 0
-    if not instaflow_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(instaflow_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="⛹️   Run InstaFlow", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instaflow(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instaflow(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instaflow(page, from_list=True, with_params=True))
@@ -12214,7 +12027,7 @@ def buildInstaFlow(page):
             Row([instaflow_model, instaflow_custom_model, cpu_offload]),
             #Row([]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_instaflow,
+            upscaler,
             parameters_row,
             page.instaflow_output
         ],
@@ -12282,10 +12095,6 @@ def buildPAG(page):
         pag_prefs['pag_model'] = e.control.value
         pag_custom_model.visible = e.control.value == "Custom"
         pag_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        pag_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=pag_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=pag_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     #init_image = FileInput(label="Init Image (optional)", pref=pag_prefs, key='init_image', page=page, col={'md':6})
@@ -12351,15 +12160,8 @@ def buildPAG(page):
     #cpu_offload = Switcher(label="CPU Offload", value=pag_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), visible=pag_prefs['use_SDXL'], tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     cpu_only = Switcher(label="CPU Only", value=pag_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
     seed = TextField(label="Seed", width=90, value=str(pag_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=pag_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=pag_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=pag_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=pag_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_pag = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_pag.height = None if status['installed_ESRGAN'] else 0
-    if not pag_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(pag_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🍝   Run PAG", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pag(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pag(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pag(page, from_list=True, with_params=True))
@@ -12383,7 +12185,7 @@ def buildPAG(page):
             ip_adapter_container,
             #Row([cpu_offload, cpu_only]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_pag,
+            upscaler,
             parameters_row,
             page.pag_output
         ],
@@ -12443,10 +12245,6 @@ def buildLDM3D(page):
         ldm3d_prefs['ldm3d_model'] = e.control.value
         ldm3d_custom_model.visible = e.control.value == "Custom"
         ldm3d_custom_model.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        ldm3d_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=ldm3d_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=ldm3d_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=ldm3d_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -12469,21 +12267,13 @@ def buildLDM3D(page):
     ip_adapter_image = FileInput(label="IP-Adapter Image", pref=ldm3d_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
     ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=ldm3d_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if ldm3d_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
-
     ldm3d_model = Dropdown(label="LDM3D Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("Intel/ldm3d-4c"), dropdown.Option("Intel/ldm3d-pano"), dropdown.Option("Intel/ldm3d")], value=ldm3d_prefs['ldm3d_model'], on_change=changed_model)
     ldm3d_custom_model = TextField(label="Custom LDM3D Model (URL or Path)", value=ldm3d_prefs['custom_model'], expand=True, visible=ldm3d_prefs['ldm3d_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=ldm3d_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     use_upscale = Switcher(label="Use SR Upscale", value=ldm3d_prefs['use_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_upscale'), tooltip="Uses ldm3d-sr to double the size of rgb & depth.")
     seed = TextField(label="Seed", width=90, value=str(ldm3d_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=ldm3d_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=ldm3d_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=ldm3d_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=ldm3d_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_ldm3d = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_ldm3d.height = None if status['installed_ESRGAN'] else 0
-    if not ldm3d_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(ldm3d_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🏎   Run LDM3D", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ldm3d(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ldm3d(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ldm3d(page, from_list=True, with_params=True))
@@ -12499,7 +12289,7 @@ def buildLDM3D(page):
             Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
             Row([cpu_offload, use_upscale]),
-            page.ESRGAN_block_ldm3d,
+            upscaler,
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.ldm3d_output
@@ -12623,10 +12413,6 @@ Resources:
       page.overlay.append(text_to_video_help_dlg)
       text_to_video_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        text_to_video_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Animation Prompt Text", value=text_to_video_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=text_to_video_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=text_to_video_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
@@ -12641,12 +12427,8 @@ Resources:
     model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=text_to_video_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
     batch_folder_name = TextField(label="Batch Folder Name", value=text_to_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(text_to_video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=text_to_video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=text_to_video_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=text_to_video_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_text_to_video = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_text_to_video.height = None if status['installed_ESRGAN'] else 0
+    upscaler = UpscaleBlock(text_to_video_prefs)
+    page.upscalers.append(upscaler)
     page.text_to_video_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.text_to_video_output.controls) > 0
@@ -12663,7 +12445,7 @@ Resources:
         guidance,
         eta_slider,
         #width_slider, height_slider,
-        page.ESRGAN_block_text_to_video,
+        upscaler,
         Row([seed, batch_folder_name]),
         #Row([jump_length, jump_n_sample, seed]),
         Row([
@@ -12710,12 +12492,6 @@ def buildTextToVideoZero(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def clear_output(e):
-      play_snd(Snd.DELETE, page)
-      page.text_to_video_zero_output.controls = []
-      page.text_to_video_zero_output.update()
-      clear_button.visible = False
-      clear_button.update()
     def text_to_video_zero_help(e):
       def close_text_to_video_zero_dlg(e):
         nonlocal text_to_video_zero_help_dlg
@@ -12731,10 +12507,6 @@ def buildTextToVideoZero(page):
       page.overlay.append(text_to_video_zero_help_dlg)
       text_to_video_zero_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        text_to_video_zero_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def change_steps(e):
         steps = e.control.value
         t0.set_max(steps - 1)
@@ -12783,15 +12555,8 @@ def buildTextToVideoZero(page):
     #lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=text_to_video_zero_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
     batch_folder_name = TextField(label="Batch Folder Name", value=text_to_video_zero_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(text_to_video_zero_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=text_to_video_zero_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=text_to_video_zero_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=text_to_video_zero_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_text_to_video_zero = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_text_to_video_zero.height = None if status['installed_ESRGAN'] else 0
-    page.text_to_video_zero_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
-    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
-    clear_button.visible = len(page.text_to_video_zero_output.controls) > 0
+    upscaler = UpscaleBlock(text_to_video_zero_prefs)
+    page.upscalers.append(upscaler)
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
@@ -12807,15 +12572,13 @@ def buildTextToVideoZero(page):
         motion_field_strength_x, motion_field_strength_y,
         t0, t1,
         #width_slider, height_slider,
-        page.ESRGAN_block_text_to_video_zero,
+        upscaler,
         Row([seed, batch_folder_name]),
         #Row([jump_length, jump_n_sample, seed]),
         Row([
             ElevatedButton(content=Text("📹  Run Text2Video-Zero", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_text_to_video_zero(page)),
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_text_to_video_zero(page, from_list=True))
         ]),
-        page.text_to_video_zero_output,
-        clear_button,
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
@@ -12877,10 +12640,6 @@ Resources:
       page.overlay.append(video_to_video_help_dlg)
       video_to_video_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        video_to_video_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Video Prompt Text", value=video_to_video_prefs['prompt'], col={'md': 9}, filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=video_to_video_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_video = FileInput(label="Init Video Clip", pref=video_to_video_prefs, key='init_video', ftype="video", page=page)
@@ -12901,12 +12660,8 @@ Resources:
     model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=video_to_video_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
     batch_folder_name = TextField(label="Batch Folder Name", value=video_to_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(video_to_video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=video_to_video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=video_to_video_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=video_to_video_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_video_to_video = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_video_to_video.height = None if status['installed_ESRGAN'] else 0
+    upscaler = UpscaleBlock(video_to_video_prefs)
+    page.upscalers.append(upscaler)
     page.video_to_video_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.video_to_video_output.controls) > 0
@@ -12928,7 +12683,7 @@ Resources:
         eta_slider,
         max_row,
         #width_slider, height_slider,
-        page.ESRGAN_block_video_to_video,
+        upscaler,
         Row([seed, batch_folder_name]),
         #Row([jump_length, jump_n_sample, seed]),
         Row([
@@ -12992,10 +12747,6 @@ def buildTemporalNet_XL(page):
       page.overlay.append(controlnet_temporalnet_help_dlg)
       controlnet_temporalnet_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        controlnet_temporalnet_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Video Prompt Text", value=controlnet_temporalnet_prefs['prompt'], col={'md': 9}, filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_temporalnet_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_video = FileInput(label="Init Video Clip", pref=controlnet_temporalnet_prefs, key='init_video', ftype="video", page=page)
@@ -13017,12 +12768,8 @@ def buildTemporalNet_XL(page):
     #model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=controlnet_temporalnet_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_temporalnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(controlnet_temporalnet_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=controlnet_temporalnet_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_temporalnet_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_temporalnet_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_controlnet_temporalnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_controlnet_temporalnet.height = None if status['installed_ESRGAN'] else 0
+    upscaler = UpscaleBlock(controlnet_temporalnet_prefs)
+    page.upscalers.append(upscaler)
     page.controlnet_temporalnet_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.controlnet_temporalnet_output.controls) > 0
@@ -13039,7 +12786,7 @@ def buildTemporalNet_XL(page):
         canny_threshold,
         max_row,
         Row([lower_memory, save_frames, save_canny]),
-        page.ESRGAN_block_controlnet_temporalnet,
+        upscaler,
         Row([seed, batch_folder_name]),
         Row([ElevatedButton(content=Text("⏲️  Run TemporalNet-XL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_temporalnet(page)),]),
         page.controlnet_temporalnet_output,
@@ -13113,11 +12860,6 @@ def buildInfiniteZoom(page):
       page.overlay.append(infinite_zoom_help_dlg)
       infinite_zoom_help_dlg.open = True
       page.update()
-    
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        infinite_zoom_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def infinite_zoom_tile(animate_prompt):
         params = []
         for k, v in animate_prompt.items():
@@ -13292,12 +13034,8 @@ def buildInfiniteZoom(page):
     save_video = Switcher(label="Save Video", value=infinite_zoom_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
     init_image = FileInput(label="Initial Image (optional)", pref=infinite_zoom_prefs, key='init_image', page=page)
     batch_folder_name = TextField(label="Batch Folder Name (required)", value=infinite_zoom_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=infinite_zoom_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=infinite_zoom_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=infinite_zoom_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_infinite_zoom = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_infinite_zoom.height = None if status['installed_ESRGAN'] else 0
+    upscaler = UpscaleBlock(infinite_zoom_prefs)
+    page.upscalers.append(upscaler)
     page.infinite_zoom_prompts = Column([], spacing=0)
     page.infinite_zoom_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -13325,7 +13063,7 @@ def buildInfiniteZoom(page):
         Row([inpainting_model, use_SDXL]),
         Row([seed, batch_folder_name]),
         Row([save_frames, save_gif, save_video]),
-        page.ESRGAN_block_infinite_zoom,
+        upscaler,
         Row([ElevatedButton(content=Text("💫  Run Infinite Zoom", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_infinite_zoom(page)),]),
         page.infinite_zoom_output,
         clear_button,
@@ -13381,10 +13119,6 @@ def buildPotat1(page):
       page.overlay.append(potat1_help_dlg)
       potat1_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        potat1_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Animation Prompt Text", value=potat1_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=potat1_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=potat1_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
@@ -13399,12 +13133,8 @@ def buildPotat1(page):
     height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=potat1_prefs, key='height')
     batch_folder_name = TextField(label="Video Folder Name", value=potat1_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(potat1_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=potat1_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=potat1_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=potat1_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_potat1 = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_potat1.height = None if status['installed_ESRGAN'] else 0
+    #upscaler = UpscaleBlock(potat1_prefs)
+    #page.upscalers.append(upscaler)
     page.potat1_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.potat1_output.controls) > 0
@@ -13421,7 +13151,7 @@ def buildPotat1(page):
         guidance,
         #eta_slider,
         width_slider, height_slider,
-        #page.ESRGAN_block_potat1,
+        #upscaler,
         Row([seed, batch_folder_name]),
         Row([
             ElevatedButton(content=Text("🍟  Run Potat1", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_potat1(page)),
@@ -13545,10 +13275,6 @@ def buildStableAnimation(page):
       page.overlay.append(stable_animation_help_dlg)
       stable_animation_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        stable_animation_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def file_picker_result(e: FilePickerResultEvent):
         if e.files != None:
           upload_files(e)
@@ -13881,12 +13607,8 @@ def buildStableAnimation(page):
     resume = Switcher(label="Resume Previous Animation", value=stable_animation_prefs['resume'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_resume)
     resume_from = TextField(label="Resume from Frame", width=150, value=str(stable_animation_prefs['resume_from']), visible=stable_animation_prefs['resume'], keyboard_type=KeyboardType.NUMBER, tooltip="-1 resumes from last frame", on_change=lambda e:changed(e,'seed', ptype='int'))
     batch_folder_name = TextField(label="Animation Folder Name", value=stable_animation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=stable_animation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=stable_animation_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=stable_animation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_stable_animation = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_stable_animation.height = None if status['installed_ESRGAN'] else 0
+    upscaler = UpscaleBlock(stable_animation_prefs)
+    page.upscalers.append(upscaler)
     page.stable_animation_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.stable_animation_output.controls) > 0
@@ -13922,7 +13644,7 @@ def buildStableAnimation(page):
         Row([extract_nth_frame, video_init_fps, output_fps, Row([resume, resume_from])], wrap=True),
         Row([export_to_video, frame_interpolation_mode, frame_interpolation_factor]),
         width_slider, height_slider,
-        page.ESRGAN_block_stable_animation,
+        upscaler,
         Row([seed, batch_folder_name]),
         Row([
             ElevatedButton(content=Text("🧌  Run Stable Animation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_animation(page)),
@@ -13990,10 +13712,6 @@ def buildSVD(page):
       page.overlay.append(svd_help_dlg)
       svd_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        svd_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def toggle_resume(e):
         svd_prefs['resume_frame'] = e.control.value
         resume_container.visible = svd_prefs['resume_frame']
@@ -14025,15 +13743,8 @@ def buildSVD(page):
     resume_frame = Switcher(label="Resume from Last Frame", value=svd_prefs['resume_frame'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_resume, tooltip="Continues generating frames in chunks for videos longer than 14 or 25 frame limit.")
     resume_container = Container(content=NumberPicker(label="Times to Continue: ", min=1, max=10, value=svd_prefs['continue_times'], on_change=lambda e: changed(e, 'continue_times'), tooltip="Resumes 14 or 25 more frames in iterations. May degrade over time."), visible=svd_prefs['resume_frame'])
     seed = TextField(label="Seed", width=90, value=str(svd_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=svd_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=svd_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=svd_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=svd_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_svd = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_svd.height = None if status['installed_ESRGAN'] else 0
-    if not svd_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(svd_prefs)
+    page.upscalers.append(upscaler)
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
@@ -14050,7 +13761,7 @@ def buildSVD(page):
         ResponsiveRow([min_guidance, max_guidance]),
         max_size,
         #width_slider, height_slider,
-        page.ESRGAN_block_svd,
+        upscaler,
         Row([svd_model, export_to_gif, interpolate_video, cpu_offload]),
         Row([seed, batch_folder_name, file_prefix]), #num_videos, 
         Row([
@@ -14157,10 +13868,6 @@ def buildROOP(page):
         nonlocal pick_type
         pick_type = "target"
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi", "png", "PNG", "jpg", "jpeg"], dialog_title="Pick Target Video or Image")
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        roop_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     source_image = TextField(label="Source Image of Face", value=roop_prefs['source_image'], on_change=lambda e:changed(e,'source_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_source))
     target_image = TextField(label="Target Video or Image", value=roop_prefs['target_image'], on_change=lambda e:changed(e,'target_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_target))
     keep_fps = Switcher(label="Keep FPS", value=roop_prefs['keep_fps'], on_change=lambda e:changed(e,'keep_fps'))
@@ -14174,12 +13881,8 @@ def buildROOP(page):
     output_name = TextField(label="Output File Name", value=roop_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
     batch_folder_name = TextField(label="Batch Folder Name", value=roop_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     num_images = NumberPicker(label="Number of Images: ", min=1, max=8, value=roop_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=roop_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=roop_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=roop_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_roop = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_roop.height = None if status['installed_ESRGAN'] else 0
+    upscaler = UpscaleBlock(roop_prefs)
+    page.upscalers.append(upscaler)
     page.roop_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.roop_output.controls) > 0
@@ -14194,7 +13897,7 @@ def buildROOP(page):
         video_quality,
         max_row,
         Row([output_name, batch_folder_name]),
-        page.ESRGAN_block_roop,
+        upscaler,
         #Row([jump_length, jump_n_sample, seed]),
         ElevatedButton(content=Text("😷  Run ROOP Swap", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_roop(page)),
         page.roop_output,
@@ -14583,10 +14286,6 @@ def buildRAVE(page):
       page.overlay.append(rave_help_dlg)
       rave_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        rave_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=rave_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=rave_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     #a_prompt = TextField(label="Additional Prompt Text", value=rave_prefs['a_prompt'], multiline=True, filled=True, col={'md':4}, on_change=lambda e:changed(e,'a_prompt'))
@@ -14596,7 +14295,6 @@ def buildRAVE(page):
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0.0, max=5.0, divisions=50, round=1, pref=rave_prefs, key='conditioning_scale', tooltip="Strength of the ControlNet Mask.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=rave_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
     control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=rave_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
-
     controlnet_strength = SliderRow(label="ControlNet Strength", min=0.0, max=1.0, divisions=20, round=2, pref=rave_prefs, key='controlnet_strength', tooltip="How much influence the controlnet annotator's output is used to guide the denoising process.")
     init_video = FileInput(label="Init Video Clip", pref=rave_prefs, key='init_video', ftype="video", expand=True, page=page)
     #fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=rave_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
@@ -14614,12 +14312,8 @@ def buildRAVE(page):
     batch_size = NumberPicker(label="Batch Size: ", min=1, max=4, value=rave_prefs['batch_size'], tooltip="Batch size of grids (e.g. 4 grids run in parallel)", on_change=lambda e: changed(e, 'batch_size'))
     batch_size_vae = NumberPicker(label="VAE Batch Size: ", min=1, max=4, value=rave_prefs['batch_size_vae'], tooltip="Batch size for the VAE (e.g. 1 grid runs in parallel for the VAE)", on_change=lambda e: changed(e, 'batch_size_vae'))
     batch_folder_name = TextField(label="Batch Folder Name", value=rave_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=rave_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=rave_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=rave_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_controlnet.height = None if status['installed_ESRGAN'] else 0
+    upscaler = UpscaleBlock(rave_prefs)
+    page.upscalers.append(upscaler)
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
@@ -14636,7 +14330,7 @@ def buildRAVE(page):
         #ResponsiveRow([max_dimension, min_dimension]),
         Row([batch_size, batch_size_vae, give_control_inversion, is_ddim_inversion, is_shuffle]),
         Row([seed, output_name, batch_folder_name, file_prefix]),
-        page.ESRGAN_block_controlnet,
+        upscaler,
         Row([ElevatedButton(content=Text("💀  Run RAVE on Video", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_rave(page))]),
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
@@ -14980,10 +14674,6 @@ def buildAnimateDiff(page):
         animate_diff_prefs['lora_map'].clear()
         lora_layer_map.controls.clear()
         lora_layer_map.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        animate_diff_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def animate_diff_tile(animate_prompt):
         params = []
         for k, v in animate_prompt.items():
@@ -15364,15 +15054,10 @@ def buildAnimateDiff(page):
     upscale_guidance_scale = SliderRow(label="Upscale Guidance", min=0, max=20, divisions=40, round=1, pref=animate_diff_prefs, col={'md': 6}, key='upscale_guidance_scale')
     upscale_slider = SliderRow(label="Upscale Amount", min=1, max=4, divisions=12, round=2, suffix="x", pref=animate_diff_prefs, col={'md': 6}, key='upscale_amount')
     context_schedule = Dropdown(label="Context Schedule", width=136, options=[dropdown.Option(t) for t in ['Uniform', 'Shuffle', "Composite"]], value=animate_diff_prefs['context_schedule'], on_change=lambda e:changed(e,'context_schedule'))
-    
     batch_folder_name = TextField(label="Batch Folder Name (required)", value=animate_diff_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=animate_diff_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animate_diff_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=animate_diff_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=animate_diff_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_animate_diff = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_animate_diff.height = None if status['installed_ESRGAN'] else 0
+    upscaler = UpscaleBlock(animate_diff_prefs)
+    page.upscalers.append(upscaler)
     page.animate_diff_prompts = Column([], spacing=0)
     page.animate_diff_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -15421,7 +15106,7 @@ def buildAnimateDiff(page):
         motion_loras_strength,
         Row([motion_module, scheduler, context_schedule, batch_folder_name]),
         Row([is_loop, save_frames, save_gif, save_video, is_simple_composite]),
-        page.ESRGAN_block_animate_diff,
+        upscaler,
         #Row([jump_length, jump_n_sample, seed]),
         Row([
             ElevatedButton(content=Text("💚  Run AnimateDiff", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animate_diff(page)),
@@ -15564,10 +15249,6 @@ def buildAnimateDiffImage2Video(page):
             animatediff_img2video_prefs['motion_loras'].remove(e.control.data)
         else:
             animatediff_img2video_prefs['motion_loras'].append(e.control.data)
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        animatediff_img2video_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=animatediff_img2video_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=animatediff_img2video_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Init Image or Video", pref=animatediff_img2video_prefs, key='init_image', ftype="picture", page=page, col={'md':6})
@@ -15621,15 +15302,8 @@ def buildAnimateDiffImage2Video(page):
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=animatediff_img2video_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. Note that Stable Diffusion Video's UNet was micro-conditioned on fps-1 during training.")
     latent_interpolation_method = Dropdown(label="Latent Interpolation", width=140, options=[dropdown.Option("Slerp"), dropdown.Option("Lerp")], value=animatediff_img2video_prefs['latent_interpolation_method'], on_change=lambda e: changed(e, 'latent_interpolation_method'))
     seed = TextField(label="Seed", width=90, value=str(animatediff_img2video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animatediff_img2video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=animatediff_img2video_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=animatediff_img2video_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=animatediff_img2video_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_animatediff_img2video = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_animatediff_img2video.height = None if status['installed_ESRGAN'] else 0
-    if not animatediff_img2video_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(animatediff_img2video_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🐲   Run AnimateDiff", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_img2video(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_img2video(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_img2video(page, from_list=True, with_params=True))
@@ -15655,7 +15329,7 @@ def buildAnimateDiffImage2Video(page):
             Row([animatediff_img2video_model, animatediff_img2video_custom_model, latent_interpolation_method]),
             Row([cpu_offload, export_to_video, interpolate_video]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_animatediff_img2video,
+            upscaler,
             parameters_row,
             page.animatediff_img2video_output
         ],
@@ -15782,10 +15456,6 @@ def buildAnimateDiffSDXL(page):
             animatediff_sdxl_prefs['motion_loras'].remove(e.control.data)
         else:
             animatediff_sdxl_prefs['motion_loras'].append(e.control.data)
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        animatediff_sdxl_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=animatediff_sdxl_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=animatediff_sdxl_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Init Image or Video", pref=animatediff_sdxl_prefs, key='init_image', ftype="picture", page=page, col={'md':6})
@@ -15839,15 +15509,8 @@ def buildAnimateDiffSDXL(page):
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=animatediff_sdxl_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. Note that Stable Diffusion Video's UNet was micro-conditioned on fps-1 during training.")
     latent_interpolation_method = Dropdown(label="Latent Interpolation", width=140, options=[dropdown.Option("Slerp"), dropdown.Option("Lerp")], value=animatediff_sdxl_prefs['latent_interpolation_method'], on_change=lambda e: changed(e, 'latent_interpolation_method'))
     seed = TextField(label="Seed", width=90, value=str(animatediff_sdxl_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animatediff_sdxl_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=animatediff_sdxl_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=animatediff_sdxl_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=animatediff_sdxl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_animatediff_sdxl = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_animatediff_sdxl.height = None if status['installed_ESRGAN'] else 0
-    if not animatediff_sdxl_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(animatediff_sdxl_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🙀   Run AnimateDiff SDXL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_sdxl(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_sdxl(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_sdxl(page, from_list=True, with_params=True))
@@ -15873,7 +15536,7 @@ def buildAnimateDiffSDXL(page):
             #Row([animatediff_sdxl_model, animatediff_sdxl_custom_model, latent_interpolation_method]),
             Row([free_init, cpu_offload, export_to_video, interpolate_video]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_animatediff_sdxl,
+            upscaler,
             parameters_row,
             page.animatediff_sdxl_output
         ],
@@ -15939,10 +15602,6 @@ def buildDiffSynth(page):
         page.overlay.append(diffsynth_help_dlg)
         diffsynth_help_dlg.open = True
         page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        diffsynth_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def change_mode(e):
         mode = e.data.split('"')[1]
         diffsynth_prefs['diffsynth_mode'] = mode
@@ -16005,15 +15664,8 @@ def buildDiffSynth(page):
     # resume_frame = Switcher(label="Resume from Last Frame", value=diffsynth_prefs['resume_frame'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_resume, tooltip="Continues generating frames in chunks for videos longer than 14 or 25 frame limit.")
     # resume_container = Container(content=NumberPicker(label="Times to Continue: ", min=1, max=10, value=diffsynth_prefs['continue_times'], on_change=lambda e: changed(e, 'continue_times'), tooltip="Resumes 14 or 25 more frames in iterations. May degrade over time."), visible=diffsynth_prefs['resume_frame'])
     seed = TextField(label="Seed", width=90, value=str(diffsynth_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e: changed(e, 'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=diffsynth_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=diffsynth_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=diffsynth_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=diffsynth_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_diffsynth = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_diffsynth.height = None if status['installed_ESRGAN'] else 0
-    if not diffsynth_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    #upscaler = UpscaleBlock(diffsynth_prefs)
+    #page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text("🪭  Run DiffSynth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_diffsynth(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_diffsynth(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_diffsynth(page, from_list=True, with_params=True))
@@ -16038,7 +15690,7 @@ def buildDiffSynth(page):
             num_inference_row,
             ResponsiveRow([fps, target_fps]),
             # width_slider, height_slider,
-            page.ESRGAN_block_diffsynth,
+            #upscaler,
             Row([export_to_gif, interpolate_video]),
             Row([seed, batch_folder_name, file_prefix]),  # num_videos,
             Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True),
@@ -16159,10 +15811,6 @@ def buildPIA(page):
         pia_prefs['lora_map'].clear()
         lora_layer_map.controls.clear()
         lora_layer_map.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        pia_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=pia_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=pia_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Init Image", pref=pia_prefs, key='init_image', ftype="image", page=page, col={'md':6})
@@ -16211,15 +15859,8 @@ def buildPIA(page):
     interpolate_video = Switcher(label="Interpolate Video", value=pia_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=pia_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. Note that Stable Diffusion Video's UNet was micro-conditioned on fps-1 during training.")
     seed = TextField(label="Seed", width=90, value=str(pia_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=pia_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=pia_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=pia_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=pia_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_pia = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_pia.height = None if status['installed_ESRGAN'] else 0
-    if not pia_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    #upscaler = UpscaleBlock(pia_prefs)
+    #page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🪖   Run PIA", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pia(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pia(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pia(page, from_list=True, with_params=True))
@@ -16244,7 +15885,7 @@ def buildPIA(page):
             Row([pia_model, pia_custom_model]),
             Row([cpu_offload, free_init, export_to_video, interpolate_video]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_pia,
+            #upscaler,
             parameters_row,
             page.pia_output
         ],
@@ -16517,10 +16158,6 @@ def buildI2VGenXL(page):
         i2vgen_xl_prefs['lora_map'].clear()
         lora_layer_map.controls.clear()
         lora_layer_map.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        i2vgen_xl_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=i2vgen_xl_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=i2vgen_xl_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Init Image", pref=i2vgen_xl_prefs, key='init_image', ftype="image", page=page, col={'md':6})
@@ -16555,15 +16192,8 @@ def buildI2VGenXL(page):
     interpolate_video = Switcher(label="Interpolate Video", value=i2vgen_xl_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
     fps = SliderRow(label="Target FPS", min=1, max=30, divisions=29, suffix='fps', pref=i2vgen_xl_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. This is also used as a 'micro-condition' while generation.")
     seed = TextField(label="Seed", width=90, value=str(i2vgen_xl_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=i2vgen_xl_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=i2vgen_xl_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=i2vgen_xl_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=i2vgen_xl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_i2vgen_xl = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_i2vgen_xl.height = None if status['installed_ESRGAN'] else 0
-    if not i2vgen_xl_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(i2vgen_xl_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="♊   Run I2VGen-XL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_i2vgen_xl(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_i2vgen_xl(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_i2vgen_xl(page, from_list=True, with_params=True))
@@ -16585,7 +16215,7 @@ def buildI2VGenXL(page):
             Row([i2vgen_xl_model, i2vgen_xl_custom_model]),
             Row([cpu_offload, export_to_video, interpolate_video]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_i2vgen_xl,
+            upscaler,
             parameters_row,
             page.i2vgen_xl_output
         ],
@@ -16653,10 +16283,6 @@ def buildHotshotXL(page):
         hotshot_xl_prefs['lora_layer'] = e.control.value
         custom_lora_layer.visible = e.control.value == "Custom"
         custom_lora_layer.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        hotshot_xl_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Animation Prompt Text", value=hotshot_xl_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=hotshot_xl_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     video_length = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=hotshot_xl_prefs, key='video_length', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
@@ -16680,12 +16306,8 @@ def buildHotshotXL(page):
     num_images = NumberPicker(label="Number of Animations: ", min=1, max=8, value=hotshot_xl_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     batch_folder_name = TextField(label="Video Folder Name", value=hotshot_xl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(hotshot_xl_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=hotshot_xl_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=2, max=4, divisions=1, suffix="x", pref=hotshot_xl_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=hotshot_xl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_hotshot_xl = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    ESRGAN_settings.height = None if hotshot_xl_prefs['apply_ESRGAN_upscale'] else 0
+    #upscaler = UpscaleBlock(hotshot_xl_prefs)
+    #page.upscalers.append(upscaler)
     page.hotshot_xl_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.hotshot_xl_output.controls) > 0
@@ -16706,7 +16328,7 @@ def buildHotshotXL(page):
         Divider(height=4),
         Row([lora_layer, custom_lora_layer]),
         Row([scheduler, export_to_video]),
-        page.ESRGAN_block_hotshot_xl,
+        #upscaler,
         Row([num_images, seed, batch_folder_name]),
         Row([
             ElevatedButton(content=Text("🫠  Run Hotshot-XL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hotshot_xl(page)),
@@ -16794,10 +16416,6 @@ def buildRerender_a_video(page):
       page.overlay.append(rerender_a_video_help_dlg)
       rerender_a_video_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        rerender_a_video_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def change_task(e):
         changed(e,'control_task')
         canny_threshold.height = None if rerender_a_video_prefs['control_task'] == "Canny" or rerender_a_video_prefs['control_task'] == "Canny21" else 0
@@ -16863,12 +16481,8 @@ def buildRerender_a_video(page):
     file_prefix = TextField(label="Filename Prefix",  value=rerender_a_video_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     output_name = TextField(label="Output Name", value=rerender_a_video_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
     batch_folder_name = TextField(label="Batch Folder Name", value=rerender_a_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=rerender_a_video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=rerender_a_video_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=rerender_a_video_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_controlnet.height = None if status['installed_ESRGAN'] else 0
+    #upscaler = UpscaleBlock(rerender_a_video_prefs)
+    #page.upscalers.append(upscaler)
     page.rerender_a_video_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.rerender_a_video_output.controls) > 0
@@ -16900,7 +16514,7 @@ def buildRerender_a_video(page):
         freeu_args,
         Row([smooth_boundary, color_preserve, loose_cfattn, first_frame]),
         Row([seed, output_name, batch_folder_name]),
-        page.ESRGAN_block_controlnet,
+        #upscaler,
         Row([ElevatedButton(content=Text("📸  Run Rerender on Video", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_rerender_a_video(page))]),
         page.rerender_a_video_output,
         clear_button,
@@ -17285,10 +16899,6 @@ def buildLatte(page):
       page.overlay.append(latte_help_dlg)
       latte_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        latte_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Animation Prompt Text", value=latte_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=latte_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=latte_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
@@ -17427,11 +17037,6 @@ def buildMaterialDiffusion(page):
         nonlocal pick_type
         pick_type = "mask"
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        materialdiffusion_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
-        has_changed = True
     def change_strength(e):
         strength_value.value = f" {int(e.control.value * 100)}%"
         strength_value.update()
@@ -17473,15 +17078,8 @@ def buildMaterialDiffusion(page):
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     api_instructions = Markdown("Get **Replicate API Token** from [https://replicate.com/account](https://replicate.com/account)", on_tap_link=lambda e: e.page.launch_url(e.data))
     Replicate_api = TextField(label="Replicate API Key", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed_pref(e, 'Replicate_api_key'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=materialdiffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=materialdiffusion_prefs, key='enlarge_scale')
-    #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=materialdiffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=materialdiffusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_material = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_material.height = None if status['installed_ESRGAN'] else 0
-    if not materialdiffusion_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(materialdiffusion_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="💨   Run Material Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_materialdiffusion(page))
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.materialdiffusion_output = Column([])
@@ -17493,7 +17091,8 @@ def buildMaterialDiffusion(page):
             guidance,
             eta,
             width_slider, height_slider, #Divider(height=9, thickness=2),
-            img_block, page.ESRGAN_block_material,
+            img_block, 
+            upscaler,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             api_instructions,
             Replicate_api,
@@ -17545,10 +17144,6 @@ def buildMaterialDiffusion_SDXL(page):
           Text("A fork of the Stable Diffusion Cog model that outputs tileable images for use in 3D applications such as Monaverse."),
           Markdown("[GitHub Project](https://github.com/Pwntus/material-diffusion-sdxl) | [Replicate](https://replicate.com/pwntus/material-diffusion-sdxl) | [Monaverse](https://monaverse.com/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], okay="😖  Get Tiling... ", sound=False)
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def switch_version(e):
         page.MaterialDiffusion = buildMaterialDiffusion(page)
         for t in page.ImageAIs.tabs:
@@ -17577,15 +17172,8 @@ def buildMaterialDiffusion_SDXL(page):
     scheduler = Dropdown(label="De-noise Scheduler", width=220, options=[dropdown.Option(s) for s in ['DDIM', 'DPMSolverMultistep', 'HeunDiscrete', 'KarrasDPM', 'K_EULER_ANCESTRAL', 'K_EULER', 'PNDM']], value=materialdiffusion_sdxl_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
     api_instructions = Markdown("Get **Replicate API Token** from [https://replicate.com/account](https://replicate.com/account)", on_tap_link=lambda e: e.page.launch_url(e.data))
     Replicate_api = TextField(label="Replicate API Key", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed_pref(e, 'Replicate_api_key'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=materialdiffusion_sdxl_prefs, key='enlarge_scale')
-    #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=materialdiffusion_sdxl_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=materialdiffusion_sdxl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_material = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_material.height = None if status['installed_ESRGAN'] else 0
-    if not materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(materialdiffusion_sdxl_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="💨   Run Material Diffusion SDXL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_materialdiffusion_sdxl(page))
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.materialdiffusion_sdxl_output = Column([])
@@ -17599,7 +17187,7 @@ def buildMaterialDiffusion_SDXL(page):
             guidance,
             #width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([width, Text("x"), height, Text("  "), scheduler]),
-            page.ESRGAN_block_material,
+            upscaler,
             api_instructions,
             Replicate_api,
             param_rows,
@@ -17673,10 +17261,6 @@ def buildDiT(page):
         expand=True,
       )], spacing=0), width=(page.width if page.web else page.window.width) - 150), okay="😲  That's a lot...", sound=False)
     guidance_scale = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=DiT_prefs, key='guidance_scale')
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        DiT_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="ImageNet Class Names (separated by commas)", value=DiT_prefs['prompt'], filled=True, on_change=lambda e:changed(e,'prompt'))
     seed = TextField(label="Seed", width=90, value=str(DiT_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=DiT_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -17686,14 +17270,8 @@ def buildDiT(page):
     #eta_row = Row([Text("DDIM ETA: "), eta])
     #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(DiT_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     #max_row = Row([Text("Max Resolution Size: "), max_size])
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=DiT_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=DiT_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=DiT_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_DiT = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_DiT.height = None if status['installed_ESRGAN'] else 0
-    if not DiT_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(DiT_prefs)
+    page.upscalers.append(upscaler)
     page.DiT_output = Column([], auto_scroll=True)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.DiT_output.controls) > 0
@@ -17706,7 +17284,7 @@ def buildDiT(page):
         num_inference_row,
         guidance_scale,
         Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=DiT_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
-        page.ESRGAN_block_DiT,
+        upscaler,
         Row([ElevatedButton(content=Text("🔀   Get DiT Generation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiT(page)),
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiT(page, from_list=True))
              ]),
@@ -17741,14 +17319,6 @@ def buildDallE2(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        dall_e_2_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
     def switch_version(e):
         page.DallE = buildDallE3(page)
         for t in page.ImageAIs.tabs:
@@ -17784,27 +17354,18 @@ def buildDallE2(page):
     #strength_value = Text(f" {int(dall_e_2_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD)
     #strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
     img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=dall_e_2_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(dall_e_2_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", round=1, value=dall_e_2_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=dall_e_2_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=dall_e_2_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_dalle = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_dalle.height = None if status['installed_ESRGAN'] else 0
-    if not dall_e_2_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(dall_e_2_prefs)
+    page.upscalers.append(upscaler)
     list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page, from_list=True))
     parameters_button = ElevatedButton(content=Text(value="🖼️   Run DALL•E 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page))
-
     parameters_row = Row([parameters_button, list_button], spacing=22)#, alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.dall_e_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
             Header("👺  OpenAI DALL•E 2", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website.", actions=[ft.OutlinedButton(content=Text("Switch to DALL•E 3", size=18), on_click=switch_version), save_default(dall_e_2_prefs, ['init_image', 'mask_image'])]),
             prompt,
-            img_block, page.ESRGAN_block_dalle,
+            img_block, 
+            upscaler,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             param_rows,
             parameters_row,
@@ -17840,14 +17401,6 @@ def buildDallE3(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        dall_e_3_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
     def switch_version(e):
         page.DallE = buildDallE2(page)
         for t in page.ImageAIs.tabs:
@@ -17872,17 +17425,8 @@ def buildDallE3(page):
     hd_quality = Switcher(label="HD Quality", value=dall_e_3_prefs['hd_quality'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'hd_quality'), tooltip="Creates images with finer details and greater consistency across the image")
     natural_style = Switcher(label="Natural Style", value=dall_e_3_prefs['natural_style'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'natural_style'), tooltip="Vivid is default, leaning towards generating hyper-real and dramatic images. Natural causes the model to produce more natural, less hyper-real looking images.")
     img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=dall_e_3_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(dall_e_3_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", round=1, value=dall_e_3_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=dall_e_3_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=dall_e_3_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_dalle3 = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_dalle3.height = None if status['installed_ESRGAN'] else 0
-    if not dall_e_3_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(dall_e_3_prefs)
+    page.upscalers.append(upscaler)
     list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e_3(page, from_list=True))
     parameters_button = ElevatedButton(content=Text(value="🙌   Run DALL•E 3", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e_3(page))
 
@@ -17895,7 +17439,7 @@ def buildDallE3(page):
             Row([hd_quality, natural_style]),
             #img_block,
             param_rows,
-            page.ESRGAN_block_dalle3,
+            upscaler,
             parameters_row,
             dall_e_3_output
         ],
@@ -17951,10 +17495,6 @@ def buildKandinsky3(page):
       page.overlay.append(kandinsky_3_help_dlg)
       kandinsky_3_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        kandinsky_3_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def change_version(e):
         status['kandinsky_version'] = e.control.value
         if '2.1' in status['kandinsky_version']:
@@ -17990,15 +17530,8 @@ def buildKandinsky3(page):
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     cpu_offload = Switcher(label="CPU Offload", value=kandinsky_3_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     seed = TextField(label="Seed", width=90, value=str(kandinsky_3_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky_3_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky_3_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky_3_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky_3_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky.height = None if status['installed_ESRGAN'] else 0
-    if not kandinsky_3_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(kandinsky_3_prefs)
+    page.upscalers.append(upscaler)
     kandinsky_version = Dropdown(width=155, options=[dropdown.Option("Kandinsky 3.0"), dropdown.Option("Kandinsky 2.2"), dropdown.Option("Kandinsky 2.1")], value=status['kandinsky_version'], on_change=change_version)
     parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 3", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky3(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky3(page, from_list=True))
@@ -18013,7 +17546,7 @@ def buildKandinsky3(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             img_block,
-            page.ESRGAN_block_kandinsky,
+            upscaler,
             ResponsiveRow([Row([n_images, seed, cpu_offload], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Kandinsky_output
@@ -18069,10 +17602,6 @@ def buildKandinsky(page):
       page.overlay.append(kandinsky_help_dlg)
       kandinsky_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        kandinsky_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def switch_version(e):
         status['kandinsky_2_2'] = False
         page.Kandinsky = buildKandinsky21(page)
@@ -18127,15 +17656,8 @@ def buildKandinsky(page):
     strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_prefs, key='strength')
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     seed = TextField(label="Seed", width=90, value=str(kandinsky_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky.height = None if status['installed_ESRGAN'] else 0
-    if not kandinsky_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(kandinsky_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2.2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page, from_list=True, with_params=True))
@@ -18153,7 +17675,7 @@ def buildKandinsky(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             img_block,
             #Row([batch_folder_name, file_prefix]),
-            page.ESRGAN_block_kandinsky,
+            upscaler,
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
@@ -18211,10 +17733,6 @@ def buildKandinsky21(page):
       page.overlay.append(kandinsky21_help_dlg)
       kandinsky21_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        kandinsky21_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def switch_version(e):
         status['kandinsky_2_2'] = True
         page.Kandinsky = buildKandinsky(page)
@@ -18267,18 +17785,10 @@ def buildKandinsky21(page):
     image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky21_prefs, key='strength')
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky21_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky21_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky21_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky21_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky21 = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky21.height = None if status['installed_ESRGAN'] else 0
-    if not kandinsky21_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(kandinsky21_prefs)
+    page.upscalers.append(upscaler)
     kandinsky_version = Dropdown(width=155, options=[dropdown.Option("Kandinsky 3.0"), dropdown.Option("Kandinsky 2.2"), dropdown.Option("Kandinsky 2.1")], value=status['kandinsky_version'], on_change=change_version)
     parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2.1", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
-
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.kandinsky21_output = Column([])
     c = Column([Container(
@@ -18290,7 +17800,7 @@ def buildKandinsky21(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             img_block,
-            page.ESRGAN_block_kandinsky21,
+            upscaler,
             ResponsiveRow([Row([n_images, sampler], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
@@ -18332,10 +17842,6 @@ def buildKandinskyFuse(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        kandinsky_fuse_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def kandinsky_help(e):
       def close_kandinsky_dlg(e):
         nonlocal kandinsky_help_dlg
@@ -18554,15 +18060,8 @@ def buildKandinskyFuse(page):
     #invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky_fuse_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
     #image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     #img_block = Container(Column([image_pickers, weight_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky_fuse_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky_fuse_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky_fuse_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky_fuse_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky_fuse = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky_fuse.height = None if status['installed_ESRGAN'] else 0
-    if not kandinsky_fuse_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(kandinsky_fuse_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="💥   Run Kandinsky 2.2 Fuser", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_fuse(page))
 
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
@@ -18582,7 +18081,7 @@ def buildKandinskyFuse(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             #Row([batch_folder_name, file_prefix]),
             #Row([n_images, sampler]),
-            page.ESRGAN_block_kandinsky_fuse,
+            upscaler,
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
@@ -18623,10 +18122,6 @@ def buildKandinsky21Fuse(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        kandinsky21_fuse_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def kandinsky21_help(e):
       def close_kandinsky21_dlg(e):
         nonlocal kandinsky21_help_dlg
@@ -18845,15 +18340,8 @@ def buildKandinsky21Fuse(page):
     #invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky21_fuse_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
     #image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     #img_block = Container(Column([image_pickers, weight_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky21_fuse_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky21_fuse_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky21_fuse_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky21_fuse_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky21_fuse = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky21_fuse.height = None if status['installed_ESRGAN'] else 0
-    if not kandinsky21_fuse_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(kandinsky21_fuse_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="💥   Run Kandinsky 2.1 Fuser", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky21_fuse(page))
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.kandinsky21_fuse_output = Column([])
@@ -18870,7 +18358,7 @@ def buildKandinsky21Fuse(page):
             ResponsiveRow([prior_steps, prior_cf_scale]),
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
-            page.ESRGAN_block_kandinsky21_fuse,
+            upscaler,
             ResponsiveRow([Row([n_images, sampler], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
@@ -18928,10 +18416,6 @@ def buildKandinskyControlNet(page):
       page.overlay.append(kandinsky_controlnet_help_dlg)
       kandinsky_controlnet_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=kandinsky_controlnet_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=kandinsky_controlnet_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_controlnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -18959,15 +18443,8 @@ def buildKandinskyControlNet(page):
     prior_strength_slider = SliderRow(label="Prior Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_controlnet_prefs, key='prior_strength', tooltip="Indicates how much to transform the reference text embeddings.")
     #img_block = Container(Column([init_image, strength_slider, prior_strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     seed = TextField(label="Seed", width=90, value=str(kandinsky_controlnet_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky_controlnet_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky_controlnet_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky_controlnet_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky_controlnet_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky_controlnet.height = None if status['installed_ESRGAN'] else 0
-    if not kandinsky_controlnet_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(kandinsky_controlnet_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="🌸   Run Kandinsky ControlNet", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_controlnet(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_controlnet(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_controlnet(page, from_list=True, with_params=True))
@@ -18985,7 +18462,7 @@ def buildKandinskyControlNet(page):
             #prior_cf_scale,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             #Row([batch_folder_name, file_prefix]),
-            page.ESRGAN_block_kandinsky_controlnet,
+            upscaler,
             ResponsiveRow([Row([n_images, batch_size, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
@@ -19046,10 +18523,6 @@ def buildDeepDaze(page):
       page.overlay.append(deep_daze_help_dlg)
       deep_daze_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        deep_daze_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=deep_daze_prefs['prompt'], filled=True, on_change=lambda e:changed(e,'prompt'))
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=deep_daze_prefs, key='max_size')
     #num_layers = TextField(label="Inference Steps", value=str(deep_daze_prefs['num_layers']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_layers', ptype='int'))
@@ -19065,14 +18538,8 @@ def buildDeepDaze(page):
     #eta_row = Row([Text("DDIM ETA: "), eta])
     #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(deep_daze_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     #max_row = Row([Text("Max Resolution Size: "), max_size])
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=deep_daze_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=deep_daze_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=deep_daze_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_deep_daze = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_deep_daze.height = None if status['installed_ESRGAN'] else 0
-    if not deep_daze_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(deep_daze_prefs)
+    page.upscalers.append(upscaler)
     page.deep_daze_output = Column([], auto_scroll=True)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.deep_daze_output.controls) > 0
@@ -19088,7 +18555,7 @@ def buildDeepDaze(page):
         max_row,
         #NumberPicker(label="Number of Images: ", min=1, max=20, value=deep_daze_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')),
         Row([batch_folder_name, file_prefix]),
-        page.ESRGAN_block_deep_daze,
+        upscaler,
         Row([ElevatedButton(content=Text("😶   Get DeepDaze Generation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_deep_daze(page)),
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_deep_daze(page, from_list=True))
         ]),
@@ -19137,11 +18604,6 @@ def buildCLIPstyler(page):
       page.overlay.append(CLIPstyler_help_dlg)
       CLIPstyler_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        CLIPstyler_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
-        has_changed = True
     prompt_text = TextField(label="Stylized Prompt Text", value=CLIPstyler_prefs['prompt_text'], filled=True, on_change=lambda e:changed(e,'prompt_text'))
     batch_folder_name = TextField(label="Batch Folder Name", value=CLIPstyler_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     source = TextField(label="Source Type", value=CLIPstyler_prefs['source'], on_change=lambda e:changed(e,'source'))
@@ -19150,7 +18612,6 @@ def buildCLIPstyler(page):
     num_crops = TextField(label="Number of Crops", value=CLIPstyler_prefs['num_crops'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_crops', ptype="int"))
     param_rows = Column([Row([batch_folder_name, source]), Row([crop_size, num_crops])])
     iterations = SliderRow(label="Training Iterations", min=50, max=500, divisions=90, pref=CLIPstyler_prefs, key='training_iterations')
-
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=CLIPstyler_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=CLIPstyler_prefs, key='height')
     original_image = FileInput(label="Original Image", pref=CLIPstyler_prefs, key='original_image', page=page, expand=True, col={"*":1, "md":3})
@@ -19162,15 +18623,8 @@ def buildCLIPstyler(page):
     #strength_value = Text(f" {int(CLIPstyler_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD)
     #strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
     #img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=CLIPstyler_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=CLIPstyler_prefs, key='enlarge_scale')
-    #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=CLIPstyler_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=CLIPstyler_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_styler = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_styler.height = None if status['installed_ESRGAN'] else 0
-    if not CLIPstyler_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(CLIPstyler_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="📎   Run CLIP-Styler", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_CLIPstyler(page))
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.CLIPstyler_output = Column([])
@@ -19179,7 +18633,7 @@ def buildCLIPstyler(page):
             Header("😎   CLIP-Styler", "Transfers a Text Guided Style onto your Image From Prompt Description...", actions=[save_default(CLIPstyler_prefs, ['original_image', 'image_dir']), IconButton(icon=icons.HELP, tooltip="Help with CLIP Styler Settings", on_click=CLIPstyler_help)]),
             image_picker, prompt_text,
             param_rows, iterations, width_slider, height_slider, #Divider(height=9, thickness=2),
-            page.ESRGAN_block_styler,
+            upscaler,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
             page.CLIPstyler_output
@@ -19244,10 +18698,6 @@ def buildSemanticGuidance(page):
       page.overlay.append(semantic_help_dlg)
       semantic_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        semantic_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     def change_eta(e):
         changed(e, 'eta', ptype="float")
         eta_value.value = f" {semantic_prefs['eta']}"
@@ -19341,12 +18791,8 @@ def buildSemanticGuidance(page):
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=semantic_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=semantic_prefs, key='height')
     batch_folder_name = TextField(label="Batch Folder Name", value=semantic_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=semantic_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=semantic_prefs, key='enlarge_scale')
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=semantic_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_semantic = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_semantic.height = None if status['installed_ESRGAN'] else 0
+    upscaler = UpscaleBlock(semantic_prefs)
+    page.upscalers.append(upscaler)
     page.semantic_prompts = Column([], spacing=0)
     page.semantic_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -19367,7 +18813,7 @@ def buildSemanticGuidance(page):
         eta_row,
         width_slider, height_slider,
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=semantic_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
-        page.ESRGAN_block_semantic,
+        upscaler,
         #Row([jump_length, jump_n_sample, seed]),
         Row([
             ElevatedButton(content=Text("🎳  Run Semantic Guidance", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_semantic(page)),
@@ -19429,10 +18875,6 @@ def buildDemoFusion(page):
       page.overlay.append(demofusion_help_dlg)
       demofusion_help_dlg.open = True
       page.update()
-    def toggle_ESRGAN(e):
-        ESRGAN_settings.height = None if e.control.value else 0
-        demofusion_prefs['apply_ESRGAN_upscale'] = e.control.value
-        ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=demofusion_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=demofusion_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Init Image (optional)", pref=demofusion_prefs, key='init_image', page=page)
@@ -19454,15 +18896,8 @@ def buildDemoFusion(page):
     show_image = Switcher(label="Show Intermediates", value=demofusion_prefs['show_image'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'show_image'), tooltip="Whether to show intermediate results during generation.")
     cpu_offload = Switcher(label="CPU Offload", value=demofusion_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     seed = TextField(label="Seed", width=90, value=str(demofusion_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=demofusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=demofusion_prefs, key='enlarge_scale')
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=demofusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=demofusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_demofusion = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_demofusion.height = None if status['installed_ESRGAN'] else 0
-    if not demofusion_prefs['apply_ESRGAN_upscale']:
-        ESRGAN_settings.height = 0
+    upscaler = UpscaleBlock(demofusion_prefs)
+    page.upscalers.append(upscaler)
     parameters_button = ElevatedButton(content=Text(value="💥   Run DemoFusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_demofusion(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_demofusion(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_demofusion(page, from_list=True, with_params=True))
@@ -19481,7 +18916,7 @@ def buildDemoFusion(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([multi_decoder, show_image, cpu_offload]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_demofusion,
+            upscaler,
             parameters_row,
             page.demofusion_output
         ],
@@ -57021,6 +56456,7 @@ def main(page: Page):
         help_dlg.open = False
         page.update()
     def open_credits_dlg(e):
+        #show_upscalers(page)
         page.overlay.append(credits_dlg)
         credits_dlg.open = True
         page.update()
@@ -57706,7 +57142,7 @@ class UpscaleBlock(Stack):
         face_enhance = 'face_enhance' in self.pref
         if face_enhance:
             use_face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=self.pref['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(face_enhance=e.control.value))
-        display_upscaled_image = Checkbox(label="Display Upscaled Image", value=self.pref['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(display_upscaled_image=e.control.value))
+        display_upscaled_image = Checkbox(label="Display Upscaled Image", value=self.pref['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(display_upscaled_image=float(e.control.value)))
         self.ESRGAN_settings = Container(Column([enlarge_scale_slider, use_face_enhance if face_enhance else Container(content=None), display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if self.pref['apply_ESRGAN_upscale'] else 0)
         self.ESRGAN_block = Container(Column([apply_ESRGAN_upscale, self.ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if status['installed_ESRGAN'] else 0)
         return self.ESRGAN_block
@@ -57715,7 +57151,7 @@ class UpscaleBlock(Stack):
         try:
             self.ESRGAN_block.update()
         except Exception as e:
-            print(e)
+            #print(f"Upscaler {self.pref}: {e}")
             pass
     def toggle_ESRGAN(self, e):
         self.ESRGAN_settings.height = None if e.control.value else 0
