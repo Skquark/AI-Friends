@@ -22092,7 +22092,7 @@ def get_diffusers(page):
     try:
         import accelerate
     except ModuleNotFoundError:
-        page.status("...installing accelerate")
+        page.status("...installing Accelerate")
         #run_sp("pip install --upgrade git+https://github.com/huggingface/accelerate.git", realtime=False)
         run_sp("pip install --upgrade accelerate", realtime=False)
         import accelerate
@@ -22102,7 +22102,7 @@ def get_diffusers(page):
         import diffusers
         if force_update("diffusers"): raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
-        page.status("...installing diffusers")
+        page.status("...installing Diffusers")
         #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
         run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         page.status()
@@ -43625,7 +43625,7 @@ def run_kolors(page, from_list=False, with_params=False):
     #from optimum.intel import OVLatentConsistencyModelPipeline
     #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/Kolors-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
     
-    from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, KolorsScheduler
+    from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image
     if pipe_kolors == None:
         installer.status(f"...initialize Kolors Pipeline")
         try:
@@ -50853,9 +50853,9 @@ def run_easyanimate(page, from_list=False, with_params=False):
         else:
             easyanimate_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'num_images':p['batch_size'], 'seed':p['seed']})
     else:
-      if not bool(easyanimate_prefs['init_image']):
+      '''if not bool(easyanimate_prefs['init_image']):
         alert_msg(page, "You must provide an Init Image to process your video generation...")
-        return
+        return'''
       easyanimate_prompts.append({'prompt': easyanimate_prefs['prompt'], 'negative_prompt':easyanimate_prefs['negative_prompt'], 'guidance_scale':easyanimate_prefs['guidance_scale'], 'num_inference_steps':easyanimate_prefs['num_inference_steps'], 'width':easyanimate_prefs['width'], 'height':easyanimate_prefs['height'], 'init_image':easyanimate_prefs['init_image'], 'num_images':easyanimate_prefs['num_images'], 'seed':easyanimate_prefs['seed']})
     def prt(line, update=True):
       if type(line) == str:
@@ -50933,7 +50933,7 @@ def run_easyanimate(page, from_list=False, with_params=False):
     if not os.path.exists(os.path.join(transformer_dir, easyanimate_prefs['easyanimate_model'])) and (easyanimate_prefs['easyanimate_model'] != "Custom" or easyanimate_prefs['custom_model'].count('/') == 1):
         installer.status("...cloning pretrained weights")
         from huggingface_hub import Repository
-        model_name = Repository(local_dir=transformer_dir, clone_from=easyanimate_model)
+        repo = Repository(local_dir=transformer_dir, clone_from=easyanimate_model)
     '''if not os.path.exists(transformer_dir):
         installer.status("...downloading pretrained weights")
         makedir(transformer_dir)
@@ -50947,14 +50947,11 @@ def run_easyanimate(page, from_list=False, with_params=False):
         sys.path.append(easyanimate_dir)
     os.chdir(easyanimate_dir)
     import numpy as np
-    from diffusers import (AutoencoderKL, DDIMScheduler,
-                        DPMSolverMultistepScheduler,
-                        EulerAncestralDiscreteScheduler, EulerDiscreteScheduler,
-                        PNDMScheduler)
+    from diffusers import (AutoencoderKL, DDIMScheduler, DPMSolverMultistepScheduler,
+                        EulerAncestralDiscreteScheduler, EulerDiscreteScheduler, PNDMScheduler)
     from omegaconf import OmegaConf
     from PIL import Image as PILImage
     from transformers import CLIPImageProcessor, CLIPVisionModelWithProjection
-
     from easyanimate.models.autoencoder_magvit import AutoencoderKLMagvit
     from easyanimate.models.transformer3d import Transformer3DModel
     from easyanimate.pipeline.pipeline_easyanimate import EasyAnimatePipeline
