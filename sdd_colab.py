@@ -22653,7 +22653,7 @@ def callback_step(pipe, i, t, callback_kwargs):
 
 def abort_reset():
   global abort_run
-  time.wait(10)
+  time.sleep(10)
   abort_run = False
   
 def abort(page=None):
@@ -43619,7 +43619,7 @@ def run_kolors(page, from_list=False, with_params=False):
     from PIL import ImageOps
     pip_install("triton", installer=installer)
     cpu_offload = kolors_prefs['cpu_offload']
-    kolors_model = "Kwai-Kolors/Kolors-diffusers" if kolors_prefs['kolors_model'] == "Kolors-diffusers" else kolors_prefs['kolors_custom_model']
+    kolors_model = "Kwai-Kolors/Kolors-diffusers" if kolors_prefs['kolors_model'] == "Kwai-Kolors/Kolors-diffusers" else kolors_prefs['custom_model']
     status.setdefault('loaded_kolors', '')
     status.setdefault('loaded_kolors_mode', '')
     if kolors_model != status['loaded_kolors']:
@@ -51086,14 +51086,14 @@ def run_easyanimate(page, from_list=False, with_params=False):
                     return
             init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
             init_img = ImageOps.exif_transpose(init_img).convert("RGB")
-        if bool(pr['end_image']):
-            if pr['end_image'].startswith('http'):
-                end_img = PILImage.open(requests.get(pr['end_image'], stream=True).raw)
+        if bool(easyanimate_prefs['end_image']):
+            if easyanimate_prefs['end_image'].startswith('http'):
+                end_img = PILImage.open(requests.get(easyanimate_prefs['end_image'], stream=True).raw)
             else:
-                if os.path.isfile(pr['end_image']):
-                    end_img = PILImage.open(pr['end_image'])
+                if os.path.isfile(easyanimate_prefs['end_image']):
+                    end_img = PILImage.open(easyanimate_prefs['end_image'])
                 else:
-                    alert_msg(page, f"ERROR: Couldn't find your init image {pr['end_image']}")
+                    alert_msg(page, f"ERROR: Couldn't find your init image {easyanimate_prefs['end_image']}")
                     return
             end_img = end_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
             end_img = ImageOps.exif_transpose(end_img).convert("RGB")
@@ -51115,7 +51115,6 @@ def run_easyanimate(page, from_list=False, with_params=False):
                         generator = generator,
                         guidance_scale = pr['guidance_scale'],
                         num_inference_steps = pr['num_inference_steps'],
-
                         video = input_video,
                         mask_video = input_video_mask,
                         clip_image = clip_image, 
