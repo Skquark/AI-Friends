@@ -834,8 +834,8 @@ def buildImageAIs(page):
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="PixArt-Σ", content=page.PixArtSigma, icon=icons.FUNCTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
-            Tab(text="Kolors", content=page.Kolors, icon=icons.DIRTY_LENS),
             Tab(text="AuraFlow", content=page.AuraFlow, icon=icons.MONOCHROME_PHOTOS),
+            Tab(text="Kolors", content=page.Kolors, icon=icons.DIRTY_LENS),
             Tab(text="Layer Diffusion", content=page.LayerDiffusion, icon=icons.WINE_BAR),
             Tab(text="Differential Diffusion", content=page.Differential_Diffusion, icon=icons.SENTIMENT_NEUTRAL),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
@@ -11206,8 +11206,8 @@ kolors_prefs = {
     "seed": 0,
     'init_image': '',
     'init_image_strength': 0.3,
-    "cpu_offload": False,
-    "kolors_model": "Kolors-diffusers",
+    "cpu_offload": True,
+    "kolors_model": "Kwai-Kolors/Kolors-diffusers",
     "custom_model": "",
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
@@ -11253,7 +11253,7 @@ def buildKolors(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kolors_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=kolors_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=kolors_prefs, key='height')
-    kolors_model = Dropdown(label="Kolors Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("Kolors-diffusers")], value=kolors_prefs['kolors_model'], on_change=changed_model)
+    kolors_model = Dropdown(label="Kolors Model", width=280, options=[dropdown.Option("Custom"), dropdown.Option("Kwai-Kolors/Kolors-diffusers")], value=kolors_prefs['kolors_model'], on_change=changed_model)
     kolors_custom_model = TextField(label="Custom Kolors Model (URL or Path)", value=kolors_prefs['custom_model'], expand=True, visible=kolors_prefs['kolors_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=kolors_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     seed = TextField(label="Seed", width=90, value=str(kolors_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
@@ -16859,14 +16859,14 @@ def buildFrescoV2V(page):
 latte_prefs = {
     'prompt': '',
     'negative_prompt': '',
-    'num_inference_steps': 25,
-    'guidance_scale': 23.0,
+    'num_inference_steps': 50,
+    'guidance_scale': 7.5,
     'fps': 24,
     'num_frames': 16,
-    'export_to_video': False,
+    'export_to_video': True,
     'seed': 0,
-    'width': 1024,
-    'height': 576,
+    'width': 512,
+    'height': 512,
     'clean_caption': True,
     'cpu_offload': True,
     'batch_folder_name': '',
@@ -22339,10 +22339,11 @@ def model_scheduler(model, big3=False, **kwargs):
       s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     return s
 
-def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None, trailing=False):
+def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None, trailing=False, use_karras_sigmas=False, **kwargs):
     global status
     scheduler_mode = prefs['scheduler_mode'] if scheduler is None else scheduler
     args = {} if not trailing else {'timestep_spacing': 'trailing'}
+    if use_karras_sigmas: args['use_karras_sigmas'] = True
     if scheduler_mode == "LMS Discrete":
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
@@ -43603,6 +43604,7 @@ def run_kolors(page, from_list=False, with_params=False):
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
+    pip_install("triton", installer=installer)
     cpu_offload = kolors_prefs['cpu_offload']
     kolors_model = "Kwai-Kolors/Kolors-diffusers" if kolors_prefs['kolors_model'] == "Kolors-diffusers" else kolors_prefs['kolors_custom_model']
     status.setdefault('loaded_kolors', '')
@@ -45099,7 +45101,7 @@ def run_lcm_interpolation(page):
             alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             pass
         clear_last()
-        prt(f"Video saved to {out_file}")
+        prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
     if lcm_interpolation_prefs['save_video']:
@@ -46129,7 +46131,7 @@ def run_text_to_video(page):
             out_file = available_file(batch_output, filename, 0, ext="mp4", no_num=True)
             video_path = interpolate_video(images, input_fps=8, output_fps=30, output_video=out_file)
             clear_last()
-            prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+            prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
         if bool(video_path):
             prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
@@ -47607,7 +47609,7 @@ def run_svd(page):
         if not os.path.isfile(out_file):
             prt(f"Problem creating video file, but frames still saved...")
         else:
-            prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+            prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
             #prt(Row([VideoContainer(out_file)], alignment=MainAxisAlignment.CENTER))
         b += 1
     #filename = filename[:int(prefs['file_max_length'])]
@@ -47928,7 +47930,7 @@ def run_video_retalking(page):
     autoscroll(True)
     #TODO: Upscale Image
     if os.path.isfile(output_file):
-        prt(Markdown(f"Video saved to [{output_file}]({output_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        prt(Markdown(f"Video saved to [{output_file}]({filepath_to_url(output_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
         #prt(Row([Text("Saved to {output_file}")], alignment=MainAxisAlignment.CENTER))
         try:
             prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
@@ -48092,7 +48094,7 @@ def run_live_portrait(page):
             apply_audio_to_video(target_path, video_file, output_file)
         else:'''
         shutil.copy(video_file, output_file)
-        prt(Markdown(f"Video saved to [{output_file}]({output_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        prt(Markdown(f"Video saved to [{output_file}]({filepath_to_url(output_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
         #prt(Row([Text("Saved to {output_file}")], alignment=MainAxisAlignment.CENTER))
         try:
             prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
@@ -48256,7 +48258,7 @@ def run_style_crafter(page):
         video_out = available_file(batch_output, fname, 0, no_num=True, ext="mp4")
         interpolate_video(outputs_dir, output_video=video_out, input_fps=8, output_fps=25, installer=installer)
         clear_last
-        prt(Markdown(f"Video saved to [{video_out}]({video_out})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        prt(Markdown(f"Video saved to [{video_out}]({filepath_to_url(video_out)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
         #prt(f"Saved to {video_out}")
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -48419,7 +48421,7 @@ def run_rave(page):
           fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
           time.sleep(0.2)
           shutil.copy(event.src_path, fpath)
-          prt(f"Video saved to {fpath} from {event.src_path}")
+          prt(Markdown(f"Video saved to [{fpath}]({filepath_to_url(fpath)}) from {event.src_path}", on_tap_link=lambda e: e.page.launch_url(e.data)))
           #prt(Row([VideoContainer(event.src_path)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([VideoPlayer(video_file=event.src_path, width=w, height=h)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -49345,7 +49347,7 @@ def run_animate_diff(page):
               fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
               time.sleep(1)
               shutil.copy(event.src_path, fpath)
-              prt(f"Video saved to {fpath} from {event.src_path}")
+              prt(Markdown(f"Video saved to [{fpath}]({filepath_to_url(fpath)}) from {event.src_path}", on_tap_link=lambda e: e.page.launch_url(e.data)))
               #prt(Row([VideoContainer(event.src_path)], alignment=MainAxisAlignment.CENTER))
               #prt(Row([VideoPlayer(video_file=event.src_path, width=w, height=h)], alignment=MainAxisAlignment.CENTER))
               #prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -49718,7 +49720,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                 if not os.path.isfile(out_file):
                     prt(f"Problem creating video file, but frames still saved...")
                 else:
-                    prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+                    prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
@@ -49998,7 +50000,7 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
                 if not os.path.isfile(out_file):
                     prt(f"Problem creating video file, but frames still saved...")
                 else:
-                    prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+                    prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
@@ -50566,8 +50568,8 @@ def run_diffsynth(page, from_list=False, with_params=False):
         if not os.path.isfile(out_file):
             prt(f"Problem creating video file...")
         else:
-            interpolate = f" and [{os.path.basename(RIFE_file)}]({RIFE_file})" if diffsynth_prefs["interpolate_video"] else ""
-            prt(Markdown(f"Video saved to [{out_file}]({out_file}){interpolate}", on_tap_link=lambda e: e.page.launch_url(e.data)))
+            interpolate = f" and [{os.path.basename(RIFE_file)}]({filepath_to_url(RIFE_file)})" if diffsynth_prefs["interpolate_video"] else ""
+            prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)}){interpolate}", on_tap_link=lambda e: e.page.launch_url(e.data)))
             # prt(Row([VideoContainer(out_file)], alignment=MainAxisAlignment.CENTER))
             b += 1
     # filename = filename[:int(prefs['file_max_length'])]
@@ -50821,7 +50823,7 @@ def run_pia(page, from_list=False, with_params=False):
                 if not os.path.isfile(out_file):
                     prt(f"Problem creating video file, but frames still saved...")
                 else:
-                    prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+                    prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
@@ -50920,7 +50922,9 @@ def run_easyanimate(page, from_list=False, with_params=False):
     if not os.path.exists(os.path.join(transformer_dir, easyanimate_prefs['easyanimate_model'])) and (easyanimate_prefs['easyanimate_model'] != "Custom" or easyanimate_prefs['custom_model'].count('/') == 1):
         installer.status("...cloning pretrained weights")
         from huggingface_hub import Repository
-        repo = Repository(local_dir=transformer_dir, clone_from=easyanimate_model)
+        model_dir = os.path.join(transformer_dir, easyanimate_prefs['easyanimate_model'])
+        makedir(model_dir)
+        repo = Repository(local_dir=model_dir, clone_from=easyanimate_model)
     '''if not os.path.exists(transformer_dir):
         installer.status("...downloading pretrained weights")
         makedir(transformer_dir)
@@ -51142,7 +51146,7 @@ def run_easyanimate(page, from_list=False, with_params=False):
             if not os.path.isfile(video_path):
                 prt(f"Problem creating video file, but frames still saved...")
             else:
-                prt(Markdown(f"Video saved to [{video_path}]({video_path})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+                prt(Markdown(f"Video saved to [{video_path}]({filepath_to_url(video_path)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
         #gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
         #export_to_gif(frames_batch, gif_file, fps=easyanimate_prefs['fps'])
         '''if easyanimate_prefs['export_to_video']:
@@ -51380,7 +51384,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
                 if not os.path.isfile(out_file):
                     prt(f"Problem creating video file, but frames still saved...")
                 else:
-                    prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+                    prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
@@ -51729,7 +51733,7 @@ def run_rerender_a_video(page):
           fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
           time.sleep(1)
           shutil.copy(event.src_path, fpath)
-          prt(f"Video saved to {fpath} from {event.src_path}")
+          prt(Markdown(f"Video saved to [{fpath}]({filepath_to_url(fpath)}) from {event.src_path}", on_tap_link=lambda e: e.page.launch_url(e.data)))
           #prt(Row([VideoContainer(event.src_path)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([VideoPlayer(video_file=event.src_path, width=w, height=h)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -52182,7 +52186,7 @@ def run_latte(page):
     if latte_prefs['clean_caption']:
         pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
     clear_last()
-    prt("Generating Latte of your Prompt...")
+    prt("Generating Latte Video from your Prompt...")
     prt(progress)
     autoscroll(False)
     batch_output = os.path.join(stable_dir, latte_prefs['batch_folder_name'])
@@ -52216,7 +52220,7 @@ def run_latte(page):
     autoscroll(True)
     export_to_video(videos, video_file, fps=latte_prefs['fps'])
     #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
-    prt(Markdown(f"Video saved to [{video_file}]({video_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     #prt(f"Done creating video... Check {batch_output}")
     autoscroll(False)
     play_snd(Snd.ALERT, page)
