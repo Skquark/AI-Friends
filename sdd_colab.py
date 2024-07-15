@@ -1287,6 +1287,7 @@ def initState(page):
     global status, current_tab
     if os.path.isdir(os.path.join(root_dir, 'Real-ESRGAN')):
       status['installed_ESRGAN'] = True
+      show_upscalers(page)
     page.load_prompts()
     # TODO: Try to load from assets folder
     page.snd_alert = Audio(src=asset_dir(os.path.join(assets, "snd-alert.mp3")), autoplay=False)
@@ -2504,10 +2505,10 @@ def update_parameters(page):
   #page.img_block.height = None if status['installed_img2img'] or status['installed_megapipe'] or status['installed_stability'] else 0
   #page.img_block.height = None if (status['installed_txt2img'] or status['installed_stability'] or status['installed_AIHorde'] or status['installed_SDXL']) and not (status['installed_clip'] and prefs['use_clip_guided_model']) else 0
   page.clip_block.height = None if status['installed_clip']  and prefs['use_clip_guided_model'] else 0
-  page.ESRGAN_block.height = None if status['installed_ESRGAN'] else 0
+  #page.ESRGAN_block.height = None if status['installed_ESRGAN'] else 0
   page.img_block.update()
   page.clip_block.update()
-  page.ESRGAN_block.update()
+  #page.ESRGAN_block.update()
   page.Parameters.update()
   #print("Updated Parameters")
 
@@ -23467,7 +23468,7 @@ def get_SD3_pipe(task="text2image"):
           elif not prefs['SD3_bitsandbytes_8bit']:
               pipe_SD3.to("cuda")
       if prefs['vae_tiling']:
-          pipe_SD3.enable_vae_tiling()
+          pipe_SD3.vae.enable_tiling()
       #pipe_SD3 = optimize_SDXL(pipe_SDXL, vae_slicing=True)
   elif task == "image2image":
       status['loaded_SD3'] = task
@@ -23515,7 +23516,7 @@ def get_SD3_pipe(task="text2image"):
           elif not prefs['SD3_bitsandbytes_8bit']:
               pipe_SD3.to("cuda")
       if prefs['vae_tiling']:
-          pipe_SD3.enable_vae_tiling()
+          pipe_SD3.vae.enable_tiling()
   elif task == "inpainting":
       status['loaded_SD3'] = task
       if prefs['enable_torch_compile']:
@@ -23562,7 +23563,7 @@ def get_SD3_pipe(task="text2image"):
           elif not prefs['SD3_bitsandbytes_8bit']:
               pipe_SD3.to("cuda")
       if prefs['vae_tiling']:
-          pipe_SD3.enable_vae_tiling()
+          pipe_SD3.vae.enable_tiling()
   if prefs['SD3_compel']:
       from compel import Compel, ReturnedEmbeddingsType
       compel_base = Compel(tokenizer=[pipe_SD3.tokenizer, pipe_SD3.tokenizer_2], text_encoder=[pipe_SD3.text_encoder, pipe_SD3.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
@@ -50891,6 +50892,12 @@ def run_easyanimate(page, from_list=False, with_params=False):
         page.EasyAnimate.controls = page.EasyAnimate.controls[:1]
     progress = ProgressBar(bar_height=8)
     total_steps = easyanimate_prefs['num_inference_steps']
+    def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
     def callback_step(pipe, step, timestep, callback_kwargs):
       callback_step.has_been_called = True
       nonlocal progress, total_steps
@@ -51117,7 +51124,8 @@ def run_easyanimate(page, from_list=False, with_params=False):
                         num_inference_steps = pr['num_inference_steps'],
                         video = input_video,
                         mask_video = input_video_mask,
-                        clip_image = clip_image, 
+                        clip_image = clip_image,
+                        callback = callback_fn,
                     ).videos
                 else:
                     output = pipe_easyanimate(
@@ -51129,6 +51137,7 @@ def run_easyanimate(page, from_list=False, with_params=False):
                         generator = generator,
                         guidance_scale = pr['guidance_scale'],
                         num_inference_steps = pr['num_inference_steps'],
+                        callback = callback_fn,
                         #callback_on_step_end=callback_step,
                     ).videos
         except Exception as e:
@@ -56469,7 +56478,6 @@ def main(page: Page):
         help_dlg.open = False
         page.update()
     def open_credits_dlg(e):
-        #show_upscalers(page)
         page.overlay.append(credits_dlg)
         credits_dlg.open = True
         page.update()
@@ -56478,13 +56486,13 @@ def main(page: Page):
         page.update()
     credits_markdown = '''This toolkit is an Open-Source side project by [Skquark, Inc.](https://Skquark.com), primarily created by Alan Bedian for fun and full-feature functionality.  Official website is [DiffusionDeluxe.com](https://DiffusionDeluxe.com) for more info.
 
-The real credit goes to the team at [Stability.ai](https://Stability.ai) for making Stable Diffusion so great, and [HuggingFace](https://HuggingFace.co) for their work on the [Diffusers Pipelines](https://github.com/huggingface/diffusers). The HuggingFace Diffusers team includes Patrick von Platen, Suraj Patil, Anton Lozhkov, Pedro Cuenca, Nathan Lambert, Kashif Rasul, Mishig Davaadorj, Aryan V S & Thomas Wolf.
+The real credit goes to the team at [Stability.ai](https://Stability.ai) for making Stable Diffusion so great, and [HuggingFace](https://HuggingFace.co) for their work on the [Diffusers Pipelines](https://github.com/huggingface/diffusers). The HuggingFace Diffusers team includes Patrick von Platen, Suraj Patil, Anton Lozhkov, Pedro Cuenca, Nathan Lambert, Kashif Rasul, Mishig Davaadorj, Aryan V S, Thomas Wolf & many others.
 
 For the great app UI framework, we thank [Flet](https://Flet.dev) with the amazing Flutter based Python library with a very functional dev platform that made this possible.
 
 For the brains behind our Prompt Helpers, we thank our friends [OpenAI](https://beta.OpenAI.com), [Google Gemini](https://gemini.google.com), [Bloom-AI](https://huggingface.co/bigscience/bloom), [TextSynth](https://TextSynth.com) and others for making an AIs so fun to talk to and use.
 
-Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVbAfm), [Stable Diffusion](https://discord.gg/stablediffusion), [HuggingFace](https://discord.gg/hugging-face-879548962464493619), [Banodoco](https://discord.gg/tFSXjJ2C) and [Flet](https://discord.gg/nFqy742h) for their support and user contributions.'''
+Shoutouts to the Discord Communities of [Disco Diffusion](https://discord.gg/d5ZVbAfm), [Stable Diffusion](https://discord.gg/stablediffusion), [HuggingFace](https://discord.gg/hugging-face-879548962464493619), [Banodoco](https://discord.gg/tFSXjJ2C), [Division by Zer0](https://discord.gg/WHp5JBec) and [Flet](https://discord.gg/nFqy742h) for their support and user contributions.'''
     credits_dlg = AlertDialog(
         title=Text("🙌   Credits/Acknowledgments"), content=Column([Markdown(credits_markdown, extension_set="gitHubWeb", on_tap_link=open_url)
         ], scroll=ScrollMode.AUTO),
@@ -56615,7 +56623,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         if prefs['window_maximized']:
             maximize_window("e")
     page.update()
-    time.sleep(1)
+    time.sleep(0.6)
     initState(page)
     if not status['initialized']:
         status['initialized'] = True
@@ -57073,17 +57081,19 @@ class Installing(Stack):
         self.progress.update()
 
 class Progress(Stack):
-    def __init__(self, message="", steps=50):
+    def __init__(self, message="", steps=50, show_preview=False):
         super().__init__()
         self.message = message
         self.steps = steps
         self.start_step = 0
         self.start_callback = 0
+        self.show_preview = show_preview
         self.build()
     def build(self):
         self.message_txt = Text(self.message, theme_style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)
         self.details = Text("")
         self.progress = ProgressBar(bar_height=8)
+        self.preview = Container(content=None) if not self.show_preview else ft.Image()
         return Container(content=Column([Row([self.message_txt, Container(content=None, expand=True), self.details]), self.progress]), padding=padding.only(left=9, bottom=10))
     def set_message(self, msg=""):
         self.message_txt.value = msg
