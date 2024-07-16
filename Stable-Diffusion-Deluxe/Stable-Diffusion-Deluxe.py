@@ -3072,6 +3072,7 @@ def format_filename(s, force_underscore=False, use_dash=False, max_length=None):
         filename = filename.replace(' ','-')
     else:
         if not prefs['file_allowSpace'] or force_underscore: filename = filename.replace(' ','_')
+    filename = filename[:-1] if filename[-1] == '.' else filename
     return filename[:file_max_length]
 
 def to_title(s, sentence=False, clean=True):
@@ -30191,7 +30192,7 @@ def run_anytext(page, from_list=False, with_params=False):
             alert_msg(page, f"ERROR Initializing AnyText...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=anytext_prefs)
             return
     clear_last()
-    s = "" if len(anytext_prompts) == 0 else "s"
+    s = "" if len(anytext_prompts) == 1 else "s"
     prt(f"Generating your AnyText Image{s}...")
     for pr in anytext_prompts:
         prt(progress)
@@ -30540,7 +30541,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
         else:
             face_emb = torch.from_numpy(face_info[0].normed_embedding).unsqueeze(0)
     clear_last()
-    s = "" if len(ip_adapter_prompts) == 0 else "s"
+    s = "" if len(ip_adapter_prompts) == 1 else "s"
     prt(f"Generating your IP-Adapter Image{s}...")
     for pr in ip_adapter_prompts:
         prt(progress)
@@ -30839,7 +30840,7 @@ def run_hd_painter(page, from_list=False, with_params=False):
             pipe_hd_painter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
             pipe_hd_painter.set_ip_adapter_scale(hd_painter_prefs['ip_adapter_strength'])
     clear_last()
-    s = "" if len(hd_painter_prompts) == 0 else "s"
+    s = "" if len(hd_painter_prompts) == 1 else "s"
     prt(f"Generating your HD-Painter Image{s}...")
     for pr in hd_painter_prompts:
         prt(progress)
@@ -41934,7 +41935,7 @@ def run_amused(page, from_list=False, with_params=False):
         clear_pipes('amused')
     
     clear_last()
-    s = "" if len(amused_prompts) == 0 else "s"
+    s = "" if len(amused_prompts) == 1 else "s"
     prt(f"Generating your Amused Image{s}...")
     for pr in amused_prompts:
         prt(progress)
@@ -42157,7 +42158,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
     else:
         clear_pipes('wuerstchen')
     clear_last()
-    s = "" if len(wuerstchen_prompts) == 0 else "s"
+    s = "" if len(wuerstchen_prompts) == 1 else "s"
     for pr in wuerstchen_prompts:
         total_steps = pr['steps']
         for n in range(pr['num_images']):
@@ -42347,7 +42348,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
     else:
         clear_pipes('stable_cascade')
     clear_last()
-    s = "" if len(stable_cascade_prompts) == 0 else "s"
+    s = "" if len(stable_cascade_prompts) == 1 else "s"
     for pr in stable_cascade_prompts:
         total_steps = pr['steps']
         for n in range(pr['num_images']):
@@ -42596,7 +42597,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
     refiner = {'output_type':"latent"} if pixart_alpha_prefs['use_refiner'] else {}
     #'denoising_end': pixart_alpha_prefs['SDXL_high_noise_frac'], 
     clear_last()
-    s = "" if len(pixart_alpha_prompts) == 0 else "s"
+    s = "" if len(pixart_alpha_prompts) == 1 else "s"
     prt(f"Generating your PixArt-α Image{s}...")
     for pr in pixart_alpha_prompts:
         prt(progress)
@@ -42873,7 +42874,7 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
         if prefs['scheduler_mode'] != status['loaded_scheduler']:
             pipe_pixart_sigma = pipeline_scheduler(pipe_pixart_sigma, **scheduler)
     clear_last()
-    s = "" if len(pixart_sigma_prompts) == 0 else "s"
+    s = "" if len(pixart_sigma_prompts) == 1 else "s"
     prt(f"Generating your PixArt-Σ Image{s}...")
     for pr in pixart_sigma_prompts:
         prt(progress)
@@ -43640,7 +43641,7 @@ def run_kolors(page, from_list=False, with_params=False):
     else:
         clear_pipes('kolors')
     clear_last()
-    s = "" if len(kolors_prompts) == 0 else "s"
+    s = "" if len(kolors_prompts) == 1 else "s"
     prt(f"Generating your Kolors Image{s}...")
     for pr in kolors_prompts:
         prt(progress)
@@ -44347,7 +44348,7 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
         map = map.to("cuda")
         return map
     clear_last()
-    s = "" if len(differential_diffusion_prompts) == 0 else "s"
+    s = "" if len(differential_diffusion_prompts) == 1 else "s"
     prt(f"Generating your Differential Diffusion Image{s}...")
     for pr in differential_diffusion_prompts:
         prt(progress)
@@ -44628,7 +44629,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         #if prefs['scheduler_mode'] != status['loaded_scheduler']:
         #    pipe_lmd_plus = pipeline_scheduler(pipe_lmd_plus)
     clear_last()
-    s = "" if len(lmd_plus_prompts) == 0 else "s"
+    s = "" if len(lmd_plus_prompts) == 1 else "s"
     prt(f"Generating your LMD+ Image{s}...")
     for pr in lmd_plus_prompts:
         prt(progress)
@@ -44844,7 +44845,7 @@ def run_lcm(page, from_list=False, with_params=False):
             pipe_lcm.set_ip_adapter_scale(lcm_prefs['ip_adapter_strength'])
 
     clear_last()
-    s = "" if len(lcm_prompts) == 0 else "s"
+    s = "" if len(lcm_prompts) == 1 else "s"
     prt(f"Generating your LCM Image{s}...")
     for pr in lcm_prompts:
         prt(progress)
@@ -45218,7 +45219,7 @@ def run_instaflow(page, from_list=False, with_params=False):
         clear_pipes('instaflow')
 
     clear_last()
-    s = "" if len(instaflow_prompts) == 0 else "s"
+    s = "" if len(instaflow_prompts) == 1 else "s"
     prt(f"Generating your InstaFlow Image{s}...")
     for pr in instaflow_prompts:
         prt(progress)
@@ -45449,7 +45450,7 @@ def run_pag(page, from_list=False, with_params=False):
             pipe_PAG.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
             pipe_PAG.set_ip_adapter_scale(pag_prefs['ip_adapter_strength'])
     clear_last()
-    s = "" if len(pag_prompts) == 0 else "s"
+    s = "" if len(pag_prompts) == 1 else "s"
     prt(f"Generating your PAG Image{s}...")
     for pr in pag_prompts:
         prt(progress)
@@ -45752,7 +45753,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
           pipe_ldm3d.set_ip_adapter_scale(ldm3d_prefs['ip_adapter_strength'])
 
     clear_last()
-    s = "" if len(ldm3d_prompts) == 0 else "s"
+    s = "" if len(ldm3d_prompts) == 1 else "s"
     prt(f"Generating your LDM3D Image{s}...")
     for pr in ldm3d_prompts:
         prt(progress)
@@ -47983,8 +47984,8 @@ def run_live_portrait(page):
             alert_msg(page, "Error Installing LivePortrait Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
     elif force_update("liveportrait"):
-        installer.status("...fetching KwaiVGI/LivePortrait")
-        run_sp("git fetch https://github.com/KwaiVGI/LivePortrait", cwd=root_dir)
+        installer.status("...updating KwaiVGI/LivePortrait")
+        run_sp("git pull origin main", cwd=live_portrait_dir)
     makedir(live_portrait_weights)
     if not os.path.isfile(os.path.join(live_portrait_weights, 'liveportrait', 'landmark.onnx')):
         installer.status("...downloading pretrained weights")
@@ -49587,7 +49588,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
             pipe_animatediff_img2video.set_ip_adapter_scale(animatediff_img2video_prefs['ip_adapter_strength'])
 
     clear_last()
-    s = "" if len(animatediff_img2video_prompts) == 0 else "s"
+    s = "" if len(animatediff_img2video_prompts) == 1 else "s"
     prt(f"Generating your AnimateDiff Video{s}...")
     for pr in animatediff_img2video_prompts:
         prt(progress)
@@ -49923,7 +49924,7 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
             pipe_animatediff_sdxl.load_ip_adapter(ip_adapter_SDXL_model['path'], subfolder=ip_adapter_SDXL_model['subfolder'], weight_name=ip_adapter_SDXL_model['weight_name'])
             pipe_animatediff_sdxl.set_ip_adapter_scale(animatediff_sdxl_prefs['ip_adapter_strength'])
     clear_last()
-    s = "" if len(animatediff_sdxl_prompts) == 0 else "s"
+    s = "" if len(animatediff_sdxl_prompts) == 1 else "s"
     prt(f"Generating your AnimateDiff Video{s}...")
     for pr in animatediff_sdxl_prompts:
         prt(progress)
@@ -50085,7 +50086,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
         run_sp("git clone https://github.com/modelscope/DiffSynth-Studio.git", cwd=root_dir, realtime=False)
     elif force_update("diffsynth"):
         installer.status("...updating modelscope/DiffSynth-Studio")
-        run_sp("git fetch https://github.com/modelscope/DiffSynth-Studio.git", cwd=root_dir, realtime=False)
+        run_sp("git pull origin main", cwd=diffsynth_dir, realtime=False)
     if diffsynth_dir not in sys.path:
         sys.path.append(diffsynth_dir)
     os.chdir(diffsynth_dir)
@@ -50733,7 +50734,7 @@ def run_pia(page, from_list=False, with_params=False):
             pipe_pia.set_ip_adapter_scale(pia_prefs['ip_adapter_strength'])
 
     clear_last()
-    s = "" if len(pia_prompts) == 0 else "s"
+    s = "" if len(pia_prompts) == 1 else "s"
     prt(f"Generating your PIA Video{s}...")
     for pr in pia_prompts:
         prt(progress)
@@ -50825,6 +50826,7 @@ def run_pia(page, from_list=False, with_params=False):
                     prt(f"Problem creating video file, but frames still saved...")
                 else:
                     prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    nudge(page.imageColumn if from_list else page.PIA, page=page)
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
@@ -50917,7 +50919,7 @@ def run_easyanimate(page, from_list=False, with_params=False):
             return
     elif force_update("easyanimate"):
         installer.status("...fetching aigc-apps/EasyAnimate")
-        run_sp("git fetch https://github.com/aigc-apps/EasyAnimate.git", cwd=root_dir)
+        run_sp("git pull origin main", cwd=easyanimate_dir)
     transformer_dir = os.path.join(easyanimate_dir, "models", "Diffusion_Transformer")
     if not os.path.exists(transformer_dir):
         makedir(transformer_dir)
@@ -51054,7 +51056,7 @@ def run_easyanimate(page, from_list=False, with_params=False):
             pipe_easyanimate.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
         pipe_easyanimate.set_adapters(adapters, adapter_weights=scales)
     clear_last()
-    s = "" if len(easyanimate_prompts) == 0 else "s"
+    s = "" if len(easyanimate_prompts) == 1 else "s"
     prt(f"Generating your EasyAnimate Video{s}... See console for progress.")
     for pr in easyanimate_prompts:
         prt(progress)
@@ -51097,7 +51099,7 @@ def run_easyanimate(page, from_list=False, with_params=False):
         try:
             with torch.no_grad():
                 if easyanimate_transformer.config.in_channels == 12:
-                    video_length = int(video_length // vae.mini_batch_encoder * vae.mini_batch_encoder) if video_length != 1 else 1
+                    video_length = int(video_length // pipe_easyanimate.vae.mini_batch_encoder * pipe_easyanimate.vae.mini_batch_encoder) if video_length != 1 else 1
                     input_video, input_video_mask, clip_image = get_image_to_video_latent(init_img, end_img, video_length=video_length, sample_size=[pr['height'], pr['width']])
 
                     output = pipe_easyanimate(
@@ -51140,21 +51142,29 @@ def run_easyanimate(page, from_list=False, with_params=False):
         batch_output = os.path.join(prefs['image_output'], easyanimate_prefs['batch_folder_name'])
         makedir(batch_output)
         fname = format_filename(pr['prompt'])
-        if video_length == 1:
-            video_path = available_file(batch_output, fname, no_num=True)
-            image = output[0, :, 0]
-            image = image.transpose(0, 1).transpose(1, 2)
-            image = (image * 255).numpy().astype(np.uint8)
-            image = PILImage.fromarray(image)
-            image.save(video_path)
-            prt(Row([ImageButton(src=video_path, width=pr['width'], height=pr['height'], data=video_path, page=page)], alignment=MainAxisAlignment.CENTER))
-        else:
-            video_path = available_file(batch_output, fname, no_num=True, ext="mp4")
-            save_videos_grid(output, video_path, fps=easyanimate_prefs['fps'])
-            if not os.path.isfile(video_path):
-                prt(f"Problem creating video file, but frames still saved...")
+        try:
+            if video_length == 1:
+                video_path = available_file(batch_output, fname, no_num=True)
+                image = output[0, :, 0]
+                image = image.transpose(0, 1).transpose(1, 2)
+                image = (image * 255).numpy().astype(np.uint8)
+                image = PILImage.fromarray(image)
+                image.save(video_path)
+                prt(Row([ImageButton(src=video_path, width=pr['width'], height=pr['height'], data=video_path, page=page)], alignment=MainAxisAlignment.CENTER))
             else:
-                prt(Markdown(f"Video saved to [{video_path}]({filepath_to_url(video_path)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+                gif_path = available_file(batch_output, fname, no_num=True, ext="gif")
+                save_videos_grid(output, gif_path, fps=easyanimate_prefs['fps'])
+                if os.path.isfile(gif_path):
+                    prt(Row([ImageButton(src=gif_path, width=pr['width'], height=pr['height'], data=gif_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                video_path = available_file(batch_output, fname, no_num=True, ext="mp4")
+                save_videos_grid(output, video_path, fps=easyanimate_prefs['fps'])
+                if not os.path.isfile(video_path):
+                    prt(f"Problem creating video file, but frames still saved...")
+                else:
+                    prt(Markdown(f"Video saved to [{video_path}]({filepath_to_url(video_path)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        except Exception as e:
+            alert_msg(page, f"ERROR: Something went wrong saving video frames...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
         #gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
         #export_to_gif(frames_batch, gif_file, fps=easyanimate_prefs['fps'])
         '''if easyanimate_prefs['export_to_video']:
@@ -51172,6 +51182,7 @@ def run_easyanimate(page, from_list=False, with_params=False):
                 clear_last()
                 alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 pass'''
+    nudge(page.imageColumn if from_list else page.EasyAnimate, page=page)
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
@@ -51304,7 +51315,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
             pipe_i2vgen_xl.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
         pipe_i2vgen_xl.set_adapters(adapters, adapter_weights=scales)
     clear_last()
-    s = "" if len(i2vgen_xl_prompts) == 0 else "s"
+    s = "" if len(i2vgen_xl_prompts) == 1 else "s"
     prt(f"Generating your I2VGen-XL Video{s}... See console for progress.")
     for pr in i2vgen_xl_prompts:
         prt(progress)

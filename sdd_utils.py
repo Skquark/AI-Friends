@@ -204,6 +204,7 @@ SDXL_models = [
     {"name": "Cheyenne XL 1.6", "path": "GraydientPlatformAPI/cheyenne16-xl", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Colossus Project XL", "path": "n0madic/colossusProjectXL_v53", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "ColorfulXL", "path": "recoilme/colorfulxl", "prefix": "", "variant": "fp16", "use_safetensors": True},
+    {"name": "ColorfulXL v7", "path": "John6666/colorful-xl-v7-sdxl", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "ColorfulXL Lightning", "path": "recoilme/ColorfulXL-Lightning", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Copax Timeless 1.22", "path": "rubbrband/copaxTimelessxlSDXL1_v122", "prefix": ""},
     {"name": "Copax Timeless Turbo", "path": "GraydientPlatformAPI/copax-timelessturbo2", "prefix": ""},
