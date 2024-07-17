@@ -10969,8 +10969,8 @@ def buildPixArtSigma(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([pixart_model, pixart_custom_model]),
-            use_refiner,
-            SDXL_high_noise_frac,
+            #use_refiner,
+            #SDXL_high_noise_frac,
             Row([clean_caption, resolution_binning, cpu_offload, use_8bit]),
             #Can't get wrap to work!! Container(Row([Container(clean_caption), Container(resolution_binning), Container(cpu_offload), Container(use_8bit)], wrap=True, expand=True, width=page.width, alignment=ft.MainAxisAlignment.START), width=800),#], expand=True),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
@@ -42594,7 +42594,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
     if pipe_SDXL_refiner == None and pixart_alpha_prefs['use_refiner']:
         try:
             from diffusers import StableDiffusionXLImg2ImgPipeline
-            pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, use_safetensors=True,
+            pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-xl-refiner-1.0", torch_dtype=torch.float16, use_safetensors=True,
                 text_encoder_2=pipe_pixart_alpha.text_encoder_2,
                 vae=pipe_pixart_alpha.vae,
                 add_watermarker=False,
@@ -43260,7 +43260,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
     if pipe_SDXL_refiner == None and hunyuan_dit_prefs['use_refiner']:
         try:
             from diffusers import StableDiffusionXLImg2ImgPipeline
-            pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, use_safetensors=True,
+            pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-xl-refiner-1.0", torch_dtype=torch.float16, use_safetensors=True,
                 text_encoder_2=pipe_hunyuan.text_encoder_2,
                 vae=pipe_hunyuan.vae,
                 add_watermarker=False,
@@ -43851,18 +43851,20 @@ def run_auraflow(page, from_list=False, with_params=False):
         try:
             from diffusers import AuraFlowPipeline
             pipe_auraflow = AuraFlowPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            '''if prefs['enable_torch_compile']:
-                installer.status(f"...Torch compiling unet")
-                pipe_auraflow = pipe_auraflow.to("cuda")
-                pipe_auraflow.transformer.to(memory_format=torch.channels_last)
-                pipe_auraflow.vae.to(memory_format=torch.channels_last)
-                pipe_auraflow.transformer = torch.compile(pipe_auraflow.transformer, mode="max-autotune", fullgraph=True)
-                pipe_auraflow.vae.decode = torch.compile(pipe_auraflow.vae.decode, mode="max-autotune", fullgraph=True)
-            el'''
             if cpu_offload:
                 pipe_auraflow.enable_model_cpu_offload()
             else:
                 pipe_auraflow = pipe_auraflow.to("cuda")
+                if prefs['enable_torch_compile']:
+                    installer.status(f"...Torch compiling unet")
+                    torch._inductor.config.conv_1x1_as_mm = True
+                    torch._inductor.config.coordinate_descent_tuning = True
+                    torch._inductor.config.epilogue_fusion = False
+                    torch._inductor.config.coordinate_descent_check_all_directions = True
+                    pipe_auraflow.transformer.to(memory_format=torch.channels_last)
+                    pipe_auraflow.vae.to(memory_format=torch.channels_last)
+                    pipe_auraflow.transformer = torch.compile(pipe_auraflow.transformer, mode="max-autotune", fullgraph=True)
+                    pipe_auraflow.vae.decode = torch.compile(pipe_auraflow.vae.decode, mode="max-autotune", fullgraph=True)
                 #pipe_auraflow.transformer.enable_forward_chunking(chunk_size=1, dim=1)
             #pipe_auraflow.set_progress_bar_config(disable=True)
             status['loaded_auraflow_model'] = model_id
@@ -50091,7 +50093,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
     autoscroll(True)
     installer = Installing("Installing DiffSynth Image-To-Video Pipeline...")
     prt(installer)
-    pip_install("cupy-cuda12x|cupy controlnet-aux imageio imageio[ffmpeg]|imageio safetensors einops sentencepiece", installer=installer)
+    pip_install("mediapipe modelscope cupy-cuda12x|cupy controlnet-aux imageio imageio[ffmpeg]|imageio safetensors einops sentencepiece", installer=installer)
     diffsynth_dir = os.path.join(root_dir, "DiffSynth-Studio")
     models = os.path.join(diffsynth_dir, "models")
     if not os.path.exists(diffsynth_dir):
@@ -50123,12 +50125,12 @@ def run_diffsynth(page, from_list=False, with_params=False):
                     "ControlNet_v11f1p_sd15_depth",
                     "ControlNet_v11p_sd15_softedge",
                     "DreamShaper_8"
-                ], downloading_priority = ["HuggingFace", "ModelScope"])
+                ])#, downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
                                                        file_path_list=[
-                                                           "models/stable_diffusion/dreamshaper_8.safetensors",
-                                                           "models/ControlNet/control_v11f1p_sd15_depth.pth",
-                                                           "models/ControlNet/control_v11p_sd15_softedge.pth",
+                                                           f"models{slash}stable_diffusion{slash}dreamshaper_8.safetensors",
+                                                           f"models{slash}ControlNet{slash}control_v11f1p_sd15_depth.pth",
+                                                           f"models{slash}ControlNet{slash}control_v11p_sd15_softedge.pth",
                                                        ]
                                                        )
                 installer.status("...loading SDVideoPipeline")
@@ -50137,12 +50139,12 @@ def run_diffsynth(page, from_list=False, with_params=False):
                     [
                         ControlNetConfigUnit(
                             processor_id="depth",
-                            model_path="models/ControlNet/control_v11f1p_sd15_depth.pth",
+                            model_path=f"models{slash}ControlNet{slash}control_v11f1p_sd15_depth.pth",
                             scale=0.5
                         ),
                         ControlNetConfigUnit(
                             processor_id="softedge",
-                            model_path="models/ControlNet/control_v11p_sd15_softedge.pth",
+                            model_path=f"models{slash}ControlNet{slash}control_v11p_sd15_softedge.pth",
                             scale=0.5
                         )
                     ]
@@ -50153,13 +50155,13 @@ def run_diffsynth(page, from_list=False, with_params=False):
             if pipe_diffsynth is None:
                 installer.status("...downloading HunyuanDiT models")
                 os.environ["TOKENIZERS_PARALLELISM"] = "True"
-                download_models(["HunyuanDiT"], downloading_priority = ["HuggingFace", "ModelScope"])
+                download_models(["HunyuanDiT"])#, downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
                                                        file_path_list=[
-                                                           "models/HunyuanDiT/t2i/clip_text_encoder/pytorch_model.bin",
-                                                           "models/HunyuanDiT/t2i/mt5/pytorch_model.bin",
-                                                           "models/HunyuanDiT/t2i/model/pytorch_model_ema.pt",
-                                                           "models/HunyuanDiT/t2i/sdxl-vae-fp16-fix/diffusion_pytorch_model.bin",
+                                                           f"models{slash}HunyuanDiT{slash}t2i{slash}clip_text_encoder{slash}pytorch_model.bin",
+                                                           f"models{slash}HunyuanDiT{slash}t2i{slash}mt5{slash}pytorch_model.bin",
+                                                           f"models{slash}HunyuanDiT{slash}t2i{slash}model{slash}pytorch_model_ema.pt",
+                                                           f"models{slash}HunyuanDiT{slash}t2i{slash}sdxl-vae-fp16-fix{slash}diffusion_pytorch_model.bin",
                                                        ])
                 installer.status("...loading HunyuanDiTImagePipeline")
                 pipe_diffsynth_image = HunyuanDiTImagePipeline.from_model_manager(diffsynth_model_manager)
@@ -50167,8 +50169,8 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 download_models(["stable-video-diffusion-img2vid-xt", "ExVideo-SVD-128f-v1"])
                 model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
                                              file_path_list=[
-                                                 "models/stable_video_diffusion/svd_xt.safetensors",
-                                                 "models/stable_video_diffusion/model.fp16.safetensors",
+                                                 f"models{slash}stable_video_diffusion{slash}svd_xt.safetensors",
+                                                 f"models{slash}stable_video_diffusion{slash}model.fp16.safetensors",
                                              ])
                 installer.status("...loading SVDVideoPipeline")
                 pipe_diffsynth = SVDVideoPipeline.from_model_manager(model_manager)
@@ -50176,12 +50178,12 @@ def run_diffsynth(page, from_list=False, with_params=False):
             from diffsynth import SDImagePipeline
             if pipe_diffsynth is None:
                 installer.status("...downloading dreamshaper_8 mm_sd_v15_v2 & flownet")
-                download_models(["DreamShaper_8", "AnimateDiff_v2", "RIFE"], downloading_priority = ["HuggingFace", "ModelScope"])
+                download_models(["DreamShaper_8", "AnimateDiff_v2", "RIFE"])#, downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
                 diffsynth_model_manager.load_models([
-                    "models/stable_diffusion/dreamshaper_8.safetensors",
-                    "models/AnimateDiff/mm_sd_v15_v2.ckpt",
-                    "models/RIFE/flownet.pkl",
+                    f"models{slash}stable_diffusion{slash}dreamshaper_8.safetensors",
+                    f"models{slash}AnimateDiff{slash}mm_sd_v15_v2.ckpt",
+                    f"models{slash}RIFE{slash}flownet.pkl",
                 ])
                 installer.status("...loading SDImagePipeline")
                 pipe_diffsynth_image = SDImagePipeline.from_model_manager(diffsynth_model_manager)
@@ -50191,11 +50193,11 @@ def run_diffsynth(page, from_list=False, with_params=False):
             from diffsynth import SDXLVideoPipeline
             if pipe_diffsynth is None:
                 installer.status("...downloading mm_sdxl models")
-                download_models(["StableDiffusionXL_v1", "AnimateDiff_xl_beta"], downloading_priority = ["HuggingFace", "ModelScope"])
+                download_models(["StableDiffusionXL_v1", "AnimateDiff_xl_beta"])#, downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
                 diffsynth_model_manager.load_models([
-                    "models/stable_diffusion_xl/sd_xl_base_1.0.safetensors",
-                    "models/AnimateDiff/mm_sdxl_v10_beta.ckpt",
+                    f"models{slash}stable_diffusion_xl{slash}sd_xl_base_1.0.safetensors",
+                    f"models{slash}AnimateDiff{slash}mm_sdxl_v10_beta.ckpt",
                 ])
                 installer.status("...loading SDXLVideoPipeline")
                 pipe_diffsynth = SDXLVideoPipeline.from_model_manager(diffsynth_model_manager)
@@ -50203,15 +50205,15 @@ def run_diffsynth(page, from_list=False, with_params=False):
             from diffsynth import SDXLImagePipeline, SVDVideoPipeline
             if pipe_diffsynth is None:
                 installer.status("...downloading img2vid models")
-                download_models(["StableDiffusionXL_v1", "stable-video-diffusion-img2vid-xt"], downloading_priority = ["HuggingFace", "ModelScope"])
+                download_models(["StableDiffusionXL_v1", "stable-video-diffusion-img2vid-xt"])#, downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
-                diffsynth_model_manager.load_models(["models/stable_diffusion_xl/sd_xl_base_1.0.safetensors"])
+                diffsynth_model_manager.load_models([f"models{slash}stable_diffusion_xl{slash}sd_xl_base_1.0.safetensors"])
                 installer.status("...loading SDXLImagePipeline")
                 pipe_diffsynth_image = SDXLImagePipeline.from_model_manager(diffsynth_model_manager)
                 diffsynth_model_manager.to("cpu")
                 installer.status("...downloading svd_xt models")
                 diffsynth_model_manager = ModelManager()
-                diffsynth_model_manager.load_models(["models/stable_video_diffusion/svd_xt.safetensors"])
+                diffsynth_model_manager.load_models([f"models{slash}stable_video_diffusion{slash}svd_xt.safetensors"])
                 installer.status("...loading SVDVideoPipeline")
                 pipe_diffsynth = SVDVideoPipeline.from_model_manager(diffsynth_model_manager)
         elif mode == "diffutoon":
@@ -50222,7 +50224,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 "ControlNet_v11p_sd15_lineart",
                 "ControlNet_v11f1e_sd15_tile",
                 "TextualInversion_VeryBadImageNegative_v1.3"
-            ], downloading_priority = ["HuggingFace", "ModelScope"])
+            ])#, downloading_priority = ["HuggingFace", "ModelScope"])
         elif mode == "sd_toon_shading":
             if pipe_diffsynth is None:
                 installer.status("...downloading sd_toon_shading models")
@@ -50232,14 +50234,14 @@ def run_diffsynth(page, from_list=False, with_params=False):
                     "ControlNet_v11p_sd15_lineart",
                     "ControlNet_v11f1e_sd15_tile",
                     "TextualInversion_VeryBadImageNegative_v1.3"
-                ], downloading_priority = ["HuggingFace", "ModelScope"])
+                ])#, downloading_priority = ["HuggingFace", "ModelScope"])
                 diffsynth_model_manager = ModelManager(torch_dtype=torch.float16, device="cuda")
-                diffsynth_model_manager.load_textual_inversions("models/textual_inversion")
+                diffsynth_model_manager.load_textual_inversions(f"models{slash}textual_inversion")
                 diffsynth_model_manager.load_models([
-                    "models/stable_diffusion/flat2DAnimerge_v45Sharp.safetensors",
-                    "models/AnimateDiff/mm_sd_v15_v2.ckpt",
-                    "models/ControlNet/control_v11p_sd15_lineart.pth",
-                    "models/ControlNet/control_v11f1e_sd15_tile.pth",
+                    f"models{slash}stable_diffusion{slash}flat2DAnimerge_v45Sharp.safetensors",
+                    f"models{slash}AnimateDiff{slash}mm_sd_v15_v2.ckpt",
+                    f"models{slash}ControlNet{slash}control_v11p_sd15_lineart.pth",
+                    f"models{slash}ControlNet{slash}control_v11f1e_sd15_tile.pth",
                 ])
                 installer.status("...loading SDVideoPipeline")
                 pipe_diffsynth = SDVideoPipeline.from_model_manager(
@@ -50247,12 +50249,12 @@ def run_diffsynth(page, from_list=False, with_params=False):
                     [
                         ControlNetConfigUnit(
                             processor_id="lineart",
-                            model_path="models/ControlNet/control_v11p_sd15_lineart.pth",
+                            model_path=f"models{slash}ControlNet{slash}control_v11p_sd15_lineart.pth",
                             scale=0.5
                         ),
                         ControlNetConfigUnit(
                             processor_id="tile",
-                            model_path="models/ControlNet/control_v11f1e_sd15_tile.pth",
+                            model_path=f"models{slash}ControlNet{slash}control_v11f1e_sd15_tile.pth",
                             scale=0.5
                         )
                     ]
@@ -50273,8 +50275,8 @@ def run_diffsynth(page, from_list=False, with_params=False):
         download_models(["stable-video-diffusion-img2vid-xt", "ExVideo-SVD-128f-v1"])
         model_manager = ModelManager(torch_dtype=torch.float16, device="cuda",
                                      file_path_list=[
-                                         "models/stable_video_diffusion/svd_xt.safetensors",
-                                         "models/stable_video_diffusion/model.fp16.safetensors",
+                                         f"models{slash}stable_video_diffusion{slash}svd_xt.safetensors",
+                                         f"models{slash}stable_video_diffusion{slash}model.fp16.safetensors",
                                      ])
         pipe = SVDVideoPipeline.from_model_manager(model_manager)
         torch.manual_seed(2)
