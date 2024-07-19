@@ -16020,7 +16020,7 @@ def buildEasyAnimate(page):
     file_prefix = TextField(label="Filename Prefix", value=easyanimate_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     n_images = NumberPicker(label="Number of Videos", min=1, max=9, step=1, value=easyanimate_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
     steps = SliderRow(label="Number of Steps", min=0, max=80, divisions=80, pref=easyanimate_prefs, key='num_inference_steps')
-    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=easyanimate_prefs, key='guidance_scale')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=20, divisions=40, round=1, pref=easyanimate_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=easyanimate_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=easyanimate_prefs, key='height')
     easyanimate_model = Dropdown(label="EasyAnimate Model", width=305, options=[dropdown.Option("Custom"), dropdown.Option("EasyAnimateV3-XL-2-InP-512x512"), dropdown.Option("EasyAnimateV3-XL-2-InP-768x768"), dropdown.Option("EasyAnimateV3-XL-2-InP-960x960")], value=easyanimate_prefs['easyanimate_model'], on_change=changed_model)
@@ -16884,6 +16884,7 @@ latte_prefs = {
     'height': 512,
     'clean_caption': True,
     'cpu_offload': True,
+    'num_images': 1,
     'batch_folder_name': '',
 }
 
@@ -16908,6 +16909,7 @@ def buildLatte(page):
         latte_help_dlg.open = False
         page.update()
       latte_help_dlg = AlertDialog(title=Text("💁   Help with Latte Text-To-Video"), content=Column([
+          Markdown("Latte is a latent diffusion transformer proposed as a backbone for modeling different modalities (trained for text-to-video generation here). It achieves state-of-the-art performance across four standard video benchmarks - [FaceForensics](https://arxiv.org/abs/1803.09179), [SkyTimelapse](https://arxiv.org/abs/1709.07592), [UCF101](https://arxiv.org/abs/1212.0402) and [Taichi-HD](https://arxiv.org/abs/2003.00196). To prepare and download the datasets for evaluation, please refer to [this https URL](https://github.com/Vchitect/Latte/blob/main/docs/datasets_evaluation.md).", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("We propose a novel Latent Diffusion Transformer, namely Latte, for video generation. Latte first extracts spatio-temporal tokens from input videos and then adopts a series of Transformer blocks to model video distribution in the latent space. In order to model a substantial number of tokens extracted from videos, four efficient variants are introduced from the perspective of decomposing the spatial and temporal dimensions of input videos. To improve the quality of generated videos, we determine the best practices of Latte through rigorous experimental analysis, including video clip patch embedding, model variants, timestep-class information injection, temporal positional embedding, and learning strategies. Our comprehensive evaluation demonstrates that Latte achieves state-of-the-art performance across four standard video generation datasets, i.e., FaceForensics, SkyTimelapse, UCF101, and Taichi-HD. In addition, we extend Latte to text-to-video generation (T2V) task, where Latte achieves comparable results compared to recent T2V models. We strongly believe that Latte provides valuable insights for future research on incorporating Transformers into diffusion models for video generation."),
           Markdown("[Project Page](https://maxin-cn.github.io/latte_project/) | [GitHub](https://github.com/Vchitect/Latte) | [Paper](https://arxiv.org/abs/2401.03048) | [Model](https://huggingface.co/maxin-cn/Latte-1)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🫖  Strong Cup... ", on_click=close_latte_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -16916,7 +16918,7 @@ def buildLatte(page):
       page.update()
     prompt = TextField(label="Animation Prompt Text", value=latte_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=latte_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
-    num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=latte_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
+    num_frames = SliderRow(label="Number of Frames", min=1, max=16, divisions=15, pref=latte_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=latte_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=latte_prefs, key='guidance_scale')
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=latte_prefs, key='fps')
@@ -16924,6 +16926,7 @@ def buildLatte(page):
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=latte_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=latte_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=latte_prefs, key='height')
+    num_images = NumberPicker(label="Number of Animations: ", min=1, max=12, value=latte_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     cpu_offload = Switcher(label="CPU Offload", value=latte_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     batch_folder_name = TextField(label="Video Folder Name", value=latte_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(latte_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
@@ -16940,7 +16943,8 @@ def buildLatte(page):
         num_inference_row,
         guidance,
         width_slider, height_slider,
-        Row([clean_caption, cpu_offload, seed, batch_folder_name]),
+        Row([clean_caption, cpu_offload]),
+        Row([num_images, seed, batch_folder_name]),
         Row([
             ElevatedButton(content=Text("🧋  Run Latte", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_latte(page)),
         ]),
@@ -50536,7 +50540,7 @@ def run_diffsynth(page, from_list=False, with_params=False):
                 )
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR: DiffSynth failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR: DiffSynth failed for some reason. Possibly out of memory or something wrong with the code...", debug_pref=diffsynth_prefs, content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             os.chdir(root_dir)
             return
         clear_last()
@@ -51072,19 +51076,12 @@ def run_easyanimate(page, from_list=False, with_params=False):
         pipe_easyanimate.set_adapters(adapters, adapter_weights=scales)
     clear_last()
     s = "" if len(easyanimate_prompts) == 1 else "s"
-    prt(f"Generating your EasyAnimate Video{s}... See console for progress.")
+    prt(f"Generating your EasyAnimate Video{s}...")
     for pr in easyanimate_prompts:
-        prt(progress)
-        nudge(page.imageColumn if from_list else page.EasyAnimate, page)
-        autoscroll(False)
-        total_steps = pr['num_inference_steps']
-        random_seed = get_seed(pr['seed'])
-        generator = torch.Generator("cuda").manual_seed(random_seed)
         init_img = None
         end_img = None
-        video_length = easyanimate_prefs['video_length']
-        if easyanimate_prefs['generate_image']:
-            video_length = 1
+        total_steps = pr['num_inference_steps']
+        random_seed = get_seed(pr['seed'])
         fname = os.path.basename(pr['init_image'])
         if bool(pr['init_image']):
             if pr['init_image'].startswith('http'):
@@ -51111,93 +51108,100 @@ def run_easyanimate(page, from_list=False, with_params=False):
         if end_img is not None and init_img is None:
             alert_msg(page, f"ERROR: Can't have an ending image without an init image.")
             return
-        try:
-            with torch.no_grad():
-                if easyanimate_transformer.config.in_channels == 12:
-                    video_length = int(video_length // pipe_easyanimate.vae.mini_batch_encoder * pipe_easyanimate.vae.mini_batch_encoder) if video_length != 1 else 1
-                    input_video, input_video_mask, clip_image = get_image_to_video_latent(init_img, end_img, video_length=video_length, sample_size=[pr['height'], pr['width']])
-
-                    output = pipe_easyanimate(
-                        pr['prompt'], 
-                        video_length = video_length,
-                        negative_prompt = pr['negative_prompt'],
-                        height = pr['height'],
-                        width = pr['width'],
-                        generator = generator,
-                        guidance_scale = pr['guidance_scale'],
-                        num_inference_steps = pr['num_inference_steps'],
-                        video = input_video,
-                        mask_video = input_video_mask,
-                        clip_image = clip_image,
-                        callback = callback_fn,
-                    ).videos
-                else:
-                    output = pipe_easyanimate(
-                        pr['prompt'], 
-                        video_length = video_length,
-                        negative_prompt = pr['negative_prompt'],
-                        height = pr['height'],
-                        width = pr['width'],
-                        generator = generator,
-                        guidance_scale = pr['guidance_scale'],
-                        num_inference_steps = pr['num_inference_steps'],
-                        callback = callback_fn,
-                        #callback_on_step_end=callback_step,
-                    ).videos
-        except Exception as e:
-            clear_last(2)
-            alert_msg(page, f"ERROR: Something went wrong generating video...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-            return
-        #clear_last()
-        clear_last()
-        autoscroll(True)
-        if output is None:
-            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
-            return
-        batch_output = os.path.join(prefs['image_output'], easyanimate_prefs['batch_folder_name'])
-        makedir(batch_output)
-        fname = format_filename(pr['prompt'])
-        try:
-            if video_length == 1:
-                video_path = available_file(batch_output, fname, no_num=True)
-                image = output[0, :, 0]
-                image = image.transpose(0, 1).transpose(1, 2)
-                image = (image * 255).numpy().astype(np.uint8)
-                image = PILImage.fromarray(image)
-                image.save(video_path)
-                prt(Row([ImageButton(src=video_path, width=pr['width'], height=pr['height'], data=video_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            else:
-                gif_path = available_file(batch_output, fname, no_num=True, ext="gif")
-                save_videos_grid(output, gif_path, fps=easyanimate_prefs['fps'])
-                if os.path.isfile(gif_path):
-                    prt(Row([ImageButton(src=gif_path, width=pr['width'], height=pr['height'], data=gif_path, page=page)], alignment=MainAxisAlignment.CENTER))
-                video_path = available_file(batch_output, fname, no_num=True, ext="mp4")
-                save_videos_grid(output, video_path, fps=easyanimate_prefs['fps'])
-                if not os.path.isfile(video_path):
-                    prt(f"Problem creating video file, but frames still saved...")
-                else:
-                    prt(Markdown(f"Video saved to [{video_path}]({filepath_to_url(video_path)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
-        except Exception as e:
-            alert_msg(page, f"ERROR: Something went wrong saving video frames...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-            return
-        #gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
-        #export_to_gif(frames_batch, gif_file, fps=easyanimate_prefs['fps'])
-        '''if easyanimate_prefs['export_to_video']:
+        for n in range(pr['num_images']):
+            prt(progress)
+            nudge(page.imageColumn if from_list else page.EasyAnimate, page)
+            autoscroll(False)
+            generator = torch.Generator("cuda").manual_seed(random_seed + n)
+            video_length = easyanimate_prefs['video_length']
+            if easyanimate_prefs['generate_image']:
+                video_length = 1
             try:
-                installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
-                prt(installer)
-                out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
-                if easyanimate_prefs['interpolate_video']:
-                    interpolate_video(frames_dir, input_fps=easyanimate_prefs['fps'], output_fps=easyanimate_prefs['target_fps'], output_video=out_file, installer=installer)
-                else:
-                    installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
-                    pattern = create_pattern(new_file) #fname+"-%04d.png"
-                    frames_to_video(frames_dir, pattern=pattern, input_fps=easyanimate_prefs['fps'], output_fps=easyanimate_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+                with torch.no_grad():
+                    if easyanimate_transformer.config.in_channels == 12:
+                        video_length = int(video_length // pipe_easyanimate.vae.mini_batch_encoder * pipe_easyanimate.vae.mini_batch_encoder) if video_length != 1 else 1
+                        input_video, input_video_mask, clip_image = get_image_to_video_latent(init_img, end_img, video_length=video_length, sample_size=[pr['height'], pr['width']])
+                        output = pipe_easyanimate(
+                            pr['prompt'], 
+                            video_length = video_length,
+                            negative_prompt = pr['negative_prompt'],
+                            height = pr['height'],
+                            width = pr['width'],
+                            generator = generator,
+                            guidance_scale = pr['guidance_scale'],
+                            num_inference_steps = pr['num_inference_steps'],
+                            video = input_video,
+                            mask_video = input_video_mask,
+                            clip_image = clip_image,
+                            callback = callback_fn,
+                        ).videos
+                    else:
+                        output = pipe_easyanimate(
+                            pr['prompt'], 
+                            video_length = video_length,
+                            negative_prompt = pr['negative_prompt'],
+                            height = pr['height'],
+                            width = pr['width'],
+                            generator = generator,
+                            guidance_scale = pr['guidance_scale'],
+                            num_inference_steps = pr['num_inference_steps'],
+                            callback = callback_fn,
+                            #callback_on_step_end=callback_step,
+                        ).videos
             except Exception as e:
-                clear_last()
-                alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-                pass'''
-    nudge(page.imageColumn if from_list else page.EasyAnimate, page=page)
+                clear_last(2)
+                alert_msg(page, f"ERROR: Something went wrong generating video...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+            #clear_last()
+            clear_last()
+            autoscroll(True)
+            if output is None:
+                prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+                return
+            batch_output = os.path.join(prefs['image_output'], easyanimate_prefs['batch_folder_name'])
+            makedir(batch_output)
+            fname = format_filename(pr['prompt'])
+            try:
+                if video_length == 1:
+                    video_path = available_file(batch_output, fname, no_num=True)
+                    image = output[0, :, 0]
+                    image = image.transpose(0, 1).transpose(1, 2)
+                    image = (image * 255).numpy().astype(np.uint8)
+                    image = PILImage.fromarray(image)
+                    image.save(video_path)
+                    prt(Row([ImageButton(src=video_path, width=pr['width'], height=pr['height'], data=video_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                else:
+                    gif_path = available_file(batch_output, fname, no_num=True, ext="gif")
+                    save_videos_grid(output, gif_path, fps=easyanimate_prefs['fps'])
+                    if os.path.isfile(gif_path):
+                        prt(Row([ImageButton(src=gif_path, width=pr['width'], height=pr['height'], data=gif_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    video_path = available_file(batch_output, fname, no_num=True, ext="mp4")
+                    save_videos_grid(output, video_path, fps=easyanimate_prefs['fps'])
+                    if not os.path.isfile(video_path):
+                        prt(f"Problem creating video file, but frames still saved...")
+                    else:
+                        prt(Markdown(f"Video saved to [{video_path}]({filepath_to_url(video_path)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+            except Exception as e:
+                alert_msg(page, f"ERROR: Something went wrong saving video frames...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+            #gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+            #export_to_gif(frames_batch, gif_file, fps=easyanimate_prefs['fps'])
+            '''if easyanimate_prefs['export_to_video']:
+                try:
+                    installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+                    prt(installer)
+                    out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+                    if easyanimate_prefs['interpolate_video']:
+                        interpolate_video(frames_dir, input_fps=easyanimate_prefs['fps'], output_fps=easyanimate_prefs['target_fps'], output_video=out_file, installer=installer)
+                    else:
+                        installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                        pattern = create_pattern(new_file) #fname+"-%04d.png"
+                        frames_to_video(frames_dir, pattern=pattern, input_fps=easyanimate_prefs['fps'], output_fps=easyanimate_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+                except Exception as e:
+                    clear_last()
+                    alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                    pass'''
+            nudge(page.imageColumn if from_list else page.EasyAnimate, page=page)
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
@@ -52211,6 +52215,12 @@ def run_latte(page):
                 pipe_latte.enable_model_cpu_offload()
             else:
                 pipe_latte = pipe_latte.to(torch_device)
+                if prefs['enable_torch_compile']:
+                    installer.status(f"...Torch compiling unet")
+                    pipe_latte.transformer.to(memory_format=torch.channels_last)
+                    pipe_latte.vae.to(memory_format=torch.channels_last)
+                    pipe_latte.transformer = torch.compile(pipe_latte.transformer)
+                    pipe_latte.vae.decode = torch.compile(pipe_latte.vae.decode)
             #pipe_latte.scheduler = DDIMScheduler.from_config(pipe_latte.scheduler.config)
             pipe_latte.set_progress_bar_config(disable=True)
         except Exception as e:
@@ -52220,41 +52230,42 @@ def run_latte(page):
     if latte_prefs['clean_caption']:
         pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
     clear_last()
-    prt("Generating Latte Video from your Prompt...")
-    prt(progress)
-    autoscroll(False)
-    batch_output = os.path.join(stable_dir, latte_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    #batch_output = os.path.join(stable_dir, latte_prefs['batch_folder_name'])
+    #if not os.path.isdir(batch_output):
+    #  os.makedirs(batch_output)
     batch_output = os.path.join(prefs['image_output'], latte_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
     random_seed = get_seed(latte_prefs['seed'])
-    generator = torch.Generator(device="cpu").manual_seed(random_seed)
-    #generator = torch.manual_seed(random_seed)
-    width = latte_prefs['width']
-    height = latte_prefs['height']
-    try:
-        videos = pipe_latte(latte_prefs['prompt'], negative_prompt=latte_prefs['negative_prompt'], video_length=latte_prefs['num_frames'], num_inference_steps=latte_prefs['num_inference_steps'], guidance_scale=latte_prefs['guidance_scale'], clean_caption=latte_prefs['clean_caption'], width=width, height=height, generator=generator, callback_on_step_end=callback_fnc).frames[0]
-    except Exception as e:
-      clear_last()
-      clear_last()
-      alert_msg(page, f"ERROR: Latte Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-      return
-    clear_last()
-    clear_last()
-    autoscroll(True)
-    fname = f"{format_filename(latte_prefs['prompt'])}"
-    gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
-    video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
-    export_to_gif(videos, gif_file, fps=latte_prefs['fps'])
-    prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
-    #filename = filename[:int(prefs['file_max_length'])]
-    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
-    autoscroll(True)
-    export_to_video(videos, video_file, fps=latte_prefs['fps'])
-    #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
-    prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    for n in range(latte_prefs['num_images']):
+        prt("Generating Latte Video from your Prompt...")
+        prt(progress)
+        autoscroll(False)
+        generator = torch.Generator(device="cpu").manual_seed(random_seed + n)
+        #generator = torch.manual_seed(random_seed)
+        width = latte_prefs['width']
+        height = latte_prefs['height']
+        try:
+            videos = pipe_latte(latte_prefs['prompt'], negative_prompt=latte_prefs['negative_prompt'], video_length=latte_prefs['num_frames'], num_inference_steps=latte_prefs['num_inference_steps'], guidance_scale=latte_prefs['guidance_scale'], clean_caption=latte_prefs['clean_caption'], width=width, height=height, generator=generator, callback_on_step_end=callback_fnc).frames[0]
+        except Exception as e:
+          clear_last()
+          clear_last()
+          alert_msg(page, f"ERROR: Latte Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+          return
+        clear_last()
+        clear_last()
+        autoscroll(True)
+        fname = f"{format_filename(latte_prefs['prompt'])}"
+        gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+        video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+        export_to_gif(videos, gif_file, fps=latte_prefs['fps'])
+        prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+        #filename = filename[:int(prefs['file_max_length'])]
+        #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+        autoscroll(True)
+        export_to_video(videos, video_file, fps=latte_prefs['fps'])
+        #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
+        prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     #prt(f"Done creating video... Check {batch_output}")
     autoscroll(False)
     play_snd(Snd.ALERT, page)

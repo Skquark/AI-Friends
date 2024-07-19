@@ -237,6 +237,7 @@ SDXL_models = [
     {"name": "LEOSAMs-HelloWorld", "path": "imagepipeline/LEOSAMs-HelloWorld-SDXL-Base-Model", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Ludica-Playground", "path": "artificialguybr/Ludica-PlaygroundV2Finetuned", "prefix": "", "variant": "fp16", "use_safetensors": True},
     #{"name": "Midjourney-V4 XL", "path": "openskyml/midjourney-v4-xl", "prefix": "", "use_safetensors": True},
+    {"name": "Mann-E Dreams Turbo", "path": "mann-e/Mann-E_Dreams", "prefix": ""},
     {"name": "NewReality XL", "path": "stablediffusionapi/newrealityxl-global-nsfw", "prefix": ""},
     {"name": "NSFW-Gen v2", "path": "UnfilteredAI/NSFW-gen-v2", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "NSFW-Gen Anime", "path": "UnfilteredAI/NSFW-GEN-ANIME", "prefix": "", "variant": "fp16", "use_safetensors": True},
