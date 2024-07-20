@@ -946,6 +946,7 @@ def buildVideoAIs(page):
     page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
     page.TemporalNet_XL = buildTemporalNet_XL(page)
     page.Roop = buildROOP(page)
+    page.Hallo = buildHallo(page)
     page.Video_ReTalking = buildVideoReTalking(page)
     page.LivePortrait = buildLivePortrait(page)
     page.StyleCrafter = buildStyleCrafter(page)
@@ -972,6 +973,7 @@ def buildVideoAIs(page):
             Tab(text="Latte", content=page.Latte, icon=icons.COFFEE),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
+            Tab(text="Hallo", content=page.Hallo, icon=icons.WAVING_HAND),
             Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
             Tab(text="LivePortrait", content=page.LivePortrait, icon=icons.FACE_2),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
@@ -13907,6 +13909,81 @@ def buildROOP(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+hallo_prefs = {
+    'input_audio': '',
+    'target_image': '',
+    'num_inference_steps': 40,
+    'guidance_scale': 3.5,
+    'face_expand_ratio': 1.2,
+    'pose_weight': 1.0,
+    'face_weight': 1.0,
+    'lip_weight': 1.0,
+    'n_motion_frames': 2,
+    'n_sample_frames': 16,
+    'exp_img': 'neutral',
+    'exp_image': '',
+    'up_face': 'original',
+    'fps': 25,
+    'img_size': 512,
+    'nosmooth': False,
+    'output_name': '',
+    'batch_folder_name': '',
+}
+def buildHallo(page):
+    global hallo_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          hallo_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def hallo_help(e):
+      def close_hallo_dlg(e):
+        nonlocal hallo_help_dlg
+        hallo_help_dlg.open = False
+        page.update()
+      hallo_help_dlg = AlertDialog(title=Text("💁   Help with Hallo"), content=Column([
+          Text("The field of portrait image animation, driven by speech audio input, has experienced significant advancements in the generation of realistic and dynamic portraits. This research delves into the complexities of synchronizing facial movements and creating visually appealing, temporally consistent animations within the framework of diffusion-based methodologies. Moving away from traditional paradigms that rely on parametric models for intermediate facial representations, our innovative approach embraces the end-to-end diffusion paradigm and introduces a hierarchical audio-driven visual synthesis module to enhance the precision of alignment between audio inputs and visual outputs, encompassing lip, expression, and pose motion. Our proposed network architecture seamlessly integrates diffusion-based generative models, a UNet-based denoiser, temporal alignment techniques, and a reference network. The proposed hierarchical audio-driven visual synthesis offers adaptive control over expression and pose diversity, enabling more effective personalization tailored to different identities. Through a comprehensive evaluation that incorporates both qualitative and quantitative analyses, our approach demonstrates obvious enhancements in image and video quality, lip synchronization precision, and motion diversity."),
+          Text("Credit goes to Mingwang Xu, Hui Li, Qingkun Su, Hanlin Shang, Liwei Zhang, Ce Liu, Jingdong Wang, Yao Yao, Siyu Zhu1, Fudan University, Baidu Inc, ETH Zurich, Nanjing University"),
+          Markdown("[Paper](https://arxiv.org/pdf/2406.08801) | [GitHub Page](https://github.com/fudan-generative-vision/hallo) | [Project Page](https://fudan-generative-vision.github.io/hallo/#/) | [HuggingFace Model](https://huggingface.co/fudan-generative-ai/hallo) | [HF Space](https://huggingface.co/spaces/fffiloni/tts-hallo-talking-portrait)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧏  Start Talkin... ", on_click=close_hallo_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(hallo_help_dlg)
+      hallo_help_dlg.open = True
+      page.update()
+    target_image = FileInput(label="Target Image of Face (square)", pref=hallo_prefs, key='target_image', ftype="image", page=page)
+    input_audio = FileInput(label="Input Audio with Dialog", pref=hallo_prefs, key='input_audio', ftype="audio", page=page)
+    output_name = TextField(label="Output File Name", value=hallo_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=hallo_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=hallo_prefs, key='guidance_scale')
+    face_expand_ratio = SliderRow(label="Face Expand Ratio", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='face_expand_ratio')
+    pose_weight = SliderRow(label="Pose Weight", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='pose_weight')
+    face_weight = SliderRow(label="Face Weight", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='face_weight')
+    lip_weight = SliderRow(label="Lip Weight", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='lip_weight')
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=hallo_prefs, key='fps', tooltip="The FPS to save target video clip.", col={'lg':6})
+    img_size = SliderRow(label="Max Image Size", min=256, max=1024, divisions=48, multiple=16, suffix="px", pref=hallo_prefs, key='img_size', col={'lg':6})
+    batch_folder_name = TextField(label="Batch Folder Name", value=hallo_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("👋  Hallo", "Hierarchical Audio-Driven Visual Synthesis for Portrait Image Animation...", actions=[save_default(hallo_prefs, ['target_image', 'input_audio']), IconButton(icon=icons.HELP, tooltip="Help with Hallo", on_click=hallo_help)]),
+        #ResponsiveRow([Row([input_audio, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        target_image,
+        input_audio,
+        num_inference_row,
+        guidance,
+        face_expand_ratio,
+        pose_weight,
+        face_weight,
+        lip_weight,
+        ResponsiveRow([fps, img_size]),
+        Row([output_name, batch_folder_name]),
+        ElevatedButton(content=Text("👩  Run Hallo", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hallo(page)),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 video_retalking_prefs = {
     'input_audio': '',
@@ -47784,6 +47861,198 @@ def run_roop(page):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+def run_hallo(page):
+    global hallo_prefs, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.Hallo.controls.append(line)
+      page.Hallo.update()
+    def clear_last(lines=1):
+      clear_line(page.Hallo, lines=lines)
+    def autoscroll(scroll=True):
+        page.Hallo.auto_scroll = scroll
+        page.Hallo.update()
+    if not bool(hallo_prefs['input_audio']) or not bool(hallo_prefs['target_image']):
+        alert_msg(page, "You must provide a source audio and target video...")
+        return
+    page.Hallo.controls = page.Hallo.controls[:1]
+    autoscroll()
+    installer = Installing("Installing Hallo Packages...")
+    prt(installer)
+    hallo_dir = os.path.join(root_dir, "hallo")
+    hallo_checkpoints = os.path.join(hallo_dir, "pretrained_models")
+    if not os.path.exists(hallo_dir):
+        try:
+            installer.status("...cloning fudan-generative-vision/hallo")
+            run_process("git clone https://github.com/fudan-generative-vision/hallo.git", cwd=root_dir)
+            installer.status("...installing requirements")
+            #run_process("pip install -r requirements.txt", cwd=hallo_dir)
+            pip_install("audio-separator==0.17.2 av==12.1.0 bitsandbytes decord==0.6.0 einops==0.8.0 insightface==0.7.3 librosa==0.10.2.post1 mediapipe[vision]|mediapipe mlflow==2.13.1 moviepy numpy omegaconf onnx2torch==1.5.14 onnx onnxruntime-gpu==1.18.0 opencv-contrib-python==4.9.0.80 opencv-python-headless==4.9.0.80 opencv-python==4.9.0.80 pillow setuptools tqdm xformers==0.0.25.post1 isort pylint==3.2.2 pre-commit==3.7.1 gradio", installer=installer)
+            get_ffmpeg(installer)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Hallo Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    elif force_update("hallo"):
+        installer.status("...updating fudan-generative-vision/hallo")
+        run_sp("git pull origin main", cwd=hallo_dir)
+    os.chdir(hallo_dir)
+    if not os.path.exists(hallo_checkpoints):
+        makedir(hallo_checkpoints)
+        installer.status("...downloading pretrained models")
+        run_process("git clone https://huggingface.co/fudan-generative-ai/hallo pretrained_models", cwd=hallo_dir)
+        
+    clear_pipes()
+    if bool(hallo_prefs['output_name']):
+        fname = format_filename(hallo_prefs['output_name'], force_underscore=True)
+    elif bool(hallo_prefs['batch_folder_name']):
+        fname = format_filename(hallo_prefs['batch_folder_name'], force_underscore=True)
+    else:
+        fname = "output"
+    #TODO: Add prefix
+    results_dir = os.path.join(hallo_dir, "results")
+    makedir(results_dir)
+    inputs_dir = os.path.join(hallo_dir, "inputs")
+    makedir(inputs_dir)
+    output_path = os.path.join(prefs['image_output'], hallo_prefs['batch_folder_name'])
+    makedir(output_path)
+    def center_crop_resize(im):
+        width, height = im.size
+        d = min(width, height)
+        left = (width - d) / 2
+        upper = (height - d) / 2
+        right = (width + d) / 2
+        lower = (height + d) / 2
+        return im.crop((left, upper, right, lower)).resize((hallo_prefs['img_size'], hallo_prefs['img_size']))
+    original_img = None
+    target_name = hallo_prefs['target_image'].rpartition("/")[2] if "/" in hallo_prefs['target_image'] else hallo_prefs['target_image'].rpartition(slash)[2]
+    target_path = ""
+    installer.status("...preparing image")
+    if hallo_prefs['target_image'].startswith('http'):
+        installer.status("...downloading target video")
+        download_file(hallo_prefs['target_image'], inputs_dir)
+        target_path = os.path.join(inputs_dir, target_name)
+    else:
+        if os.path.isfile(hallo_prefs['target_image']):
+            target_path = hallo_prefs['target_image']
+            shutil.copy(target_path, os.path.join(inputs_dir, os.path.basename(target_path)))
+            target_path = os.path.join(inputs_dir, os.path.basename(target_path))
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your target_image {hallo_prefs['target_image']}")
+            os.chdir(root_dir)
+            return
+    original_img = PILImage.open(target_path)
+    width, height = original_img.size
+    if width == height:
+        if width != hallo_prefs['img_size']:
+            original_img.resize((hallo_prefs['img_size'], hallo_prefs['img_size']))
+            original_img.save(target_path)
+    else:
+        original_img = center_crop_resize(original_img)    
+        original_img.save(target_path)
+    installer.status("...preparing wav file")
+    input_audio = ""
+    if hallo_prefs['input_audio'].startswith('http'):
+        installer.status("...downloading input audio")
+        download_file(hallo_prefs['input_audio'], inputs_dir)
+        input_audio = os.path.join(inputs_dir, target_name)
+    else:
+        if os.path.isfile(hallo_prefs['input_audio']):
+            input_audio = hallo_prefs['input_audio']
+            shutil.copy(input_audio, os.path.join(inputs_dir, os.path.basename(input_audio)))
+            input_audio = os.path.join(inputs_dir, os.path.basename(input_audio))
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your input_audio {hallo_prefs['input_audio']}")
+            os.chdir(root_dir)
+            return
+    try:
+        import ffmpeg
+        (
+            ffmpeg
+            .input(input_audio)
+            .output(input_audio, acodec='pcm_s16le', ar=16000)
+            .overwrite_output()
+            .run(capture_stdout=True, capture_stderr=True)
+        )
+    except ffmpeg.Error as e:
+        alert_msg(page, f"FFmpeg error occurred: {e.stderr.decode()}")
+        os.chdir(root_dir)
+        return
+    except Exception as e:
+        alert_msg(page, f"An error occurred: {str(e)}")
+        os.chdir(root_dir)
+        return
+    installer.status("...preparing config")
+    yaml_file = os.path.join(hallo_dir, "configs", "sdd.yaml")
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    yaml.indent(mapping=2, sequence=4, offset=2)
+    with open(os.path.join(hallo_dir, "configs/inference/default.yaml"), 'r') as file:
+        config = yaml.load(file)
+    config['inference_steps'] = hallo_prefs['num_inference_steps']
+    config['cfg_scale'] = hallo_prefs['guidance_scale']
+    #config['save_path'] = './results'
+    config['data']['export_video']['fps'] = hallo_prefs['fps']
+    if hallo_prefs['img_size'] != 512:
+        config['data']['source_image']['width'] = hallo_prefs['img_size']
+        config['data']['source_image']['height'] = hallo_prefs['img_size']
+    with open(yaml_file, 'w') as file:
+        yaml.dump(config, file)
+    clear_last()
+    progress = ProgressBar(bar_height=8)
+    prt(f"Generating your Hallo Video... See Connsole for Progress.")
+    prt(progress)
+    autoscroll(False)
+    video_file = os.path.join(hallo_dir, ".cache", "output.mp4")
+    #video_file = os.path.join(results_dir, os.path.basename(output_file))
+    output_file = available_file(output_path, fname, 0, ext='mp4', no_num=True)
+    output_gif = available_file(output_path, fname, 0, ext='gif', no_num=True)
+    
+    cmd = f'python scripts/inference.py --source_image inputs/{os.path.basename(target_path)} --driving_audio inputs/{os.path.basename(input_audio)} --config configs/sdd.yaml --pose_weight {hallo_prefs["pose_weight"]} --face_weight {hallo_prefs["face_weight"]} --lip_weight {hallo_prefs["lip_weight"]} --face_expand_ratio {hallo_prefs["face_expand_ratio"]}'
+    #f'python inference.py --face "inputs/{os.path.basename(target_path)}"  --audio "inputs/{os.path.basename(input_audio)}"{extras} --outfile "results/{os.path.basename(output_file)}"'
+    prt(f"Running {cmd}")
+    try:
+        run_process(cmd, cwd=hallo_dir, page=page, realtime=True)
+    except Exception as e:
+        clear_last(2)
+        alert_msg(page, "Error running Python inference.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        os.chdir(root_dir)
+        return
+    shutil.move(video_file, output_file)
+    def convert_mp4_to_gif(input_file, output_file, fps=10):
+        try:
+            import ffmpeg
+            stream = ffmpeg.input(input_file)
+            stream = ffmpeg.filter(stream, 'fps', fps=fps)
+            #stream = ffmpeg.filter(stream, 'scale', w=scale, h=-1)
+            split = ffmpeg.filter(stream, 'split')
+            palette = ffmpeg.filter(split[0], 'palettegen')
+            stream = ffmpeg.filter([split[1], palette], 'paletteuse')
+            output = ffmpeg.output(stream, output_file, loop=0)
+            ffmpeg.run(output, overwrite_output=True)
+        except ffmpeg.Error as e:
+            print(f"An error occurred saving gif: {e.stderr.decode()}")
+            pass
+    convert_mp4_to_gif(output_file, output_gif, fps=hallo_prefs['fps'])
+    clear_last(3)
+    autoscroll(True)
+    if os.path.isfile(output_gif):
+        prt(Row([ImageButton(src=output_gif, width=hallo_prefs['img_size'], height=hallo_prefs['img_size'], data=output_gif, page=page)], alignment=MainAxisAlignment.CENTER))
+    if os.path.isfile(output_file):
+        prt(Markdown(f"Video saved to [{output_file}]({filepath_to_url(output_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        #prt(Row([Text("Saved to {output_file}")], alignment=MainAxisAlignment.CENTER))
+        try:
+            prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
+        except:
+            pass
+    else:
+        prt("💢  Error Generating Output File!")
+    autoscroll(False)
+    os.chdir(root_dir)
+    play_snd(Snd.ALERT, page)
+
+
 def run_video_retalking(page):
     global video_retalking_prefs, status
     def prt(line):
@@ -51096,6 +51365,7 @@ def run_easyanimate(page, from_list=False, with_params=False):
             alert_msg(page, f"ERROR: Can't have an ending image without an init image.")
             return
         for n in range(pr['num_images']):
+            progress.value = None
             prt(progress)
             nudge(page.imageColumn if from_list else page.EasyAnimate, page)
             autoscroll(False)
