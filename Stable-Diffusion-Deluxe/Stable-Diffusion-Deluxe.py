@@ -263,6 +263,7 @@ def load_settings_file():
       'stats_used': True,
       'stats_update': 5,
       'start_in_installation': False,
+      'slider_stack': False,
       'disable_nsfw_filter': True,
       'retry_attempts': 3,
       'HuggingFace_api_key': "",
@@ -947,6 +948,7 @@ def buildVideoAIs(page):
     page.TemporalNet_XL = buildTemporalNet_XL(page)
     page.Roop = buildROOP(page)
     page.Hallo = buildHallo(page)
+    page.OpenSoraPlan = buildOpenSoraPlan(page)
     page.Video_ReTalking = buildVideoReTalking(page)
     page.LivePortrait = buildLivePortrait(page)
     page.StyleCrafter = buildStyleCrafter(page)
@@ -977,6 +979,7 @@ def buildVideoAIs(page):
             Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
             Tab(text="LivePortrait", content=page.LivePortrait, icon=icons.FACE_2),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
+            Tab(text="Open-Sora-Plan", content=page.OpenSoraPlan, icon=icons.GRASS),
             Tab(text="FRESCO", content=page.Fresco, icon=icons.PARK),
             Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
             Tab(text="RAVE", content=page.RAVE, icon=icons.FLUTTER_DASH),
@@ -1132,6 +1135,7 @@ prefs.setdefault('dreambooth_model', 'disco-diffusion-style')
 prefs.setdefault('custom_model', '')
 prefs.setdefault('custom_models', [])
 prefs.setdefault('start_in_installation', False)
+prefs.setdefault('slider_stack', False)
 prefs.setdefault('install_imagic', False)
 prefs.setdefault('use_imagic', False)
 prefs.setdefault('install_composable', False)
@@ -1194,8 +1198,9 @@ prefs.setdefault('install_panorama', False)
 prefs.setdefault('use_panorama', False)
 prefs.setdefault('panorama_circular_padding', False)
 prefs.setdefault('panorama_width', 2048)
-prefs['prompt_generator'].setdefault('AI_engine', 'ChatGPT-3.5 Turbo')
-prefs['prompt_remixer'].setdefault('AI_engine', 'ChatGPT-3.5 Turbo')
+prefs['prompt_generator'].setdefault('AI_engine', 'OpenAI ChatGPT')
+prefs['prompt_remixer'].setdefault('AI_engine', 'OpenAI ChatGPT')
+prefs['prompt_brainstormer'].setdefault('AI_engine', 'OpenAI ChatGPT')
 prefs.setdefault('meshy_api_key', '')
 prefs.setdefault('luma_api_key', '')
 prefs.setdefault('AIHorde_api_key', '0000000000')
@@ -1225,6 +1230,9 @@ prefs['prompt_brainstormer'].setdefault('Perplexity_model', 'llama-3-sonar-small
 prefs['prompt_generator'].setdefault('TextSynth_model', 'Mixtral Instruct')
 prefs['prompt_remixer'].setdefault('TextSynth_model', 'Mixtral Instruct')
 prefs['prompt_brainstormer'].setdefault('TextSynth_model', 'Mixtral Instruct')
+prefs['prompt_generator'].setdefault('OpenAI_model', 'GPT-4 Turbo')
+prefs['prompt_remixer'].setdefault('OpenAI_model', 'GPT-4 Turbo')
+prefs['prompt_brainstormer'].setdefault('OpenAI_model', 'GPT-4 Turbo')
 prefs.setdefault('PaLM_api_key', '')
 prefs.setdefault('Anthropic_api_key', '')
 prefs.setdefault('enable_torch_compile', False)
@@ -1434,6 +1442,7 @@ def buildSettings(page):
   theme_color = Dropdown(label="Accent Color", width=200, options=[dropdown.Option("Green"), dropdown.Option("Blue"), dropdown.Option("Red"), dropdown.Option("Indigo"), dropdown.Option("Purple"), dropdown.Option("Orange"), dropdown.Option("Amber"), dropdown.Option("Brown"), dropdown.Option("Teal"), dropdown.Option("Yellow"), dropdown.Option("Custom")], value=prefs['theme_color'], on_change=change_theme_color)
   enable_sounds = Checkbox(label="Enable UI Sound Effects    ", tooltip="Turn on for audible errors, deletes and generation done notifications", value=prefs['enable_sounds'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_sounds'))
   start_in_installation = Checkbox(label="Start in Installation Page", tooltip="When launching app, switch to Installer tab. Saves time..", value=prefs['start_in_installation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'start_in_installation'))
+  slider_stack = Checkbox(label="Slider Row Stack", tooltip="Customize UI of Sliders to Label above the Slider instead of one Row (applies on restart).", value=prefs['slider_stack'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'slider_stack'))
   disable_nsfw_filter = Checkbox(label="Disable NSFW Filters for Uncensored Images", value=prefs['disable_nsfw_filter'], tooltip="If you're over 18 & promise not to abuse, allow Not Safe For Work. Otherwise, will filter mature content...", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
   retry_attempts = Container(NumberPicker(label="Retry Attempts if Not Safe", min=0, max=8, value=prefs['retry_attempts'], on_change=lambda e:changed(e, 'retry_attempts')), padding=padding.only(left=20), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   retry_attempts.width = 0 if prefs['disable_nsfw_filter'] else None
@@ -1483,7 +1492,7 @@ def buildSettings(page):
         Row([meta_ArtistName, meta_Copyright]) if (page.width if page.web else page.window.width) > 712 else Column([meta_ArtistName, meta_Copyright]),
         Row([save_config_in_metadata, save_config_json]),
         Row([theme_mode, theme_color, color_icon]),
-        Row([enable_sounds, start_in_installation, show_stats, stats_settings]),
+        Row([enable_sounds, start_in_installation, slider_stack, show_stats, stats_settings]),
         HuggingFace_api,
         Stability_api,
         OpenAI_api,
@@ -3717,6 +3726,7 @@ def buildImages(page):
     return c
 
 horde_text_models = []
+OpenAI_models = {"GPT-4": "gpt-4", "GPT-4 Turbo": "gpt-4-turbo", "GPT-4o": "gpt-4o", "GPT-4o-mini": "gpt-4o-mini", "GPT-3.5 Turbo": "gpt-3.5-turbo", "GPT-3.5 Turbo Instruct": "gpt-3.5-turbo-instruct", "GPT-3": "text-davinci-003"}
 
 def buildPromptGenerator(page):
     global horde_text_models
@@ -3759,6 +3769,8 @@ def buildPromptGenerator(page):
       changed(e, 'AI_engine')
       if prefs['prompt_generator']['AI_engine']=="AI-Horde":
         load_horde_text(page)
+      OpenAI_model_container.visible = prefs['prompt_generator']['AI_engine']=="OpenAI ChatGPT"
+      OpenAI_model_container.update()
       AIHorde_model_container.visible = prefs['prompt_generator']['AI_engine']=="AI-Horde"
       AIHorde_model_container.update()
       Perplexity_model_container.visible = prefs['prompt_generator']['AI_engine']=="Perplexity"
@@ -3766,13 +3778,14 @@ def buildPromptGenerator(page):
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request, tooltip="The way it asks for the visual description.")
     request_slider.label = generator_request_modes[int(prefs['prompt_generator']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini"), dropdown.Option("Google Gemini 1.5 Pro"), dropdown.Option("Google Gemini 1.5 Flash"), dropdown.Option("Anthropic Claude 3"), dropdown.Option("Anthropic Claude 3.5"), dropdown.Option("AI-Horde"), dropdown.Option("Perplexity")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed_engine(e))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI ChatGPT"), dropdown.Option("Google Gemini"), dropdown.Option("Google Gemini 1.5 Pro"), dropdown.Option("Google Gemini 1.5 Flash"), dropdown.Option("Anthropic Claude 3"), dropdown.Option("Anthropic Claude 3.5"), dropdown.Option("AI-Horde"), dropdown.Option("Perplexity")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed_engine(e))
     AIHorde_model = Dropdown(label="Horde AI Engine", width=400, options=[], value=prefs['prompt_generator']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_generator']['AI_engine']=="AI-Horde")
     page.AIHorde_model_generator = AIHorde_model
     Perplexity_model = Dropdown(label="Perplexity AI Engine", width=400, options=[dropdown.Option(m) for m in ["llama-3-sonar-small-32k-chat", "llama-3-sonar-small-32k-online", "llama-3-sonar-large-32k-chat", "llama-3-sonar-large-32k-online", "llama-3-8b-instruct", "llama-3-70b-instruct", "mixtral-8x7b-instruct"]], value=prefs['prompt_generator']['Perplexity_model'], on_change=lambda e: changed(e, 'Perplexity_model'))
-    Perplexity_model_container = Container(Row([Perplexity_model]), visible=prefs['prompt_generator']['AI_engine']=="Perplexity")
-
+    Perplexity_model_container = Container(Row([Perplexity_model]), visible=prefs['prompt_generator']['AI_engine']=="OpenAI")
+    OpenAI_model = Dropdown(label="OpenAI Engine", width=400, options=[dropdown.Option(m) for m in OpenAI_models.keys()], value=prefs['prompt_generator']['OpenAI_model'], on_change=lambda e: changed(e, 'OpenAI_model'))
+    OpenAI_model_container = Container(Row([OpenAI_model]), visible=prefs['prompt_generator']['AI_engine']=="OpenAI ChatGPT")
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -3793,7 +3806,7 @@ def buildPromptGenerator(page):
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_generator']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=prefs['prompt_generator']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
-        Row([AI_engine, AIHorde_model_container, Perplexity_model_container]),
+        Row([AI_engine, OpenAI_model_container, AIHorde_model_container, Perplexity_model_container]),
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
@@ -3843,6 +3856,8 @@ def buildPromptRemixer(page):
       changed(e, 'AI_engine')
       if prefs['prompt_remixer']['AI_engine']=="AI-Horde":
         load_horde_text(page)
+      OpenAI_model_container.visible = prefs['prompt_remixer']['AI_engine']=="OpenAI ChatGPT"
+      OpenAI_model_container.update()
       AIHorde_model_container.visible = prefs['prompt_remixer']['AI_engine']=="AI-Horde"
       AIHorde_model_container.update()
       Perplexity_model_container.visible = prefs['prompt_remixer']['AI_engine']=="Perplexity"
@@ -3852,7 +3867,9 @@ def buildPromptRemixer(page):
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     request_slider.label = remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde", "Perplexity"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed_engine(e))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth", "OpenAI ChatGPT", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde", "Perplexity"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed_engine(e))
+    OpenAI_model = Dropdown(label="OpenAI Engine", width=400, options=[dropdown.Option(m) for m in OpenAI_models.keys()], value=prefs['prompt_remixer']['OpenAI_model'], on_change=lambda e: changed(e, 'OpenAI_model'))
+    OpenAI_model_container = Container(Row([OpenAI_model]), visible=prefs['prompt_remixer']['AI_engine']=="OpenAI ChatGPT")
     AIHorde_model = Dropdown(label="Horde AI Engine", width=400, options=[], value=prefs['prompt_remixer']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_remixer']['AI_engine']=="AI-Horde")
     page.AIHorde_model_remixer = AIHorde_model
@@ -3880,7 +3897,7 @@ def buildPromptRemixer(page):
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_remixer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
-        Row([AI_engine, AIHorde_model_container, Perplexity_model_container, TextSynth_model_container]),
+        Row([AI_engine, OpenAI_model_container, AIHorde_model_container, Perplexity_model_container, TextSynth_model_container]),
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
@@ -3935,6 +3952,8 @@ def buildPromptBrainstormer(page):
       changed(e, 'AI_engine')
       if prefs['prompt_brainstormer']['AI_engine']=="AI-Horde":
         load_horde_text(page)
+      OpenAI_model_container.visible = prefs['prompt_brainstormer']['AI_engine']=="OpenAI ChatGPT"
+      OpenAI_model_container.update()
       AIHorde_model_container.visible = prefs['prompt_brainstormer']['AI_engine']=="AI-Horde"
       AIHorde_model_container.update()
       Perplexity_model_container.visible = prefs['prompt_brainstormer']['AI_engine']=="Perplexity"
@@ -3942,6 +3961,8 @@ def buildPromptBrainstormer(page):
       TextSynth_model_container.visible = prefs['prompt_brainstormer']['AI_engine']=="TextSynth"
       TextSynth_model_container.update()
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
+    OpenAI_model = Dropdown(label="OpenAI Engine", width=400, options=[dropdown.Option(m) for m in OpenAI_models.keys()], value=prefs['prompt_brainstormer']['OpenAI_model'], on_change=lambda e: changed(e, 'OpenAI_model'))
+    OpenAI_model_container = Container(Row([OpenAI_model]), visible=prefs['prompt_brainstormer']['AI_engine']=="OpenAI ChatGPT")
     AIHorde_model = Dropdown(label="Horde AI Engine", width=400, options=[], value=prefs['prompt_brainstormer']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_brainstormer']['AI_engine']=="AI-Horde")
     page.AIHorde_model_brainstormer = AIHorde_model
@@ -3964,7 +3985,7 @@ def buildPromptBrainstormer(page):
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT, Gemini & HuggingFace Bloom AI",
                "Get Inspiration on Prompt Engineering with Rewrite, Edit, Story, Description, Details, etc.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
         Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde", "Perplexity"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed_engine(e)),
-          AIHorde_model_container, Perplexity_model_container, TextSynth_model_container,
+          OpenAI_model_container, AIHorde_model_container, Perplexity_model_container, TextSynth_model_container,
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -17018,6 +17039,84 @@ def buildLatte(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+open_sora_plan_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'num_inference_steps': 50,
+    'guidance_scale': 10.0,
+    'fps': 24,
+    'num_frames': "65",
+    'export_to_video': True,
+    'seed': 0,
+    'width': 512,
+    'height': 512,
+    'generate_image': False,
+    'clean_caption': True,
+    'cpu_offload': True,
+    'num_images': 1,
+    'batch_folder_name': '',
+}
+
+def buildOpenSoraPlan(page):
+    global open_sora_plan_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          open_sora_plan_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def open_sora_plan_help(e):
+      def close_open_sora_plan_dlg(e):
+        nonlocal open_sora_plan_help_dlg
+        open_sora_plan_help_dlg.open = False
+        page.update()
+      open_sora_plan_help_dlg = AlertDialog(title=Text("💁   Help with Open-Sora-Plan Text-To-Video"), content=Column([
+          Text("We are thrilled to present Open-Sora-Plan v1.1.0, which significantly enhances video generation quality and text control capabilities. Thanks to HUAWEI Ascend Team for supporting us. In the second stage, we used Huawei Ascend computing power for training. This stage's training and inference were fully supported by Huawei. Models trained on Huawei Ascend can also be loaded into GPUs and generate videos of the same quality. We are launching Open-Sora Plan v1.1.0, which significantly improves video quality and length, and is fully open source! This project aims to create a simple and scalable repo, to reproduce Sora (OpenAI, but we prefer to call it 'ClosedAI' ). We wish the open-source community can contribute to this project."),
+          Markdown("[GitHub](https://github.com/PKU-YuanGroup/Open-Sora-Plan) | [HF Space](https://huggingface.co/spaces/LanguageBind/Open-Sora-Plan-v1.1.0) | [Model](https://huggingface.co/spaces/LanguageBind/Open-Sora-Plan-v1.1.0)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🫖  Strong Cup... ", on_click=close_open_sora_plan_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(open_sora_plan_help_dlg)
+      open_sora_plan_help_dlg.open = True
+      page.update()
+    def toggle_image(e):
+      open_sora_plan_prefs['generate_image'] = e.control.value
+      video_length.visible = not e.control.value
+      video_length.update()
+    prompt = TextField(label="Animation Prompt Text", value=open_sora_plan_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=open_sora_plan_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    generate_image = Switcher(label="Generate Still Image", value=open_sora_plan_prefs['generate_image'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_image, tooltip="Create a single image instead of an animated sequence. Good for testing..")
+    #num_frames = SliderRow(label="Number of Frames", min=1, max=16, divisions=15, pref=open_sora_plan_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
+    num_frames = Dropdown(label="Number of Frames", options=[dropdown.Option("1"), dropdown.Option("65"), dropdown.Option("221")], width=130, value=open_sora_plan_prefs['num_frames'], on_change=lambda e: changed(e, 'num_frames'))
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=open_sora_plan_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=open_sora_plan_prefs, key='guidance_scale')
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', expand=True, pref=open_sora_plan_prefs, key='fps')
+    clean_caption = Switcher(label="Clean Caption", value=open_sora_plan_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=open_sora_plan_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=open_sora_plan_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=open_sora_plan_prefs, key='height')
+    num_images = NumberPicker(label="Number of Animations: ", min=1, max=12, value=open_sora_plan_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
+    cpu_offload = Switcher(label="CPU Offload", value=open_sora_plan_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    batch_folder_name = TextField(label="Video Folder Name", value=open_sora_plan_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(open_sora_plan_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🌴  Open-Sora-Plan v1.1.0 Text-To-Video Synthesis", "Transformer-based Text-to-Video Diffusion system trained on Text Embeddings from T5... (uses A LOT of VRAM)", actions=[save_default(open_sora_plan_prefs), IconButton(icon=icons.HELP, tooltip="Help with Open-Sora-Plan Settings", on_click=open_sora_plan_help)]),
+        ResponsiveRow([prompt, negative_prompt]),
+        num_inference_row,
+        guidance,
+        #width_slider, height_slider,
+        #generate_image,
+        Row([num_frames, fps]),
+        #Row([clean_caption, cpu_offload]),
+        Row([num_images, seed, batch_folder_name]),
+        Row([
+            ElevatedButton(content=Text("👒  Run Open-Sora-Plan", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_open_sora_plan(page)),
+        ]),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 materialdiffusion_prefs = {
     "material_prompt": '',
@@ -21920,6 +22019,8 @@ pipe_text_to_video_zero = None
 pipe_video_to_video = None
 pipe_fresco_v2v = None
 pipe_latte = None
+pipe_open_sora_plan = None
+pipe_video_infinity = None
 pipe_infinite_zoom = None
 pipe_deepfloyd = None
 pipe_deepfloyd2 = None
@@ -25033,6 +25134,18 @@ def clear_latte_pipe():
     del pipe_latte
     flush()
     pipe_latte = None
+def clear_open_sora_plan_pipe():
+  global pipe_open_sora_plan
+  if pipe_open_sora_plan is not None:
+    del pipe_open_sora_plan
+    flush()
+    pipe_open_sora_plan = None
+def clear_video_infinity_pipe():
+  global pipe_video_infinity
+  if pipe_video_infinity is not None:
+    del pipe_video_infinity
+    flush()
+    pipe_video_infinity = None
 def clear_infinite_zoom_pipe():
   global pipe_infinite_zoom
   if pipe_infinite_zoom is not None:
@@ -25360,6 +25473,8 @@ def clear_pipes(allbut=None):
     if not 'video_to_video' in but: clear_video_to_video_pipe()
     if not 'fresco' in but: clear_fresco_pipe()
     if not 'latte' in but: clear_latte_pipe()
+    if not 'open_sora_plan' in but: clear_open_sora_plan_pipe()
+    if not 'video_infinity' in but: clear_video_infinity_pipe()
     if not 'infinite_zoom' in but: clear_infinite_zoom_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
@@ -27505,8 +27620,8 @@ def run_prompt_generator(page):
       )
       #print(str(response))
       result = response.choices[0].message.content.strip()#["choices"][0]["message"]["content"].strip()
-    elif "GPT-4" in prefs['prompt_generator']['AI_engine']:
-      gpt_model = "gpt-4-turbo" if "Turbo" in prefs['prompt_generator']['AI_engine'] else "gpt-4o" if "4o" in prefs['prompt_generator']['AI_engine'] else "gpt-4"
+    elif "OpenAI" in prefs['prompt_generator']['AI_engine']:
+      gpt_model = OpenAI_models[prefs['prompt_generator']['OpenAI_model']]#"gpt-4-turbo" if "Turbo" in prefs['prompt_generator']['OpenAI_model'] else "gpt-4o" if "4o" in prefs['prompt_generator']['AI_engine'] else "gpt-4"
       response = openai_client.chat.completions.create(
         model=gpt_model,
         temperature=prefs['prompt_generator']['AI_temperature'],
@@ -27579,6 +27694,7 @@ def run_prompt_generator(page):
       if pr.startswith('#'): continue
       if pr[-1] == '.': pr = pr[:-1]
       if pr[0] == '*': pr = pr[1:].strip()
+      if pr[0] == '-': pr = pr[1:].strip()
       elif '.' in pr: # Sometimes got 1. 2.
         pr = pr.partition('.')[2].strip()
       if '"' in pr: pr = pr.replace('"', '')
@@ -27766,8 +27882,8 @@ def run_prompt_remixer(page):
       response = openai_client.chat.completions.create(model="gpt-3.5-turbo-0125", temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       #print(str(response))
       result = response.choices[0].message.content.strip()
-    elif "GPT-4" in engine:
-      gpt_model = "gpt-4-turbo" if "Turbo" in engine else "gpt-4o" if "4o" in engine else "gpt-4"
+    elif "GPT" in engine:
+      gpt_model = OpenAI_models[prefs['prompt_remixer']['OpenAI_model']]#"gpt-4-turbo" if "Turbo" in engine else "gpt-4o" if "4o" in engine else "gpt-4"
       response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       result = response.choices[0].message.content.strip()
     elif engine.startswith("Google Gemini"):
@@ -28126,8 +28242,8 @@ def run_prompt_brainstormer(page):
       elif prefs['prompt_brainstormer']['AI_engine'] == "ChatGPT-3.5 Turbo":
         response = openai_client.chat.completions.create(model="gpt-3.5-turbo-0125", temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
         result = response.choices[0].message.content.strip()
-      elif "GPT-4" in prefs['prompt_brainstormer']['AI_engine']:
-        gpt_model = "gpt-4-turbo" if "Turbo" in prefs['prompt_brainstormer']['AI_engine'] else "gpt-4o" if "4o" in prefs['prompt_brainstormer']['AI_engine'] else "gpt-4"
+      elif "GPT" in prefs['prompt_brainstormer']['AI_engine']:
+        gpt_model = OpenAI_models[prefs['prompt_brainstormer']['OpenAI_model']]#"gpt-4-turbo" if "Turbo" in prefs['prompt_brainstormer']['AI_engine'] else "gpt-4o" if "4o" in prefs['prompt_brainstormer']['AI_engine'] else "gpt-4"
         response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
         result = response.choices[0].message.content.strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B":
@@ -52528,6 +52644,162 @@ def run_latte(page):
     play_snd(Snd.ALERT, page)
 
 
+def run_open_sora_plan(page):
+    global open_sora_plan_prefs, prefs, status, pipe_open_sora_plan
+    if not check_diffusers(page): return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.OpenSoraPlan.controls.append(line)
+      page.OpenSoraPlan.update()
+    def clear_last(lines=1):
+      clear_line(page.OpenSoraPlan, lines=lines)
+    def clear_list():
+      page.OpenSoraPlan.controls = page.OpenSoraPlan.controls[:1]
+    def autoscroll(scroll=True):
+      page.OpenSoraPlan.auto_scroll = scroll
+      page.OpenSoraPlan.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = open_sora_plan_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, callback_kwargs) -> None: #(pipe, step, timestep, callback_kwargs):#
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Open-Sora-Plan Text-To-Video Pipeline...")
+    prt(installer)
+    open_sora_plan_dir = os.path.join(root_dir, "Open-Sora-Plan")#"Open-Sora-Plan-v1.0.0-hf"
+    if not os.path.exists(open_sora_plan_dir):
+        try:
+            installer.status("...cloning Open-Sora-Plan")
+            #run_sp("git clone -b dev https://github.com/camenduru/Open-Sora-Plan-v1.0.0-hf", cwd=root_dir, realtime=False)
+            run_sp("git clone -b dev https://github.com/PKU-YuanGroup/Open-Sora-Plan", cwd=root_dir, realtime=False)
+            installer.status("...installing Open-Sora-Plan requirements")
+            #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
+            pip_install("gradio einops omegaconf==2.1.1 pytorch-lightning==1.4.2 torchmetrics==0.6.0 torchtext", installer=installer, upgrade=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Open-Sora Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    elif force_update("open-sora"):
+        installer.status("...updating Open-Sora-Plan")
+        run_sp("git pull origin main", cwd=open_sora_plan_dir)
+    if open_sora_plan_dir not in sys.path:
+        sys.path.append(open_sora_plan_dir)
+    os.chdir(open_sora_plan_dir)
+    import imageio
+    import torch
+    from diffusers import PNDMScheduler
+    import numpy as np
+    #from gradio.components import Textbox, Video, Image
+    from transformers import T5Tokenizer, T5EncoderModel
+    from opensora.models.ae import ae_stride_config, getae, getae_wrapper
+    from opensora.models.diffusion.latte.modeling_latte import LatteT2V
+    from opensora.sample.pipeline_videogen import VideoGenPipeline
+    #from opensora.serve.gradio_utils import block_css, title_markdown, examples, DESCRIPTION
+    status.setdefault("loaded_open_sora", "")
+    ae = 'CausalVAEModel_4x8x8'
+    force_images = open_sora_plan_prefs['num_frames'] == "1"
+    model_path = 'LanguageBind/Open-Sora-Plan-v1.0.0'
+    model_id = "LanguageBind/Open-Sora-Plan-v1.1.0"
+    text_encoder_name = 'DeepFloyd/t5-v1_1-xxl'
+    version = '221x512x512' if open_sora_plan_prefs['num_frames'] == "221" else '65x512x512'
+    if status['loaded_open_sora'] != version:
+        clear_pipes()
+    else:
+        clear_pipes("open_sora_plan")
+    cache_dir = prefs['cache_dir'] if bool(prefs['cache_dir']) else "cache_dir"
+    if pipe_open_sora_plan == None:
+        installer.status(f"...initialize Pipeline")
+        try:
+            device = torch.device('cuda:0')
+            transformer_model = LatteT2V.from_pretrained(model_id, subfolder=version, torch_dtype=torch.float16, cache_dir=cache_dir).to(device)
+            vae = getae_wrapper(ae)(model_id, subfolder="vae", cache_dir=cache_dir).to(device, dtype=torch.float16)
+            vae.vae.enable_tiling()
+            image_size = 512
+            latent_size = (image_size // ae_stride_config[ae][1], image_size // ae_stride_config[ae][2])
+            vae.latent_size = latent_size
+            transformer_model.force_images = force_images
+            tokenizer = T5Tokenizer.from_pretrained(text_encoder_name, cache_dir=cache_dir)
+            text_encoder = T5EncoderModel.from_pretrained(text_encoder_name, cache_dir=cache_dir, torch_dtype=torch.float16).to(device)
+            transformer_model.eval()
+            vae.eval()
+            text_encoder.eval()
+            scheduler = PNDMScheduler()
+            pipe_open_sora_plan = VideoGenPipeline(vae=vae,
+                                                text_encoder=text_encoder,
+                                                tokenizer=tokenizer,
+                                                scheduler=scheduler,
+                                                transformer=transformer_model).to(device=device)
+            status['video_length'] = transformer_model.config.video_length if not force_images else 1
+            status['loaded_open_sora'] = version
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Personalized Image Animator...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    #if open_sora_plan_prefs['clean_caption']:
+    #    pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
+    clear_last()
+    batch_output = os.path.join(prefs['image_output'], open_sora_plan_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    random_seed = get_seed(open_sora_plan_prefs['seed'])
+    for n in range(open_sora_plan_prefs['num_images']):
+        prt("Generating Open-Sora-Plan Video from your Prompt...")
+        prt(progress)
+        autoscroll(False)
+        width = open_sora_plan_prefs['width']
+        height = open_sora_plan_prefs['height']
+        torch.manual_seed(random_seed + n)
+        torch.set_grad_enabled(False)
+        #height, width = int(args.version.split('x')[1]), int(args.version.split('x')[2])
+        num_frames = 1 if force_images else int(open_sora_plan_prefs['num_frames'])
+        try:
+            with torch.no_grad():
+                videos = pipe_open_sora_plan(open_sora_plan_prefs['prompt'],
+                                        negative_prompt=open_sora_plan_prefs['negative_prompt'],
+                                        video_length=status['video_length'],
+                                        height=height,
+                                        width=width,
+                                        num_inference_steps=open_sora_plan_prefs['num_inference_steps'],
+                                        guidance_scale=open_sora_plan_prefs['guidance_scale'],
+                                        enable_temporal_attentions=not force_images,
+                                        num_images_per_prompt=1,
+                                        mask_feature=True,
+                                        callback=callback_fnc,
+                                        ).video[0]
+            #videos = pipe_open_sora_plan(open_sora_plan_prefs['prompt'], negative_prompt=open_sora_plan_prefs['negative_prompt'], video_length=open_sora_plan_prefs['num_frames'], num_inference_steps=open_sora_plan_prefs['num_inference_steps'], guidance_scale=open_sora_plan_prefs['guidance_scale'], clean_caption=open_sora_plan_prefs['clean_caption'], width=width, height=height, generator=generator, callback_on_step_end=callback_fnc).frames[0]
+        except Exception as e:
+            clear_last(2)
+            flush()
+            alert_msg(page, f"ERROR: Open-Sora-Plan Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        flush()
+        clear_last(2)
+        autoscroll(True)
+        #display_model_info = f"Video size: {num_frames}×{height}×{width}, \nSampling Step: {sample_steps}, \nGuidance Scale: {scale}"
+        #return tmp_save_path, prompt, display_model_info, seed
+        fname = f"{format_filename(open_sora_plan_prefs['prompt'])}"
+        gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+        video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+        imageio.mimwrite(video_file, videos, fps=open_sora_plan_prefs['fps'], quality=9)  # highest quality is 10, lowest is 0
+        export_to_gif(videos, gif_file, fps=open_sora_plan_prefs['fps'])
+        prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+        #filename = filename[:int(prefs['file_max_length'])]
+        #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+        autoscroll(True)
+        #export_to_video(videos, video_file, fps=open_sora_plan_prefs['fps'])
+        #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
+        prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    #prt(f"Done creating video... Check {batch_output}")
+    os.chdir(root_dir)
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+
 def run_materialdiffusion(page):
     global materialdiffusion_prefs, prefs
     if not bool(materialdiffusion_prefs['material_prompt']):
@@ -57183,7 +57455,7 @@ class NumberPicker(Row):
         return Row([label_text, IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
 class SliderRow(Stack):
-    def __init__(self, label="", value=None, min=0, max=20, divisions=20, step=None, multiple=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, expand=None, col=None, on_change=None, data=None):
+    def __init__(self, label="", value=None, min=0, max=20, divisions=20, step=None, multiple=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, expand=None, col=None, stack=False, on_change=None, data=None):
         super().__init__()
         self.value = value or pref[key]
         self.min = min
@@ -57205,6 +57477,7 @@ class SliderRow(Stack):
         self.pref = pref
         self.key = key
         self.col = col
+        self.stack = stack
         self.on_change = on_change
         self.data = data
         self.build()
@@ -57262,7 +57535,7 @@ class SliderRow(Stack):
             slider_text.visible = True
             self.slider_edit.update()
             slider_text.update()
-            slider_label.value = f"{self.label}:"
+            slider_label.value = f"{self.label}: "
             slider_label.update()
         def edit(e):
             self.slider_edit.visible = True
@@ -57285,7 +57558,10 @@ class SliderRow(Stack):
         if bool(self.left_text): left.value = self.left_text
         if bool(self.right_text): right.value = self.right_text
         self.slider_number = slider_text
-        self.slider_row = Container(Row([slider_label, slider_text, self.slider_edit, left, self.slider, right], expand=True), expand=self.expand, visible=self._visible, col=self.col)
+        if prefs['slider_stack'] or self.stack:
+            self.slider_row = Container(Column([Row([slider_label, slider_text, self.slider_edit], spacing=0, height=36), Row([left, self.slider, right], spacing=0, height=10)], spacing=0, tight=True), expand=self.expand, visible=self._visible, col=self.col)
+        else:
+            self.slider_row = Container(Row([slider_label, slider_text, self.slider_edit, left, self.slider, right], expand=True), expand=self.expand, visible=self._visible, col=self.col)
         return self.slider_row
     def set_value(self, value):
         self.value = value
