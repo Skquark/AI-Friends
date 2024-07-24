@@ -949,6 +949,7 @@ def buildVideoAIs(page):
     page.Roop = buildROOP(page)
     page.Hallo = buildHallo(page)
     page.OpenSoraPlan = buildOpenSoraPlan(page)
+    page.VideoInfinity = buildVideoInfinity(page)
     page.Video_ReTalking = buildVideoReTalking(page)
     page.LivePortrait = buildLivePortrait(page)
     page.StyleCrafter = buildStyleCrafter(page)
@@ -979,6 +980,7 @@ def buildVideoAIs(page):
             Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
             Tab(text="LivePortrait", content=page.LivePortrait, icon=icons.FACE_2),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
+            Tab(text="Video-Infinity", content=page.VideoInfinity, icon=icons.ALL_INCLUSIVE),
             Tab(text="Open-Sora-Plan", content=page.OpenSoraPlan, icon=icons.GRASS),
             Tab(text="FRESCO", content=page.Fresco, icon=icons.PARK),
             Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
@@ -9361,7 +9363,7 @@ def buildControlNet(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_prefs, key='guidance_scale')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
-    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
     threshold.height = None if controlnet_prefs['control_task'] == "Canny Map Edge" else 0
     eta = Slider(min=0.0, max=1.0, divisions=20, round=2, label="{value}", value=float(controlnet_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_prefs['eta']}", weight=FontWeight.BOLD)
@@ -9650,7 +9652,7 @@ def buildControlNetXL(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_xl_prefs, key='guidance_scale')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_xl_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_xl_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
-    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
     threshold.height = None if controlnet_xl_prefs['control_task'] == "Canny Map Edge" else 0
     eta = Slider(min=0.0, max=1.0, divisions=20, round=2, label="{value}", value=float(controlnet_xl_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_xl_prefs['eta']}", weight=FontWeight.BOLD)
@@ -9934,7 +9936,7 @@ def buildControlNetSD3(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_sd3_prefs, key='guidance_scale')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_sd3_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_sd3_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
-    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
     threshold.height = None if controlnet_sd3_prefs['control_task'] == "Canny Map Edge" else 0
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_sd3_prefs, key='max_size')
     use_image2image = Switcher(label="Use Image2Image or Inpainting", value=controlnet_sd3_prefs['use_image2image'], on_change=toggle_img2img)
@@ -10204,7 +10206,7 @@ def buildControlNetXS(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_xs_prefs, key='guidance_scale')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_xs_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_xs_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
-    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
     threshold.height = None if controlnet_xs_prefs['control_task'] == "Canny Map Edge" else 0
     eta = Slider(min=0.0, max=1.0, divisions=20, round=2, label="{value}", value=float(controlnet_xs_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_xs_prefs['eta']}", weight=FontWeight.BOLD)
@@ -10366,11 +10368,11 @@ def buildControlNet_Video2Video(page):
     prompt_strength = SliderRow(label="Prompt Strength", min=0, max=30, divisions=60, round=1, pref=controlnet_video2video_prefs, key='prompt_strength', tooltip="How much influence the prompt has on the output. Guidance Scale.")
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_video2video_prefs, key='low_threshold', expand=True, col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_video2video_prefs, key='high_threshold', expand=True, col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
-    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
-    canny_threshold.height = None if controlnet_video2video_prefs['control_task'] == "Canny Map Edge" else 0
+    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
+    canny_threshold.height = None if "Canny" in controlnet_video2video_prefs['control_task'] else 0
     mlsd_score_thr = SliderRow(label="MLSD Score Threshold", min=0.0, max=1.0, divisions=10, round=1, pref=controlnet_video2video_prefs, key='mlsd_score_thr', expand=True, col={'lg':6})
     mlsd_dist_thr = SliderRow(label="MLSD Dist Threshold", min=0.0, max=1.0, divisions=10, round=1, pref=controlnet_video2video_prefs, key='mlsd_dist_thr', expand=True, col={'lg':6})
-    mlsd_threshold = Container(ResponsiveRow([mlsd_score_thr, mlsd_dist_thr]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    mlsd_threshold = Container(ResponsiveRow([mlsd_score_thr, mlsd_dist_thr]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
     mlsd_threshold.height = None if controlnet_video2video_prefs['control_task'] == "MLSD" else 0
     motion_alpha = SliderRow(label="Motion Alpha", min=0.0, max=1.0, divisions=10, round=1, pref=controlnet_video2video_prefs, key='motion_alpha', expand=True, col={'lg':6}, tooltip="Smooth the motion vectors over time, 0.0 is no smoothing, 1.0 is maximum smoothing.")
     motion_sigma = SliderRow(label="Motion Sigma", min=0.0, max=1.0, divisions=10, round=1, pref=controlnet_video2video_prefs, key='motion_sigma', expand=True, col={'lg':6}, tooltip="Smooth the motion estimate spatially, 0.0 is no smoothing, used as sigma for gaussian blur.")
@@ -11091,7 +11093,7 @@ def buildHunyuanDiT(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=hunyuan_dit_prefs, key='guidance_scale')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=hunyuan_dit_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=hunyuan_dit_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
-    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
     threshold.height = None if "Canny" in hunyuan_dit_prefs['control_task'] else 0
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=hunyuan_dit_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=hunyuan_dit_prefs, key='height')
@@ -12784,7 +12786,7 @@ def buildTemporalNet_XL(page):
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_temporalnet_prefs, key='height')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_temporalnet_prefs, key='low_threshold', expand=True, col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_temporalnet_prefs, key='high_threshold', expand=True, col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
-    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
     temporalnet_strength = SliderRow(label="TemporalNet Strength", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_temporalnet_prefs, key='temporalnet_strength', col={'lg':6}, tooltip="")
     canny_strength = SliderRow(label="Canny Strength", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_temporalnet_prefs, key='canny_strength', col={'lg':6}, tooltip="")
     lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=controlnet_temporalnet_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
@@ -13978,10 +13980,10 @@ def buildHallo(page):
     output_name = TextField(label="Output File Name", value=hallo_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=hallo_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=hallo_prefs, key='guidance_scale')
-    face_expand_ratio = SliderRow(label="Face Expand Ratio", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='face_expand_ratio')
-    pose_weight = SliderRow(label="Pose Weight", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='pose_weight')
-    face_weight = SliderRow(label="Face Weight", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='face_weight')
-    lip_weight = SliderRow(label="Lip Weight", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='lip_weight')
+    face_expand_ratio = SliderRow(label="Face Expand Ratio", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='face_expand_ratio', col={'lg':6})
+    pose_weight = SliderRow(label="Pose Weight", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='pose_weight', col={'lg':6})
+    face_weight = SliderRow(label="Face Weight", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='face_weight', col={'lg':6})
+    lip_weight = SliderRow(label="Lip Weight", min=0, max=2, divisions=20, round=1, pref=hallo_prefs, key='lip_weight', col={'lg':6})
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=hallo_prefs, key='fps', tooltip="The FPS to save target video clip.", col={'lg':6})
     img_size = SliderRow(label="Max Image Size", min=256, max=1024, divisions=48, multiple=16, suffix="px", pref=hallo_prefs, key='img_size', col={'lg':6})
     batch_folder_name = TextField(label="Batch Folder Name", value=hallo_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -13994,10 +13996,8 @@ def buildHallo(page):
         input_audio,
         num_inference_row,
         guidance,
-        face_expand_ratio,
-        pose_weight,
-        face_weight,
-        lip_weight,
+        ResponsiveRow([face_expand_ratio, pose_weight]),
+        ResponsiveRow([face_weight, lip_weight]),
         ResponsiveRow([fps, img_size]),
         Row([output_name, batch_folder_name]),
         ElevatedButton(content=Text("👩  Run Hallo", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hallo(page)),
@@ -16551,7 +16551,7 @@ def buildRerender_a_video(page):
     prompt_strength = SliderRow(label="Prompt Strength", min=0, max=30, divisions=60, round=1, pref=rerender_a_video_prefs, key='prompt_strength', tooltip="How much influence the prompt has on the output. Guidance Scale.")
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=rerender_a_video_prefs, key='low_threshold', expand=True, col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=rerender_a_video_prefs, key='high_threshold', expand=True, col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
-    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
     canny_threshold.height = None if rerender_a_video_prefs['control_task'] == "Canny" else 0
     crop_left = SliderRow(label="Crop Left", min=0, max=512, divisions=512, suffix="px", pref=rerender_a_video_prefs['crop'], key='left', expand=True, col={'lg':6}, tooltip="")
     crop_right = SliderRow(label="Crop Right", min=0, max=512, divisions=512, suffix="px", pref=rerender_a_video_prefs['crop'], key='right', expand=True, col={'lg':6})
@@ -16712,7 +16712,7 @@ def buildFresco(page):
     x0_strength = SliderRow(label="Denoise Strength", min=0.0, max=1.05, divisions=21, round=2, pref=fresco_prefs, key='x0_strength', tooltip="Repaint degree, low to make output look more like init video. 0: fully recover the input.1.05: fully rerender the input.")
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=fresco_prefs, key='low_threshold', expand=True, col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=fresco_prefs, key='high_threshold', expand=True, col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
-    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, height = None if fresco_prefs['control_type'] == "Canny" else 0)
+    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, height = None if fresco_prefs['control_type'] == "Canny" else 0, padding=padding.only(bottom=8))
     b1 = SliderRow(label="b1", min=1.0, max=1.2, divisions=4, round=2, pref=fresco_prefs, key='b1', expand=True, col={'md':6}, tooltip="FreeU Backbone factor of the first stage block of decoder.")
     b2 = SliderRow(label="b2", min=1.2, max=1.6, divisions=8, round=2, pref=fresco_prefs, key='b2', expand=True, col={'md':6}, tooltip="FreeU Backbone factor of the second stage block of decoder.")
     s1 = SliderRow(label="s1", min=0, max=1, divisions=20, round=1, pref=fresco_prefs, key='s1', expand=True, col={'md':6}, tooltip="FreeU Skip factor of the first stage block of decoder.")
@@ -16876,7 +16876,7 @@ def buildFrescoV2V(page):
     x0_strength = SliderRow(label="Denoise Strength", min=0.0, max=1.05, divisions=21, round=2, pref=fresco_v2v_prefs, key='x0_strength', tooltip="Repaint degree, low to make output look more like init video. 0: fully recover the input.1.05: fully rerender the input.")
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=fresco_v2v_prefs, key='low_threshold', expand=True, col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=fresco_v2v_prefs, key='high_threshold', expand=True, col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
-    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, height = None if fresco_v2v_prefs['control_type'] == "Canny" else 0)
+    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, height = None if fresco_v2v_prefs['control_type'] == "Canny" else 0, padding=padding.only(bottom=8))
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0, max=1.0, divisions=20, round=2, pref=fresco_v2v_prefs, key='control_guidance_start', expand=True, col={'md':6}, tooltip="The percentage of total steps at which the ControlNet starts applying.")
     control_guidance_end = SliderRow(label="Control Guidance End", min=0, max=1.0, divisions=20, round=2, pref=fresco_v2v_prefs, key='control_guidance_end', expand=True, col={'md':6}, tooltip="The percentage of total steps at which the ControlNet stops applying.")
     end_opt_step = SliderRow(label="End Optimization Step", min=1, max=60, divisions=59, pref=fresco_v2v_prefs, key='end_opt_step', tooltip="The feature optimization is activated from strength * num_inference_step to end_opt_step.")
@@ -17112,6 +17112,164 @@ def buildOpenSoraPlan(page):
         Row([num_images, seed, batch_folder_name]),
         Row([
             ElevatedButton(content=Text("👒  Run Open-Sora-Plan", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_open_sora_plan(page)),
+        ]),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+video_infinity_prefs = {
+    'prompt': '',
+    'prompts': [],
+    #'negative_prompt': '',
+    'num_inference_steps': 30,
+    'guidance_scale': 7.5,
+    'fps': 8,
+    'target_fps': 30,
+    'num_frames': 24,
+    'export_to_video': True,
+    'seed': 0,
+    'width': 512,
+    'height': 320,
+    'num_images': 1,
+    'batch_folder_name': '',
+}
+
+def buildVideoInfinity(page):
+    global video_infinity_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          video_infinity_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def video_infinity_help(e):
+      def close_video_infinity_dlg(e):
+        nonlocal video_infinity_help_dlg
+        video_infinity_help_dlg.open = False
+        page.update()
+      video_infinity_help_dlg = AlertDialog(title=Text("💁   Help with VideoInfinity Text-To-Video"), content=Column([
+          #Markdown("", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Distributed Long Video Generation Capable of generating videos with 2,300 frames in 5 minutes. 100 times faster than the prior methods. Diffusion models have recently achieved remarkable results for video generation. Despite the encouraging performances, the generated videos are typically constrained to a small number of frames, resulting in clips lasting merely a few seconds. The primary challenges in producing longer videos include the substantial memory requirements and the extended processing time required on a single GPU. A straightforward solution would be to split the workload across multiple GPUs, which, however, leads to two issues: (1) ensuring all GPUs communicate effectively to share timing and context information, and (2) modifying existing video diffusion models, which are usually trained on short sequences, to create longer videos without additional training. To tackle these, in this paper we introduce Video-Infinity, a distributed inference pipeline that enables parallel processing across multiple GPUs for long-form video generation. Specifically, we propose two coherent mechanisms: Clip parallelism and Dual-scope attention. Clip parallelism optimizes the gathering and sharing of context information across GPUs which minimizes communication overhead, while Dual-scope attention modulates the temporal self-attention to balance local and global contexts efficiently across the devices. Together, the two mechanisms join forces to distribute the workload and enable the fast generation of long videos. Under an 8 x Nvidia 6000 Ada GPU (48G) setup, our method generates videos up to 2,300 frames in approximately 5 minutes, enabling long video generation at a speed 100 times faster than the prior methods."),
+          Markdown("[Project Page](https://video-infinity.tanzhenxiong.com/) | [GitHub](https://github.com/Yuanshi9815/Video-Infinity) | [Paper](https://arxiv.org/abs/2406.16260) | [Model](https://huggingface.co/adamdad/videocrafterv2_diffusers) | [VideoCrafter2](https://ailab-cvc.github.io/videocrafter2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Zhenxiong Tan, Xingyi Yang, Songhua Liu, and Xinchao Wang Learning and Vision Lab, National University of Singapore"),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🪘  Longer is Better... ", on_click=close_video_infinity_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(video_infinity_help_dlg)
+      video_infinity_help_dlg.open = True
+      page.update()
+    def add_prompt(e):
+        if not bool(video_infinity_prefs['prompt']): return
+        layer = {'prompt': video_infinity_prefs['prompt']}
+        video_infinity_prefs['prompts'].append(layer)
+        prompt_layers.controls.append(ListTile(title=Row([Text(layer['prompt'], weight=FontWeight.BOLD)], alignment=MainAxisAlignment.SPACE_BETWEEN), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.EDIT, text="Edit Text Layer", on_click=edit_layer, data=layer),
+              PopupMenuItem(icon=icons.DELETE, text="Delete Text Layer", on_click=delete_layer, data=layer),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
+              PopupMenuItem(icon=icons.ARROW_UPWARD, text="Move Up", on_click=move_up, data=layer),
+              PopupMenuItem(icon=icons.ARROW_DOWNWARD, text="Move Down", on_click=move_down, data=layer),
+          ]), data=layer, on_click=edit_layer))
+        prompt_layers.update()
+        video_infinity_prefs['prompt'] = ""
+        prompt.value = ""
+        prompt.update()
+    def delete_layer(e):
+        video_infinity_prefs['prompts'].remove(e.control.data)
+        for c in prompt_layers.controls:
+          if c.data['prompt'] == e.control.data['prompt']:
+              prompt_layers.controls.remove(c)
+              break
+        prompt_layers.update()
+    def delete_all_layers(e):
+        video_infinity_prefs['prompts'].clear()
+        prompt_layers.controls.clear()
+        prompt_layers.update()
+    def move_down(e):
+        idx = video_infinity_prefs['prompts'].index(e.control.data)
+        if idx < (len(video_infinity_prefs['prompts']) - 1):
+          d = video_infinity_prefs['prompts'].pop(idx)
+          video_infinity_prefs['prompts'].insert(idx+1, d)
+          dr = prompt_layers.controls.pop(idx)
+          prompt_layers.controls.insert(idx+1, dr)
+          prompt_layers.update()
+    def move_up(e):
+        idx = video_infinity_prefs['prompts'].index(e.control.data)
+        if idx > 0:
+          d = video_infinity_prefs['prompts'].pop(idx)
+          video_infinity_prefs['prompts'].insert(idx-1, d)
+          dr = prompt_layers.controls.pop(idx)
+          prompt_layers.controls.insert(idx-1, dr)
+          prompt_layers.update()
+    def edit_layer(e):
+        data = e.control.data
+        prompt_value = data["prompt"]
+        image_value = ""
+        def close_dlg(e):
+            dlg_edit.open = False
+            page.update()
+        def save_layer(e):
+            layer = None
+            for l in video_infinity_prefs['prompts']:
+                if data["prompt"] == l["prompt"]:
+                    layer = l
+                    layer['prompt'] = prompt_text.value
+                    break
+            for c in prompt_layers.controls:
+                if 'prompt' not in data: continue
+                if c.data['prompt'] == data['prompt']:
+                    c.title.controls[0].value = layer['prompt']
+                    c.update()
+                    break
+            layer['prompt'] = prompt_text.value
+            dlg_edit.open = False
+            e.control.update()
+            page.update()
+        prompt_text = TextField(label="Interpolation Prompt Text", value=prompt_value, multiline=True)
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Interpolation Prompt"), content=Container(Column([prompt_text], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.width if page.web else page.window.width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
+        page.overlay.append(dlg_edit)
+        dlg_edit.open = True
+        page.update()
+    def toggle_video(e):
+        video_infinity_prefs['save_video'] = e.control.value
+        video_container.visible = video_infinity_prefs['save_video']
+        video_container.update()
+    add_prompt_btn = ft.FilledButton("➕ Add Prompt", width=150, on_click=add_prompt)
+    prompt = TextField(label="Animation Prompt Text", value=video_infinity_prefs['prompt'], filled=True, expand=True, multiline=True, on_submit=add_prompt, on_change=lambda e:changed(e,'prompt'))
+    prompt_row = Row([prompt, add_prompt_btn])
+    prompt_layers = Column([], spacing=0)
+    #prompt = TextField(label="Animation Prompt Text", value=video_infinity_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    #negative_prompt  = TextField(label="Negative Prompt Text", value=video_infinity_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    num_frames = SliderRow(label="Number of Frames", min=1, max=240, divisions=239, pref=video_infinity_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=video_infinity_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=video_infinity_prefs, key='guidance_scale')
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=video_infinity_prefs, key='fps', col={'sm': 6})
+    target_fps = SliderRow(label="Target FPS", min=0, max=60, suffix="fps", divisions=60, expand=1, pref=video_infinity_prefs, key='target_fps', col={'sm': 6})
+    #export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=video_infinity_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=video_infinity_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=video_infinity_prefs, key='height')
+    num_images = NumberPicker(label="Number of Animations: ", min=1, max=12, value=video_infinity_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
+    #cpu_offload = Switcher(label="CPU Offload", value=video_infinity_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    batch_folder_name = TextField(label="Video Folder Name", value=video_infinity_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(video_infinity_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("♾️  Video-Infinity VideoCrafter v2 Text-To-Video Synthesis", "Generates Long Videos Quickly using Multiple GPUs...", actions=[save_default(video_infinity_prefs), IconButton(icon=icons.HELP, tooltip="Help with VideoInfinity Settings", on_click=video_infinity_help)]),
+        #ResponsiveRow([prompt, negative_prompt]),
+        #prompt, #TODO: Prompts List
+        prompt_row,
+        prompt_layers,
+        Divider(height=9, thickness=2),
+        num_frames,
+        #fps,
+        num_inference_row,
+        guidance,
+        width_slider, height_slider,
+        ResponsiveRow([fps, target_fps]),
+        #Row([clean_caption, cpu_offload]),
+        Row([num_images, seed, batch_folder_name]),
+        Row([
+            ElevatedButton(content=Text("🌌  Run Video-Infinity", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_video_infinity(page)),
         ]),
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
@@ -52799,6 +52957,167 @@ def run_open_sora_plan(page):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+def run_video_infinity(page):
+    global video_infinity_prefs, prefs, status, pipe_video_infinity
+    if not check_diffusers(page): return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.VideoInfinity.controls.append(line)
+      page.VideoInfinity.update()
+    def clear_last(lines=1):
+      clear_line(page.VideoInfinity, lines=lines)
+    def clear_list():
+      page.VideoInfinity.controls = page.VideoInfinity.controls[:1]
+    def autoscroll(scroll=True):
+      page.VideoInfinity.auto_scroll = scroll
+      page.VideoInfinity.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = video_infinity_prefs['num_inference_steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Video-Infinity Text-To-Video Pipeline...")
+    prt(installer)
+    video_infinity_dir = os.path.join(root_dir, "Video-Infinity")
+    if not os.path.exists(video_infinity_dir):
+        try:
+            installer.status("...cloning Yuanshi9815/Video-Infinity")
+            run_sp("git clone https://github.com/Yuanshi9815/Video-Infinity", cwd=root_dir, realtime=False)
+            installer.status("...installing Video-Infinity requirements")
+            pip_install("absl-py==2.1.0 addict==2.4.0 aiofiles==23.2.1 aiohttp==3.9.3 aiosignal==1.3.1 aliyun-python-sdk-core==2.15.1 aliyun-python-sdk-kms==2.16.2 altair==5.3.0 annotated-types==0.6.0 antlr4-python3-runtime==4.9.3 anyio==4.3.0 anykeystore==0.2 apex==0.9.10.dev0 appdirs==1.4.4 async-timeout==4.0.3 attrs==23.2.0 av==12.0.0 bcrypt==4.1.2 beartype==0.18.5 beautifulsoup4==4.12.3 blessed==1.20.0 causal-conv1d==1.2.0.post2 certifi==2024.2.2 cffi==1.16.0 cfgv==3.4.0 charset-normalizer==3.3.2 click==8.1.7 colossalai==0.3.6 contexttimer==0.3.3 contourpy==1.2.1 crcmod==1.7 cryptacular==1.6.2 cryptography==42.0.5 cycler==0.12.1 datasets==2.18.0 decord==0.6.0 deepspeed==0.14.2 defusedxml==0.7.1 Deprecated==1.2.14 diffusers==0.27.2 dill==0.3.8 distlib==0.3.8 docker-pycreds==0.4.0 einops==0.7.0 fabric fastapi==0.110.1 ffmpy==0.3.2 filelock==3.13.3 fonttools==4.51.0 frozenlist==1.4.1 fsspec==2024.2.0 ftfy==6.2.0 gast==0.5.4 gdown gitdb==4.0.11 GitPython==3.1.43 google==3.0.0 gpustat==1.1.1 gradio==4.25.0 greenlet==3.0.3 grpcio==1.62.2 h11==0.14.0 hjson==3.1.0 httpcore==1.0.5 httpx==0.27.0 hupper==1.12.1 identify==2.5.36 idna==3.6 imageio==2.34.0 imageio-ffmpeg==0.4.9 importlib_resources==6.4.0 invoke==2.2.0 Jinja2==3.1.3 jmespath==0.10.0 joblib==1.3.2 jsonschema==4.21.1 jsonschema-specifications==2023.12.1 kiwisolver==1.4.5 kornia==0.7.2 kornia_rs==0.1.3 lightning-utilities==0.11.2 mamba-ssm==1.2.0.post1 Markdown==3.6 markdown-it-py==3.0.0 MarkupSafe==2.1.5 matplotlib==3.8.4 mdurl==0.1.2 mmengine==0.10.4 modelscope==1.13.3 moviepy mpmath==1.3.0 msgpack==1.0.8 multidict==6.0.5 multiprocess==0.70.16 networkx==3.3 ninja==1.11.1.1 nodeenv==1.8.0 numpy nvidia-cublas-cu12==12.1.3.1 nvidia-cuda-cupti-cu12==12.1.105 nvidia-cuda-nvrtc-cu12==12.1.105 nvidia-cuda-runtime-cu12==12.1.105 nvidia-cudnn-cu12==8.9.2.26 nvidia-cufft-cu12==11.0.2.54 nvidia-curand-cu12==10.3.2.106 nvidia-cusolver-cu12==11.4.5.107 nvidia-cusparse-cu12==12.1.0.106 nvidia-ml-py==12.550.52 nvidia-nccl-cu12==2.19.3 nvidia-nvjitlink-cu12==12.4.127 nvidia-nvtx-cu12==12.1.105 oauthlib==3.2.2 omegaconf==2.3.0 open-clip-torch==2.24.0 opencv-python==4.9.0.80 orjson==3.10.0 oss2==2.18.4 pandarallel==1.6.5 pandas==2.2.1 paramiko==3.4.0 PasteDeploy==3.1.0 pbkdf2==1.3 plaster==1.1.2 plaster-pastedeploy==1.0.1 pre-commit==3.7.0 proglog==0.1.10 protobuf==4.25.3 py-cpuinfo==9.0.0 pyarrow==15.0.2 pyarrow-hotfix==0.6 pyav==12.0.5 pycparser==2.22 pycryptodome==3.20.0 pydantic==2.6.4 pydantic_core==2.16.3 pydub==0.25.1 PyNaCl==1.5.0 pynvml==11.5.0 pyparsing==3.1.2 pyramid==2.0.2 pyramid-mailer==0.15.1 PySocks==1.7.1 python-multipart==0.0.9 python3-openid==3.2.0 pytorch-lightning==1.9.0 pytz==2024.1 PyYAML==6.0.1 ray==2.11.0 referencing==0.34.0 regex==2023.12.25 repoze.sendmail==4.4.1 requests==2.31.0 requests-oauthlib==2.0.0 rich==13.7.1 rotary-embedding-torch==0.5.3 rpds-py==0.18.0 ruff==0.3.5 safetensors==0.4.2 scikit-learn==1.4.1.post1 scipy==1.13.0 semantic-version==2.10.0 sentencepiece==0.2.0 sentry-sdk==1.45.0 setproctitle==1.3.3 shellingham==1.5.4 simplejson==3.19.2 smmap==5.0.1 sniffio==1.3.1 sortedcontainers==2.4.0 soupsieve==2.5 SQLAlchemy==2.0.29 starlette==0.37.2 sympy==1.12 tensorboard==2.16.2 tensorboard-data-server==0.7.2 termcolor==2.4.0 threadpoolctl==3.4.0 timm==0.9.16 tokenizers==0.15.2 tomli==2.0.1 tomlkit==0.12.0 toolz==0.12.1 torchmetrics==1.3.2 torchvision==0.17.2 tqdm==4.66.2 transaction==4.0 translationstring==1.4 triton==2.2.0 typer==0.12.1 tzdata==2024.1 urllib3==2.2.1 uvicorn==0.29.0 velruse==1.1.1 venusian==3.1.0 virtualenv==20.26.0 wandb==0.16.6 WebOb==1.8.7 websockets==11.0.3 Werkzeug==3.0.2 wrapt==1.16.0 WTForms==3.1.2 wtforms-recaptcha==0.3.2 xformers==0.0.25.post1 xxhash==3.4.1 yapf==0.40.2 yarl==1.9.4 zope.deprecation==5.0 zope.interface==6.3 zope.sqlalchemy==3.1", installer=installer, upgrade=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Video Infinity Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    elif force_update("video_infinity"):
+        installer.status("...updating Yuanshi9815/Video-Infinity")
+        run_sp("git pull origin main", cwd=video_infinity_dir)
+    if video_infinity_dir not in sys.path:
+        sys.path.append(video_infinity_dir)
+    os.chdir(video_infinity_dir)
+    installer.status("...preparing config")
+    config = json.load(open(os.path.join(video_infinity_dir, "examples", "single_gpu.yaml")))
+    model_id = "adamdad/videocrafterv2_diffusers"
+    config['seed'] = video_infinity_prefs['seed']
+    num_gpus = torch.cuda.device_count()
+    config["devices"] = list(range(num_gpus))
+    size = len(config["devices"])
+    import torch.distributed as dist
+    import torch.multiprocessing as mp
+    import json
+    from src.video_crafter import VideoCrafterPipeline, UNetVideoCrafter
+    from diffusers.schedulers import DPMSolverMultistepScheduler
+    from src.tools import DistController
+    from src.video_infinity.wrapper import DistWrapper
+    clear_pipes('video_infinity')
+    if pipe_video_infinity == None:
+        installer.status(f"...initialize VideoCrafter2 Pipeline")
+        try:
+            with torch.inference_mode():
+                pipe_video_crafter = VideoCrafterPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
+                pipe_video_crafter.enable_model_cpu_offload(
+                    gpu_id=config["devices"][dist.get_rank() % len(config["devices"])],
+                )
+                pipe_video_crafter.enable_vae_slicing()
+                dist_controller = DistController(0, 1, config)
+            pipe_video_infinity = DistWrapper(pipe_video_crafter, dist_controller, config)
+            #pipe_video_infinity.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Video-Infinity...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    
+    def run_inference(rank, world_size, config):
+        #dist_pipe = DistWrapper(pipe_video_infinity, dist_controller, config)
+        start = time.time()
+        pipe_configs=config['pipe_configs']
+        plugin_configs=config['plugin_configs']
+        prompt_id = int(rank / world_size * len(pipe_configs["prompts"]))
+        prompt = pipe_configs["prompts"][prompt_id]
+        start = time.time()
+        with torch.inference_mode():
+            output = pipe_video_infinity.inference(
+                prompt,
+                config,
+                pipe_configs,
+                plugin_configs,
+                additional_info={
+                    "full_config": config,
+                }
+            )
+        prt(f"Rank {rank} finished. Time: {time.time() - start}")
+    clear_last()
+    batch_output = os.path.join(prefs['image_output'], video_infinity_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    if not os.path.exists(config["base_path"]):
+        os.makedirs(config["base_path"])
+    random_seed = get_seed(video_infinity_prefs['seed'])
+    prompt_list = [video_infinity_prefs['prompt']] if len(video_infinity_prefs['prompts']) == 0 and bool(video_infinity_prefs['prompt']) else video_infinity_prefs['prompts']
+    for n in range(video_infinity_prefs['num_images']):
+        prt("Generating Video-Infinity from your Prompt... See console for progress.")
+        prt(progress)
+        autoscroll(False)
+        fname = f"{format_filename(video_infinity_prefs['prompt'])}"
+        width = video_infinity_prefs['width']
+        height = video_infinity_prefs['height']
+        config['seed'] = random_seed + n
+        config['pipe_configs']['prompts'] = prompt_list #[video_infinity_prefs['prompt']]
+        config['pipe_configs']['steps'] = video_infinity_prefs['num_inference_steps']
+        config['pipe_configs']['guidance_scale'] = video_infinity_prefs['guidance_scale']
+        config['pipe_configs']['fps'] = video_infinity_prefs['target_fps']
+        config['pipe_configs']['export_fps'] = video_infinity_prefs['fps']
+        config['pipe_configs']['num_frames'] = video_infinity_prefs['num_frames']
+        config['pipe_configs']['width'] = width
+        config['pipe_configs']['height'] = height
+        config['pipe_configs']['file_name'] = fname
+        processes = []
+        try:
+            for rank, _ in enumerate(config["devices"]):
+                p = mp.Process(target=run_inference, args=(rank, size, config))
+                p.start()
+                processes.append(p)
+            for p in processes:
+                p.join()
+        except Exception as e:
+          clear_last(2)
+          alert_msg(page, f"ERROR: Video-Infinity Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+          os.chdir(root_dir)
+          return
+        clear_last(2)
+        autoscroll(True)
+        gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+        video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+        base_path = config["base_path"]
+        mp4_files = [f for f in os.listdir(base_path) if f.endswith(".mp4")]
+        if not mp4_files:
+            prt("No generated video file found.  Something went wrong...")
+            os.chdir(root_dir)
+            return
+        latest_file = max(mp4_files, key=lambda f: os.path.getmtime(os.path.join(base_path, f)))
+        generated_file = os.path.join(base_path, latest_file)
+        shutil.move(generated_file, video_file)
+        #export_to_gif(videos, gif_file, fps=video_infinity_prefs['fps'])
+        #prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+        #filename = filename[:int(prefs['file_max_length'])]
+        #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+        autoscroll(True)
+        #export_to_video(videos, video_file, fps=video_infinity_prefs['fps'])
+        #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
+        prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    #prt(f"Done creating video... Check {batch_output}")
+    os.chdir(root_dir)
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
 
 def run_materialdiffusion(page):
     global materialdiffusion_prefs, prefs
@@ -57559,7 +57878,7 @@ class SliderRow(Stack):
         if bool(self.right_text): right.value = self.right_text
         self.slider_number = slider_text
         if prefs['slider_stack'] or self.stack:
-            self.slider_row = Container(Column([Row([slider_label, slider_text, self.slider_edit], spacing=0, height=36), Row([left, self.slider, right], spacing=0, height=10)], spacing=0, tight=True), expand=self.expand, visible=self._visible, col=self.col)
+            self.slider_row = Container(Column([Row([Container(content=None, width=12), slider_label, slider_text, self.slider_edit], spacing=0, height=36), Row([left, self.slider, right], spacing=0, height=12)], spacing=0, tight=True), expand=self.expand, visible=self._visible, col=self.col)
         else:
             self.slider_row = Container(Row([slider_label, slider_text, self.slider_edit, left, self.slider, right], expand=True), expand=self.expand, visible=self._visible, col=self.col)
         return self.slider_row
@@ -58399,6 +58718,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         if frame_interpolation_dir not in sys.path:
             sys.path.append(frame_interpolation_dir)
     if not os.path.exists(saved_model_dir):
+        stat("downloading models")
         makedir(saved_model_dir)
         import gdown
         gdown.download_folder(id="1q8110-qp225asX3DQvZnfLfJPkCHmDpy", output=saved_model_dir)
