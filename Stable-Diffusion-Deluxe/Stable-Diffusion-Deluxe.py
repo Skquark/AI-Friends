@@ -969,6 +969,7 @@ def buildVideoAIs(page):
             Tab(text="AnimateDiff SDXL", content=page.AnimateDiffSDXL, icon=icons.TWO_WHEELER),
             Tab(text="DiffSynth", content=page.DiffSynth, icon=icons.FIREPLACE),
             Tab(text="EasyAnimate", content=page.EasyAnimate, icon=icons.PHOTO_CAMERA_BACK),
+            Tab(text="Open-Sora", content=page.OpenSoraPlan, icon=icons.GRASS),
             Tab(text="I2VGen-XL", content=page.I2VGenXL, icon=icons.TIPS_AND_UPDATES),
             Tab(text="PIA Image Animator", content=page.PIA, icon=icons.EMERGENCY_RECORDING),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
@@ -981,7 +982,6 @@ def buildVideoAIs(page):
             Tab(text="LivePortrait", content=page.LivePortrait, icon=icons.FACE_2),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
             Tab(text="Video-Infinity", content=page.VideoInfinity, icon=icons.ALL_INCLUSIVE),
-            Tab(text="Open-Sora-Plan", content=page.OpenSoraPlan, icon=icons.GRASS),
             Tab(text="FRESCO", content=page.Fresco, icon=icons.PARK),
             Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
             Tab(text="RAVE", content=page.RAVE, icon=icons.FLUTTER_DASH),
@@ -17042,18 +17042,21 @@ def buildLatte(page):
 open_sora_plan_prefs = {
     'prompt': '',
     'negative_prompt': '',
-    'num_inference_steps': 50,
-    'guidance_scale': 10.0,
+    'num_inference_steps': 40,
+    'guidance_scale': 6.5,
     'fps': 24,
-    'num_frames': "65",
+    'num_frames': 93,
     'export_to_video': True,
     'seed': 0,
-    'width': 512,
-    'height': 512,
+    'width': 1280,
+    'height': 720,
+    'scheduler': 'EulerA-Solver',
     'generate_image': False,
-    'clean_caption': True,
+    'speed_up_T5': True,
     'cpu_offload': True,
+    'export_to_gif': False,
     'num_images': 1,
+    'batch_size': 1,
     'batch_folder_name': '',
 }
 
@@ -17072,28 +17075,25 @@ def buildOpenSoraPlan(page):
         open_sora_plan_help_dlg.open = False
         page.update()
       open_sora_plan_help_dlg = AlertDialog(title=Text("💁   Help with Open-Sora-Plan Text-To-Video"), content=Column([
-          Text("We are thrilled to present Open-Sora-Plan v1.1.0, which significantly enhances video generation quality and text control capabilities. Thanks to HUAWEI Ascend Team for supporting us. In the second stage, we used Huawei Ascend computing power for training. This stage's training and inference were fully supported by Huawei. Models trained on Huawei Ascend can also be loaded into GPUs and generate videos of the same quality. We are launching Open-Sora Plan v1.1.0, which significantly improves video quality and length, and is fully open source! This project aims to create a simple and scalable repo, to reproduce Sora (OpenAI, but we prefer to call it 'ClosedAI' ). We wish the open-source community can contribute to this project."),
-          Markdown("[GitHub](https://github.com/PKU-YuanGroup/Open-Sora-Plan) | [HF Space](https://huggingface.co/spaces/LanguageBind/Open-Sora-Plan-v1.1.0) | [Model](https://huggingface.co/spaces/LanguageBind/Open-Sora-Plan-v1.1.0)", on_tap_link=lambda e: e.page.launch_url(e.data)),
-        ], scroll=ScrollMode.AUTO), actions=[TextButton("🫖  Strong Cup... ", on_click=close_open_sora_plan_dlg)], actions_alignment=MainAxisAlignment.END)
+          Text("We are thrilled to present Open-Sora-Plan v1.2.0, which significantly enhances video generation quality and text control capabilities. Thanks to HUAWEI Ascend Team for supporting us. The latest v1.2.0 utilizes a 3D full attention architecture instead of 2+1D. We released a true 3D video diffusion model trained on 4s 720p. In the second stage, we used Huawei Ascend computing power for training. This stage's training and inference were fully supported by Huawei. Models trained on Huawei Ascend can also be loaded into GPUs and generate videos of the same quality. Open-Sora Plan significantly improves video quality and length, and is fully open source! This project aims to create a simple and scalable repo, to reproduce Sora (OpenAI, but we prefer to call it 'ClosedAI' ). We wish the open-source community can contribute to this project."),
+          Markdown("[GitHub](https://github.com/PKU-YuanGroup/Open-Sora-Plan) | [HF Space](https://huggingface.co/spaces/LanguageBind/Open-Sora-Plan-v1.1.0) | [Model](https://huggingface.co/LanguageBind/Open-Sora-Plan-v1.2.0) | [v1.2 Report](https://github.com/PKU-YuanGroup/Open-Sora-Plan/blob/main/docs/Report-v1.2.0.md)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🪽  Let's Soara... ", on_click=close_open_sora_plan_dlg)], actions_alignment=MainAxisAlignment.END)
       page.overlay.append(open_sora_plan_help_dlg)
       open_sora_plan_help_dlg.open = True
       page.update()
-    def toggle_image(e):
-      open_sora_plan_prefs['generate_image'] = e.control.value
-      video_length.visible = not e.control.value
-      video_length.update()
     prompt = TextField(label="Animation Prompt Text", value=open_sora_plan_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=open_sora_plan_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
-    generate_image = Switcher(label="Generate Still Image", value=open_sora_plan_prefs['generate_image'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_image, tooltip="Create a single image instead of an animated sequence. Good for testing..")
-    #num_frames = SliderRow(label="Number of Frames", min=1, max=16, divisions=15, pref=open_sora_plan_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
-    num_frames = Dropdown(label="Number of Frames", options=[dropdown.Option("1"), dropdown.Option("65"), dropdown.Option("221")], width=130, value=open_sora_plan_prefs['num_frames'], on_change=lambda e: changed(e, 'num_frames'))
+    #generate_image = Switcher(label="Generate Still Image", value=open_sora_plan_prefs['generate_image'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_image, tooltip="Create a single image instead of an animated sequence. Good for testing..")
+    num_frames = SliderRow(label="Number of Frames", min=1, max=100, divisions=99, pref=open_sora_plan_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 93 frames which at 8 frames per seconds amounts to 2 seconds of video.")
+    #num_frames = Dropdown(label="Number of Frames", options=[dropdown.Option("1"), dropdown.Option("65"), dropdown.Option("221")], width=130, value=open_sora_plan_prefs['num_frames'], on_change=lambda e: changed(e, 'num_frames'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=open_sora_plan_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=open_sora_plan_prefs, key='guidance_scale')
-    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', expand=True, pref=open_sora_plan_prefs, key='fps')
-    clean_caption = Switcher(label="Clean Caption", value=open_sora_plan_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=open_sora_plan_prefs, key='fps')
+    speed_up_T5 = Switcher(label="Speed up Text Encoder", value=open_sora_plan_prefs['speed_up_T5'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'speed_up_T5'), tooltip="Further optimize the T5 Encoder with Better Transformer.")
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=open_sora_plan_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
-    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=open_sora_plan_prefs, key='width')
-    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=open_sora_plan_prefs, key='height')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=open_sora_plan_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=open_sora_plan_prefs, key='height')
+    scheduler = Dropdown(label="De-noise Scheduler", width=220, options=[dropdown.Option(s) for s in ["PNDM-Solver", "EulerA-Solver", "DPM-Solver", "SA-Solver", "DDIM-Solver", "Euler-Solver", "DDPM-Solver", "DEISM-Solver"]], value=open_sora_plan_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
     num_images = NumberPicker(label="Number of Animations: ", min=1, max=12, value=open_sora_plan_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     cpu_offload = Switcher(label="CPU Offload", value=open_sora_plan_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     batch_folder_name = TextField(label="Video Folder Name", value=open_sora_plan_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -17101,14 +17101,15 @@ def buildOpenSoraPlan(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌴  Open-Sora-Plan v1.1.0 Text-To-Video Synthesis", "Transformer-based Text-to-Video Diffusion system trained on Text Embeddings from T5... (uses A LOT of VRAM)", actions=[save_default(open_sora_plan_prefs), IconButton(icon=icons.HELP, tooltip="Help with Open-Sora-Plan Settings", on_click=open_sora_plan_help)]),
+        Header("🌴  Open-Sora-Plan v1.2 Text-To-Video Synthesis", "Transformer-based Text-to-Video Diffusion trained at 720p 93 Frames on Text Embeddings from mT5-xxl... (uses A LOT of VRAM & drive space)", actions=[save_default(open_sora_plan_prefs), IconButton(icon=icons.HELP, tooltip="Help with Open-Sora-Plan Settings", on_click=open_sora_plan_help)]),
         ResponsiveRow([prompt, negative_prompt]),
         num_inference_row,
         guidance,
         #width_slider, height_slider,
         #generate_image,
-        Row([num_frames, fps]),
-        #Row([clean_caption, cpu_offload]),
+        #Row([num_frames, fps]),
+        num_frames, fps,
+        Row([scheduler, speed_up_T5, cpu_offload]),
         Row([num_images, seed, batch_folder_name]),
         Row([
             ElevatedButton(content=Text("👒  Run Open-Sora-Plan", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_open_sora_plan(page)),
@@ -52849,57 +52850,100 @@ def run_open_sora_plan(page):
         sys.path.append(open_sora_plan_dir)
     os.chdir(open_sora_plan_dir)
     import imageio
-    import torch
-    from diffusers import PNDMScheduler
+    from diffusers import ConsistencyDecoderVAE, DPMSolverMultistepScheduler, Transformer2DModel, AutoencoderKL, SASolverScheduler
+    from typing import Tuple
     import numpy as np
-    #from gradio.components import Textbox, Video, Image
-    from transformers import T5Tokenizer, T5EncoderModel
-    from opensora.models.ae import ae_stride_config, getae, getae_wrapper
-    from opensora.models.diffusion.latte.modeling_latte import LatteT2V
-    from opensora.sample.pipeline_videogen import VideoGenPipeline
+    from opensora.models import CausalVAEModelWrapper
+    #from opensora.models.causalvideovae import ae_stride_config, ae_channel_config
+    #from opensora.models.causalvideovae import ae_norm, ae_denorm
+    from transformers import T5EncoderModel, T5Tokenizer, AutoTokenizer, MT5EncoderModel
+    from opensora.models.causalvideovae import ae_stride_config
+    from transformers import AutoTokenizer, MT5EncoderModel
+    from diffusers import DPMSolverMultistepScheduler, SASolverScheduler
+    from diffusers.schedulers import DDIMScheduler, DDPMScheduler, PNDMScheduler, EulerDiscreteScheduler, DPMSolverMultistepScheduler, EulerAncestralDiscreteScheduler, DEISMultistepScheduler
+    from opensora.models.diffusion.opensora.modeling_opensora import OpenSoraT2V
+    from opensora.sample.pipeline_opensora import OpenSoraPipeline
+    #from opensora.serve.gradio_utils import DESCRIPTION, MAX_SEED, style_list, randomize_seed_fn, save_video
     #from opensora.serve.gradio_utils import block_css, title_markdown, examples, DESCRIPTION
     status.setdefault("loaded_open_sora", "")
+    schedule = open_sora_plan_prefs['scheduler']
     ae = 'CausalVAEModel_4x8x8'
-    force_images = open_sora_plan_prefs['num_frames'] == "1"
-    model_path = 'LanguageBind/Open-Sora-Plan-v1.0.0'
-    model_id = "LanguageBind/Open-Sora-Plan-v1.1.0"
-    text_encoder_name = 'DeepFloyd/t5-v1_1-xxl'
-    version = '221x512x512' if open_sora_plan_prefs['num_frames'] == "221" else '65x512x512'
-    if status['loaded_open_sora'] != version:
+    ae_path = "/path/to/causalvideovae"
+    model_path = "/path/to/checkpoint-xxx/model_ema"
+    force_images = open_sora_plan_prefs['num_frames'] == 1
+    model_id = "LanguageBind/Open-Sora-Plan-v1.2.0"
+    text_encoder_name = 'google/mt5-xxl'
+    weight_dtype = torch.bfloat16
+    T5_token_max_length = 512
+    #version = '221x512x512' if open_sora_plan_prefs['num_frames'] == "221" else '65x512x512'
+    if status['loaded_open_sora'] != model_id:
         clear_pipes()
     else:
         clear_pipes("open_sora_plan")
     cache_dir = prefs['cache_dir'] if bool(prefs['cache_dir']) else "cache_dir"
     if pipe_open_sora_plan == None:
-        installer.status(f"...initialize Pipeline")
+        installer.status(f"...initialize Pipeline VAE")
         try:
-            device = torch.device('cuda:0')
-            transformer_model = LatteT2V.from_pretrained(model_id, subfolder=version, torch_dtype=torch.float16, cache_dir=cache_dir).to(device)
-            vae = getae_wrapper(ae)(model_id, subfolder="vae", cache_dir=cache_dir).to(device, dtype=torch.float16)
+            vae = CausalVAEModelWrapper(model_id, subfolder="vae", cache_dir=cache_dir).eval()
+            vae.vae = vae.vae.to(device=torch_device, dtype=weight_dtype)
             vae.vae.enable_tiling()
-            image_size = 512
-            latent_size = (image_size // ae_stride_config[ae][1], image_size // ae_stride_config[ae][2])
-            vae.latent_size = latent_size
-            transformer_model.force_images = force_images
-            tokenizer = T5Tokenizer.from_pretrained(text_encoder_name, cache_dir=cache_dir)
-            text_encoder = T5EncoderModel.from_pretrained(text_encoder_name, cache_dir=cache_dir, torch_dtype=torch.float16).to(device)
-            transformer_model.eval()
-            vae.eval()
-            text_encoder.eval()
-            scheduler = PNDMScheduler()
-            pipe_open_sora_plan = VideoGenPipeline(vae=vae,
-                                                text_encoder=text_encoder,
-                                                tokenizer=tokenizer,
-                                                scheduler=scheduler,
-                                                transformer=transformer_model).to(device=device)
-            status['video_length'] = transformer_model.config.video_length if not force_images else 1
-            status['loaded_open_sora'] = version
+            vae.vae.tile_overlap_factor = 0.125
+            vae.vae.tile_sample_min_size = 256
+            vae.vae.tile_latent_min_size = 32
+            vae.vae.tile_sample_min_size_t = 29
+            vae.vae.tile_latent_min_size_t = 8
+            vae.vae_scale_factor = ae_stride_config[ae]
+            installer.status(f"...loading Text Encoder (really big)")
+            text_encoder = MT5EncoderModel.from_pretrained(text_encoder_name, cache_dir=cache_dir, low_cpu_mem_usage=True, torch_dtype=weight_dtype)
+            installer.status(f"...loading Tokenizer")
+            tokenizer = AutoTokenizer.from_pretrained(text_encoder_name, cache_dir=cache_dir)
+            installer.status(f"...loading Transformer")
+            transformer = OpenSoraT2V.from_pretrained(model_id, subfolder="93x720p", cache_dir=cache_dir, low_cpu_mem_usage=False,  device_map=None, torch_dtype=weight_dtype)
+            scheduler = EulerAncestralDiscreteScheduler()
+            installer.status(f"...loading OpenSora Pipeline")
+            pipe_open_sora_plan = OpenSoraPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer, scheduler=scheduler, transformer=transformer)
+            pipe_open_sora_plan.to(torch_device)
+            if pipe_open_sora_plan['speed_up_T5']:
+                installer.status(f"...speeding up T5")
+                pipe_open_sora_plan.text_encoder.to_bettertransformer()
+            if prefs['enable_torch_compile']:
+                installer.status(f"...torch Compile Transformer")
+                pipe_open_sora_plan.transformer = torch.compile(pipe_open_sora_plan.transformer, mode="reduce-overhead", fullgraph=True)
+            #status['video_length'] = transformer_model.config.video_length if not force_images else 1
+            status['loaded_open_sora'] = model_id
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR Initializing Personalized Image Animator...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR Initializing Open-Sora...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
     #if open_sora_plan_prefs['clean_caption']:
     #    pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
+    if schedule == 'DPM-Solver':
+        if not isinstance(pipe_open_sora_plan.scheduler, DPMSolverMultistepScheduler):
+            pipe_open_sora_plan.scheduler = DPMSolverMultistepScheduler()
+    elif schedule == "PNDM-Solver":
+        if not isinstance(pipe_open_sora_plan.scheduler, PNDMScheduler):
+            pipe_open_sora_plan.scheduler = PNDMScheduler()
+    elif schedule == "DDIM-Solver":
+        if not isinstance(pipe_open_sora_plan.scheduler, DDIMScheduler):
+            pipe_open_sora_plan.scheduler = DDIMScheduler()
+    elif schedule == "Euler-Solver":
+        if not isinstance(pipe_open_sora_plan.scheduler, EulerDiscreteScheduler):
+            pipe_open_sora_plan.scheduler = EulerDiscreteScheduler()
+    elif schedule == "DDPM-Solver":
+        if not isinstance(pipe_open_sora_plan.scheduler, DDPMScheduler):
+            pipe_open_sora_plan.scheduler = DDPMScheduler()
+    elif schedule == "EulerA-Solver":
+        if not isinstance(pipe_open_sora_plan.scheduler, EulerAncestralDiscreteScheduler):
+            pipe_open_sora_plan.scheduler = EulerAncestralDiscreteScheduler()
+    elif schedule == "DEISM-Solver":
+        if not isinstance(pipe_open_sora_plan.scheduler, DEISMultistepScheduler):
+            pipe_open_sora_plan.scheduler = DEISMultistepScheduler()
+    elif schedule == "SA-Solver":
+        if not isinstance(pipe_open_sora_plan.scheduler, SASolverScheduler):
+            pipe_open_sora_plan.scheduler = SASolverScheduler.from_config(pipe.scheduler.config, algorithm_type='data_prediction', tau_func=lambda t: 1 if 200 <= t <= 800 else 0, predictor_order=2, corrector_order=2)
+    else:
+        raise ValueError(f"Unknown schedule: {schedule}")
+
     clear_last()
     batch_output = os.path.join(prefs['image_output'], open_sora_plan_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
@@ -52911,13 +52955,26 @@ def run_open_sora_plan(page):
         autoscroll(False)
         width = open_sora_plan_prefs['width']
         height = open_sora_plan_prefs['height']
-        torch.manual_seed(random_seed + n)
-        torch.set_grad_enabled(False)
+        generator = torch.Generator().manual_seed(random_seed + n)
         #height, width = int(args.version.split('x')[1]), int(args.version.split('x')[2])
-        num_frames = 1 if force_images else int(open_sora_plan_prefs['num_frames'])
+        #num_frames = 1 if force_images else int(open_sora_plan_prefs['num_frames'])
         try:
             with torch.no_grad():
-                videos = pipe_open_sora_plan(open_sora_plan_prefs['prompt'],
+              with torch.inference_mode():
+                videos = pipe_open_sora_plan(
+                    prompt=open_sora_plan_prefs['prompt'],
+                    negative_prompt=open_sora_plan_prefs['negative_prompt'] if bool(open_sora_plan_prefs['negative_prompt']) else None,
+                    num_frames=open_sora_plan_prefs['num_frames'],#93,
+                    width=width,
+                    height=height,
+                    guidance_scale=open_sora_plan_prefs['guidance_scale'],
+                    num_inference_steps=open_sora_plan_prefs['num_inference_steps'],
+                    generator=generator,
+                    num_images_per_prompt=open_sora_plan_prefs['batch_size'],
+                    max_sequence_length=T5_token_max_length,
+                    #callback=callback_fnc,
+                ).images
+                '''videos = pipe_open_sora_plan(open_sora_plan_prefs['prompt'],
                                         negative_prompt=open_sora_plan_prefs['negative_prompt'],
                                         video_length=status['video_length'],
                                         height=height,
@@ -52928,7 +52985,7 @@ def run_open_sora_plan(page):
                                         num_images_per_prompt=1,
                                         mask_feature=True,
                                         callback=callback_fnc,
-                                        ).video[0]
+                                        ).video[0]'''
             #videos = pipe_open_sora_plan(open_sora_plan_prefs['prompt'], negative_prompt=open_sora_plan_prefs['negative_prompt'], video_length=open_sora_plan_prefs['num_frames'], num_inference_steps=open_sora_plan_prefs['num_inference_steps'], guidance_scale=open_sora_plan_prefs['guidance_scale'], clean_caption=open_sora_plan_prefs['clean_caption'], width=width, height=height, generator=generator, callback_on_step_end=callback_fnc).frames[0]
         except Exception as e:
             clear_last(2)
@@ -52939,19 +52996,21 @@ def run_open_sora_plan(page):
         clear_last(2)
         autoscroll(True)
         #display_model_info = f"Video size: {num_frames}×{height}×{width}, \nSampling Step: {sample_steps}, \nGuidance Scale: {scale}"
-        #return tmp_save_path, prompt, display_model_info, seed
-        fname = f"{format_filename(open_sora_plan_prefs['prompt'])}"
-        gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
-        video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
-        imageio.mimwrite(video_file, videos, fps=open_sora_plan_prefs['fps'], quality=9)  # highest quality is 10, lowest is 0
-        export_to_gif(videos, gif_file, fps=open_sora_plan_prefs['fps'])
-        prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
-        #filename = filename[:int(prefs['file_max_length'])]
-        #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
-        autoscroll(True)
-        #export_to_video(videos, video_file, fps=open_sora_plan_prefs['fps'])
-        #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
-        prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        for video in videos:
+            fname = f"{format_filename(open_sora_plan_prefs['prompt'])}"
+            gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+            video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+            imageio.mimwrite(video_file, video, fps=open_sora_plan_prefs['fps'], quality=9)  # highest quality is 10, lowest is 0
+            if open_sora_plan_prefs['export_to_gif']:
+                from diffusers.utils import export_to_gif
+                export_to_gif(video, gif_file, fps=open_sora_plan_prefs['fps'])
+                prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+            #filename = filename[:int(prefs['file_max_length'])]
+            #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+            autoscroll(True)
+            #export_to_video(videos, video_file, fps=open_sora_plan_prefs['fps'])
+            #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
+            prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     #prt(f"Done creating video... Check {batch_output}")
     os.chdir(root_dir)
     autoscroll(False)
@@ -53004,6 +53063,7 @@ def run_video_infinity(page):
         sys.path.append(video_infinity_dir)
     os.chdir(video_infinity_dir)
     installer.status("...preparing config")
+    import json
     config = json.load(open(os.path.join(video_infinity_dir, "examples", "single_gpu.yaml")))
     model_id = "adamdad/videocrafterv2_diffusers"
     config['seed'] = video_infinity_prefs['seed']
