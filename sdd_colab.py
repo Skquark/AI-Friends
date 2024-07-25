@@ -17118,7 +17118,7 @@ def buildOpenSoraPlan(page):
         ResponsiveRow([prompt, negative_prompt]),
         num_inference_row,
         guidance,
-        #width_slider, height_slider,
+        width_slider, height_slider,
         #generate_image,
         #Row([num_frames, fps]),
         num_frames, fps,
@@ -52851,7 +52851,7 @@ def run_open_sora_plan(page):
             run_sp("git clone -b dev https://github.com/PKU-YuanGroup/Open-Sora-Plan", cwd=root_dir, realtime=False)
             installer.status("...installing Open-Sora-Plan requirements")
             #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
-            pip_install("gradio einops omegaconf==2.1.1 pytorch-lightning==1.4.2 torchmetrics==0.6.0 torchtext", installer=installer, upgrade=True)
+            pip_install("albumentations==1.4.0 av decord==0.6.0 einops fastapi==0.110.0 gdown h5py==3.10.0 idna==3.6 imageio matplotlib numpy omegaconf==2.1.1 opencv-python==4.9.0.80 opencv-python-headless==4.9.0.80 pandas pydub pytorch-lightning==1.4.2 pytorchvideo==0.1.5 PyYAML|yaml regex==2023.12.25 scikit-learn|sklearn scipy six==1.16.0 tensorboard==2.14.0 test-tube==0.7.5 timm torchdiffeq==0.2.3 torchmetrics==0.5.0 tqdm urllib3==2.2.1 uvicorn==0.27.1 scikit-video==1.1.11 triton", installer=installer, upgrade=True)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing Open-Sora Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -53077,7 +53077,7 @@ def run_video_infinity(page):
     os.chdir(video_infinity_dir)
     installer.status("...preparing config")
     import json
-    config = json.load(open(os.path.join(video_infinity_dir, "examples", "single_gpu.yaml")))
+    config = json.load(open(os.path.join(video_infinity_dir, "examples", "single_gpu.json")))
     model_id = "adamdad/videocrafterv2_diffusers"
     config['seed'] = video_infinity_prefs['seed']
     num_gpus = torch.cuda.device_count()
