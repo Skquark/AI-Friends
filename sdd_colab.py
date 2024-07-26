@@ -35956,7 +35956,7 @@ def run_audio_ldm2(page):
     import soundfile as sf
     import scipy
     if audioLDM2_prefs['save_mp3']:
-        get_ffmpeg(installer)
+        install_ffmpeg(installer)
         pip_install("pydub", q=True, installer=installer)
         import ffmpeg, pydub
     from diffusers import AudioLDM2Pipeline
@@ -36085,7 +36085,7 @@ def run_music_lang(page):
     installer = Installing("Downloading MusicLang Packages...", )
     prt(installer)
     pip_install("musiclang_predict==1.1.5 pyFluidSynth midi2audio fluidsynth", installer=installer, q=True)
-    get_ffmpeg(installer)
+    install_ffmpeg(installer)
     from musiclang_predict import MusicLangPredictor
     from musiclang import Score
     from midi2audio import FluidSynth
@@ -36245,7 +36245,7 @@ def run_zeta_editing(page):
         sys.path.append(audio_editing_dir)
     pip_install("tqdm soundfile progressbar einops scipy librosa==0.9.2", installer=installer)
     if zeta_editing_prefs['save_mp3']:
-        get_ffmpeg(installer)
+        install_ffmpeg(installer)
         pip_install("pydub", q=True, installer=installer)
         import ffmpeg, pydub
     #from diffusers import AudioLDM2Pipeline
@@ -37135,7 +37135,7 @@ def run_whisper(page):
     local_path = ""
     if audio_path.startswith("http"):
         if audio_path.startswith("https://youtu") or 'youtube' in audio_path:
-            get_ffmpeg(installer)
+            install_ffmpeg(installer)
             try:
                 import yt_dlp
             except ImportError as e:
@@ -37192,7 +37192,7 @@ def run_whisper(page):
         local_path = audio_path
     
     if (local_path.endswith("mp4") or local_path.endswith("avi")):
-        get_ffmpeg(installer)
+        install_ffmpeg(installer)
         import ffmpeg
         installer.status("...converting to mp3")
         video = ffmpeg.input(local_path)
@@ -37409,7 +37409,7 @@ def run_voice_fixer(page):
         alert_msg(page, f"ERROR: Audio File not found...")
         return
     if local_path.endswith("mp3"):
-        get_ffmpeg(installer)
+        install_ffmpeg(installer)
         import ffmpeg
         try:
             import pydub
@@ -48177,7 +48177,7 @@ def run_hallo(page):
             installer.status("...installing requirements")
             #run_process("pip install -r requirements.txt", cwd=hallo_dir)
             pip_install("audio-separator==0.17.2 av==12.1.0 bitsandbytes decord==0.6.0 einops==0.8.0 insightface==0.7.3 librosa==0.10.2.post1 mediapipe[vision]|mediapipe mlflow==2.13.1 moviepy numpy omegaconf onnx2torch==1.5.14 onnx onnxruntime-gpu==1.18.0 opencv-contrib-python==4.9.0.80 opencv-python-headless==4.9.0.80 opencv-python==4.9.0.80 pillow setuptools tqdm xformers==0.0.25.post1 isort pylint==3.2.2 pre-commit==3.7.1 gradio", installer=installer)
-            get_ffmpeg(installer)
+            install_ffmpeg(installer)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing Hallo Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -48532,7 +48532,7 @@ def run_live_portrait(page):
             installer.status("...cloning KwaiVGI/LivePortrait")
             run_sp("git clone https://github.com/KwaiVGI/LivePortrait", cwd=root_dir)
             installer.status("...installing requirements")
-            get_ffmpeg(installer)
+            install_ffmpeg(installer)
             try:
                 import onnxruntime
             except:
@@ -49239,7 +49239,7 @@ def run_animate_diff(page):
         status['installed_xformers'] = True
         pass
     pip_install("opencv-python|cv2 onnxruntime-gpu|onnxruntime sentencepiece>=0.1.99 safetensors", installer=installer)
-    get_ffmpeg(installer)
+    install_ffmpeg(installer)
     from safetensors import safe_open
     try:
         from animatediff.cli import generate
@@ -51472,7 +51472,7 @@ def run_easyanimate(page, from_list=False, with_params=False):
             installer.status("...cloning aigc-apps/EasyAnimate")
             run_sp("git clone https://github.com/aigc-apps/EasyAnimate.git", cwd=root_dir)
             installer.status("...installing requirements")
-            get_ffmpeg(installer)
+            install_ffmpeg(installer)
             pip_install("einops safetensors timm tomesd torchdiffeq torchsde xformers decord datasets numpy scikit-image|skimage opencv-python|cv2 omegaconf SentencePiece albumentations imageio[pyav]|imageio imageio[ffmpeg]|imageio tensorboard gradio beautifulsoup4 ftfy", installer=installer)
             #installer.status("...building insightface 3D mesh cython")
             #run_sp("python setup.py builld_ext --inplace", cwd=os.path.join(easyanimate_dir, "src/utils/dependencies/insightface/thirdparty/face3d/mesh/cython"))
@@ -52861,6 +52861,12 @@ def run_open_sora_plan(page):
         run_sp("git pull origin main", cwd=open_sora_plan_dir)
     if open_sora_plan_dir not in sys.path:
         sys.path.append(open_sora_plan_dir)
+    try:
+        import deepspeed
+    except:
+        installer.status("...installing deepspeed")
+        install_deepspeed()
+        pass
     os.chdir(open_sora_plan_dir)
     import imageio
     from diffusers import ConsistencyDecoderVAE, DPMSolverMultistepScheduler, Transformer2DModel, AutoencoderKL, SASolverScheduler
@@ -53095,12 +53101,12 @@ def run_video_infinity(page):
         installer.status(f"...initialize VideoCrafter2 Pipeline")
         try:
             with torch.inference_mode():
+                dist_controller = DistController(0, 1, config)
                 pipe_video_crafter = VideoCrafterPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
                 pipe_video_crafter.enable_model_cpu_offload(
                     gpu_id=config["devices"][dist.get_rank() % len(config["devices"])],
                 )
                 pipe_video_crafter.enable_vae_slicing()
-                dist_controller = DistController(0, 1, config)
             pipe_video_infinity = DistWrapper(pipe_video_crafter, dist_controller, config)
             #pipe_video_infinity.set_progress_bar_config(disable=True)
         except Exception as e:
@@ -58786,7 +58792,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         #run_sp(f"pip install -r requirements.txt", cwd=frame_interpolation_dir, realtime=True)
         #run_sp(f"pip install .", cwd=frame_interpolation_dir, realtime=False) apache-beam==2.34.0
         pip_install("tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image|skimage apache-beam|apache_beam google-cloud-bigquery-storage==1.1.0|google.cloud.bigquery_storage natsort==8.1.0 gdown==4.7.3 tqdm", upgrade=True, installer=installer)
-        get_ffmpeg(installer)
+        install_ffmpeg(installer)
         #import frame_interpolation
         if frame_interpolation_dir not in sys.path:
             sys.path.append(frame_interpolation_dir)
@@ -58857,7 +58863,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         print(f"Failed to save video {interpolated}")
         return ""
 
-def get_ffmpeg(installer=None):
+def install_ffmpeg(installer=None):
     try:
         import ffmpeg
         if not hasattr(ffmpeg, 'input'):#'ffmpeg-python' not in ffmpeg.__file__:
@@ -58905,10 +58911,35 @@ def get_ffmpeg(installer=None):
     else:
         print(f"FFmpeg installation not supported for {system} platform")
     if installer is not None: installer.status()
-get_ffmpeg()
+install_ffmpeg()
         
+def install_deepspeed():
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    is_windows = platform.system() == "Windows"
+    if is_windows:
+        if python_version.startswith("3.10") or python_version.startswith("3.11"):
+            cuda_versions = ["121", "118"]
+        else:
+            print(f"Can't install DeepSpeed with Unsupported Python version: {python_version}. Upgrade to >=3.10.")
+            return
+        for cuda_version in cuda_versions:
+            url = f"https://github.com/daswer123/deepspeed-windows/releases/download/11.2/deepspeed-0.11.2+cuda{cuda_version}-cp{python_version.replace('.', '')}-cp{python_version.replace('.', '')}-win_amd64.whl"
+            try:
+                run_sp(f"pip install {url}")
+                #print(f"Successfully installed DeepSpeed for Windows (Python {python_version}, CUDA {cuda_version})")
+                return
+            except subprocess.CalledProcessError:
+                print(f"Failed to install DeepSpeed for Windows (Python {python_version}, CUDA {cuda_version})")
+        print("Failed to install DeepSpeed for Windows")
+    else:
+        try:
+            run_sp(f"pip install deepspeed")
+            #print(f"Successfully installed DeepSpeed for {platform.system()} (Python {python_version})")
+        except subprocess.CalledProcessError:
+            print(f"Failed to install DeepSpeed for {platform.system()} (Python {python_version})")
+
 def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False, metadata=None):
-    get_ffmpeg()
+    install_ffmpeg()
     import ffmpeg
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
