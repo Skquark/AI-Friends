@@ -11249,6 +11249,10 @@ kolors_prefs = {
     "cpu_offload": True,
     "kolors_model": "Kwai-Kolors/Kolors-diffusers",
     "custom_model": "",
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'IP-Adapter-Plus',
+    'ip_adapter_strength': 0.8,
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
     "face_enhance": prefs['face_enhance'],
@@ -11293,6 +11297,19 @@ def buildKolors(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kolors_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=kolors_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=kolors_prefs, key='height')
+    def toggle_ip_adapter(e):
+        kolors_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=kolors_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="Kolors IP-Adapter Model", width=220, options=[dropdown.Option('IP-Adapter-Plus')], value=kolors_prefs['ip_adapter_model'], visible=kolors_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    #for m in ip_adapter_models:
+    #    ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=kolors_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=kolors_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if kolors_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     kolors_model = Dropdown(label="Kolors Model", width=280, options=[dropdown.Option("Custom"), dropdown.Option("Kwai-Kolors/Kolors-diffusers")], value=kolors_prefs['kolors_model'], on_change=changed_model)
     kolors_custom_model = TextField(label="Custom Kolors Model (URL or Path)", value=kolors_prefs['custom_model'], expand=True, visible=kolors_prefs['kolors_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=kolors_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
@@ -11312,8 +11329,8 @@ def buildKolors(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([kolors_model, kolors_custom_model]),
-            #Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
-            #ip_adapter_container,
+            Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+            ip_adapter_container,
             Row([cpu_offload]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
@@ -22841,7 +22858,7 @@ except ModuleNotFoundError:
     import platform
     #page.console_msg("Installing PyTorch with CUDA 1.17")
     pt_ver = latest_version("torch")
-    print(f"Installing PyTorch {pt_ver} with CUDA 1.21...")
+    print(f"Installing PyTorch {pt_ver} with CUDA 12.1...")
     if platform.system() == 'Darwin':  # macOS
       run_sp("pip install -qq -U --force-reinstall torch torchvision torchaudio")
     else:
@@ -43970,7 +43987,6 @@ def run_kolors(page, from_list=False, with_params=False):
     autoscroll(True)
     installer = Installing("Installing Kolors Engine & Models... See console for progress.")
     prt(installer)
-    clear_pipes("kolors")
     import requests
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
@@ -43980,20 +43996,34 @@ def run_kolors(page, from_list=False, with_params=False):
     kolors_model = "Kwai-Kolors/Kolors-diffusers" if kolors_prefs['kolors_model'] == "Kwai-Kolors/Kolors-diffusers" else kolors_prefs['custom_model']
     status.setdefault('loaded_kolors', '')
     status.setdefault('loaded_kolors_mode', '')
-    if kolors_model != status['loaded_kolors']:
+    status.setdefault('loaded_kolors_ip_adapter', '')
+    ip_adapter_model = "Kwai-Kolors/Kolors-IP-Adapter-Plus" if kolors_prefs['ip_adapter_model'] == "IP-Adapter-Plus" else ""
+    if kolors_model != status['loaded_kolors'] or ip_adapter_model != status['loaded_kolors_ip_adapter']:
         clear_pipes()
+    else:
+        clear_pipes("kolors")
     #from optimum.intel import OVLatentConsistencyModelPipeline
     #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/Kolors-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
-    
     from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image
     if pipe_kolors == None:
+        encoder = {}
+        if kolors_prefs['use_ip_adapter']:
+            installer.status(f"...initialize IP-Adapter-Plus")
+            from transformers import CLIPVisionModelWithProjection
+            image_encoder = CLIPVisionModelWithProjection.from_pretrained(
+                ip_adapter_model, subfolder="image_encoder",
+                low_cpu_mem_usage=True, torch_dtype=torch.float16, revision="refs/pr/4")
+            encoder = {'image_encoder': image_encoder}
+            status['loaded_kolors_ip_adapter'] = ip_adapter_model
+        else:
+            status['loaded_kolors_ip_adapter'] = ""
         installer.status(f"...initialize Kolors Pipeline")
         try:
             if bool(kolors_prefs['init_image']):
-                pipe_kolors = AutoPipelineForImage2Image.from_pretrained(kolors_model, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_kolors = AutoPipelineForImage2Image.from_pretrained(kolors_model, torch_dtype=torch.float16, variant="fp16", **encoder, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 status['loaded_kolors_mode'] = "Image2Image"
             else:
-                pipe_kolors = AutoPipelineForText2Image.from_pretrained(kolors_model, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_kolors = AutoPipelineForText2Image.from_pretrained(kolors_model, torch_dtype=torch.float16, variant="fp16", **encoder, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 status['loaded_kolors_mode'] = "Text2Image"
             #pipe_kolors.scheduler = KolorsScheduler.from_config(pipe_kolors.scheduler.config)
             if cpu_offload:
@@ -44006,9 +44036,30 @@ def run_kolors(page, from_list=False, with_params=False):
             clear_last()
             alert_msg(page, f"ERROR Initializing Kolors...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-        status['loaded_kolors'] = kolors_model
-    else:
-        clear_pipes('kolors')
+        status['loaded_kolors_ip_adapter'] = status['loaded_kolors'] = kolors_model
+    ip_adapter_arg = {}
+    if kolors_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter")
+        ip_adapter_img = None
+        if kolors_prefs['ip_adapter_image'].startswith('http'):
+          i_response = requests.get(kolors_prefs['ip_adapter_image'])
+          ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+        else:
+          if os.path.isfile(kolors_prefs['ip_adapter_image']):
+            ip_adapter_img = PILImage.open(kolors_prefs['ip_adapter_image'])
+          else:
+            clear_last()
+            prt(f"ERROR: Couldn't find your ip_adapter_image {kolors_prefs['ip_adapter_image']}")
+        if bool(ip_adapter_img):
+          ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        if bool(ip_adapter_arg):
+            #ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == kolors_prefs['ip_adapter_model'])
+            #pipe_kolors.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+            pipe_kolors.load_ip_adapter(ip_adapter_model, subfolder="", weight_name="ip_adapter_plus_general.safetensors", revision="refs/pr/4", image_encoder_folder=None)
+            pipe_kolors.set_ip_adapter_scale(kolors_prefs['ip_adapter_strength'])
+            if cpu_offload:
+                pipe_kolors.enable_model_cpu_offload()
+        kolors_prefs['ip_adapter_model']
     clear_last()
     s = "" if len(kolors_prompts) == 1 else "s"
     prt(f"Generating your Kolors Image{s}...")
@@ -44045,6 +44096,7 @@ def run_kolors(page, from_list=False, with_params=False):
                     guidance_scale=pr['guidance_scale'],
                     init_image=init_img,
                     init_image_strength=pr['init_image_strength'],
+                    **ip_adapter_arg,
                     generator=generator,
                     callback_on_step_end=callback_fnc,
                 ).images
@@ -44059,6 +44111,7 @@ def run_kolors(page, from_list=False, with_params=False):
                     width=pr['width'],
                     num_inference_steps=pr['num_inference_steps'],
                     guidance_scale=pr['guidance_scale'],
+                    **ip_adapter_arg,
                     generator=generator,
                     callback_on_step_end=callback_fnc,
                 ).images
@@ -58914,9 +58967,11 @@ def install_ffmpeg(installer=None):
 install_ffmpeg()
         
 def install_deepspeed():
+    import platform
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     is_windows = platform.system() == "Windows"
     if is_windows:
+        cuda_v = torch.version.cuda
         if python_version.startswith("3.10") or python_version.startswith("3.11"):
             cuda_versions = ["121", "118"]
         else:
@@ -58925,7 +58980,7 @@ def install_deepspeed():
         for cuda_version in cuda_versions:
             url = f"https://github.com/daswer123/deepspeed-windows/releases/download/11.2/deepspeed-0.11.2+cuda{cuda_version}-cp{python_version.replace('.', '')}-cp{python_version.replace('.', '')}-win_amd64.whl"
             try:
-                run_sp(f"pip install {url}")
+                run_sp(f"pip install {url}", realtime=True)
                 #print(f"Successfully installed DeepSpeed for Windows (Python {python_version}, CUDA {cuda_version})")
                 return
             except subprocess.CalledProcessError:
