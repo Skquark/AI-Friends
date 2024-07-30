@@ -642,6 +642,7 @@ from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_mode
 from sdd_components import PanZoom, VideoContainer
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="pip._vendor.packaging.specifiers")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="pip._vendor.pkg_resources")
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 def save_settings_file(page, change_icon=True):
     if change_icon:
@@ -962,6 +963,7 @@ def buildVideoAIs(page):
     page.Roop = buildROOP(page)
     page.Hallo = buildHallo(page)
     page.OpenSoraPlan = buildOpenSoraPlan(page)
+    page.Cinemo = buildCinemo(page)
     page.VideoInfinity = buildVideoInfinity(page)
     page.Video_ReTalking = buildVideoReTalking(page)
     page.LivePortrait = buildLivePortrait(page)
@@ -983,6 +985,7 @@ def buildVideoAIs(page):
             Tab(text="DiffSynth", content=page.DiffSynth, icon=icons.FIREPLACE),
             Tab(text="EasyAnimate", content=page.EasyAnimate, icon=icons.PHOTO_CAMERA_BACK),
             Tab(text="Open-Sora", content=page.OpenSoraPlan, icon=icons.GRASS),
+            Tab(text="Cinemo", content=page.Cinemo, icon=icons.THEATERS),
             Tab(text="I2VGen-XL", content=page.I2VGenXL, icon=icons.TIPS_AND_UPDATES),
             Tab(text="PIA Image Animator", content=page.PIA, icon=icons.EMERGENCY_RECORDING),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
@@ -11187,7 +11190,7 @@ def buildLuminaNext(page):
         page.update()
       lumina_next_help_dlg = AlertDialog(title=Text("🙅   Help with Lumina Pipeline"), content=Column([
           Text("Lumina-Next is a next-generation Diffusion Transformer that significantly enhances text-to-image generation, multilingual generation, and multitask performance by introducing the Next-DiT architecture, 3D RoPE, and frequency- and time-aware RoPE, among other improvements. Lumina-T2X is a nascent family of Flow-based Large Diffusion Transformers (Flag-DiT) that establishes a unified framework for transforming noise into various modalities, such as images and videos, conditioned on text instructions. Despite its promising capabilities, Lumina-T2X still encounters challenges including training instability, slow inference, and extrapolation artifacts. In this paper, we present Lumina-Next, an improved version of Lumina-T2X, showcasing stronger generation performance with increased training and inference efficiency. We begin with a comprehensive analysis of the Flag-DiT architecture and identify several suboptimal components, which we address by introducing the Next-DiT architecture with 3D RoPE and sandwich normalizations. To enable better resolution extrapolation, we thoroughly compare different context extrapolation methods applied to text-to-image generation with 3D RoPE, and propose Frequency- and Time-Aware Scaled RoPE tailored for diffusion transformers. Additionally, we introduce a sigmoid time discretization schedule to reduce sampling steps in solving the Flow ODE and the Context Drop method to merge redundant visual tokens for faster network evaluation, effectively boosting the overall sampling speed. Thanks to these improvements, Lumina-Next not only improves the quality and efficiency of basic text-to-image generation but also demonstrates superior resolution extrapolation capabilities and multilingual generation using decoder-based LLMs as the text encoder, all in a zero-shot manner. To further validate Lumina-Next as a versatile generative framework, we instantiate it on diverse tasks including visual recognition, multi-view, audio, music, and point cloud generation, showcasing strong performance across these domains."),
-          Markdown("[Lumina-Next : Making Lumina-T2X Stronger and Faster with Next-DiT](https://github.com/Alpha-VLLM/Lumina-T2X/blob/main/assets/lumina-next.pdf) from Alpha-VLLM, OpenGVLab, Shanghai AI Laboratory.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Lumina-Next : Making Lumina-T2X Stronger and Faster with Next-DiT](https://github.com/Alpha-VLLM/Lumina-T2X/blob/main/assets/lumina-next.pdf) from Alpha-VLLM, OpenGVLab, Shanghai AI Laboratory and [PommesPeter](https://github.com/PommesPeter).", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("[Paper](https://arxiv.org/abs/2405.05945) | [Github](https://github.com/Alpha-VLLM/Lumina-T2X) | [Model Checkpoint](https://huggingface.co/collections/Alpha-VLLM/lumina-family-66423205bedb81171fd0644b) | [HF Space](https://huggingface.co/spaces/Alpha-VLLM/Lumina-Next-T2I)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😎  Extra Special... ", on_click=close_lumina_next_dlg)], actions_alignment=MainAxisAlignment.END)
       page.overlay.append(lumina_next_help_dlg)
@@ -17026,7 +17029,7 @@ def buildLatte(page):
       latte_help_dlg = AlertDialog(title=Text("💁   Help with Latte Text-To-Video"), content=Column([
           Markdown("Latte is a latent diffusion transformer proposed as a backbone for modeling different modalities (trained for text-to-video generation here). It achieves state-of-the-art performance across four standard video benchmarks - [FaceForensics](https://arxiv.org/abs/1803.09179), [SkyTimelapse](https://arxiv.org/abs/1709.07592), [UCF101](https://arxiv.org/abs/1212.0402) and [Taichi-HD](https://arxiv.org/abs/2003.00196). To prepare and download the datasets for evaluation, please refer to [this https URL](https://github.com/Vchitect/Latte/blob/main/docs/datasets_evaluation.md).", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("We propose a novel Latent Diffusion Transformer, namely Latte, for video generation. Latte first extracts spatio-temporal tokens from input videos and then adopts a series of Transformer blocks to model video distribution in the latent space. In order to model a substantial number of tokens extracted from videos, four efficient variants are introduced from the perspective of decomposing the spatial and temporal dimensions of input videos. To improve the quality of generated videos, we determine the best practices of Latte through rigorous experimental analysis, including video clip patch embedding, model variants, timestep-class information injection, temporal positional embedding, and learning strategies. Our comprehensive evaluation demonstrates that Latte achieves state-of-the-art performance across four standard video generation datasets, i.e., FaceForensics, SkyTimelapse, UCF101, and Taichi-HD. In addition, we extend Latte to text-to-video generation (T2V) task, where Latte achieves comparable results compared to recent T2V models. We strongly believe that Latte provides valuable insights for future research on incorporating Transformers into diffusion models for video generation."),
-          Markdown("[Project Page](https://maxin-cn.github.io/latte_project/) | [GitHub](https://github.com/Vchitect/Latte) | [Paper](https://arxiv.org/abs/2401.03048) | [Model](https://huggingface.co/maxin-cn/Latte-1)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Project Page](https://maxin-cn.github.io/latte_project/) | [GitHub](https://github.com/Vchitect/Latte) | [Paper](https://arxiv.org/abs/2401.03048) | [Model](https://huggingface.co/maxin-cn/Latte-1) | [maxin-cn](https://github.com/maxin-cn)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🫖  Strong Cup... ", on_click=close_latte_dlg)], actions_alignment=MainAxisAlignment.END)
       page.overlay.append(latte_help_dlg)
       latte_help_dlg.open = True
@@ -17146,6 +17149,114 @@ def buildOpenSoraPlan(page):
         ]),
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+cinemo_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "cinemo-",
+    "num_images": 1,
+    "width": 512,
+    "height":320,
+    "guidance_scale": 7.5,
+    'num_inference_steps': 50,
+    "seed": 0,
+    'init_image': '',
+    'video_length': 15,
+    'motion_bucket_id': 95,  # 180
+    'enable_vae_temporal_decoder': True,
+    'use_dct': True,
+    'use_dctinit': True,
+    'dct_coefficients': 0.23,
+    'noise_level': 985,
+    'fps': 16,
+    'target_fps': 24,
+    'export_to_gif': True,
+    'export_to_video': True,
+    "save_frames": False,
+    "interpolate_video": False,
+    "cpu_offload": False,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildCinemo(page):
+    global prefs, cinemo_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          cinemo_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def cinemo_help(e):
+      def close_cinemo_dlg(e):
+        nonlocal cinemo_help_dlg
+        cinemo_help_dlg.open = False
+        page.update()
+      cinemo_help_dlg = AlertDialog(title=Text("🙅   Help with Cinemo Pipeline"), content=Column([
+          Text("Diffusion models have achieved great progress in image animation due to powerful generative capabilities. However, maintaining spatio-temporal consistency with detailed information from the input static image over time (e.g., style, background, and object of the input static image) and ensuring smoothness in animated video narratives guided by textual prompts still remains challenging. In this paper, we introduce Cinemo, a novel image animation approach towards achieving better motion controllability, as well as stronger temporal consistency and smoothness. In general, we propose three effective strategies at the training and inference stages of Cinemo to accomplish our goal. At the training stage, Cinemo focuses on learning the distribution of motion residuals, rather than directly predicting subsequent via a motion diffusion model. Additionally, a structural similarity index-based strategy is proposed to enable Cinemo to have better controllability of motion intensity. At the inference stage, a noise refinement technique based on discrete cosine transformation is introduced to mitigate sudden motion changes. Such three strategies enable Cinemo to produce highly consistent, smooth, and motioncontrollable results. Compared to previous methods, Cinemo offers simpler and more precise user controllability. Extensive experiments against several state-ofthe-art methods, including both commercial tools and research approaches, across multiple metrics, demonstrate the effectiveness and superiority of our proposed approach."),
+          Text("Methodology: Image animation aims to generate dynamic visual content from input static images. Diffusion models have become mainstream in image animation research due to their powerful generative capabilities, achieving remarkable success. However, maintaining consistency with the detailed information of the input static image over time (such as style, background, and object of the input static image) and ensuring smoothness in animated video narratives guided by textual prompts remain considerable challenges. In this paper, we propose a novel method called Cinemo, which can perform motion-controllable image animation with strong consistency. Our method introduces a novel framework focused on understanding the distribution of motion residuals, rather than directly generating subsequent frames. Additionally, an effective method based on the structural similarity index is proposed to control the motion intensity. Furthermore, we propose noise refinement based on discrete cosine transform to ensure layout consistency. These three strategies help Cinemo generate highly consistent and motion-controlled image animation results. Compared to previous methods, Cinemo offers simpler and more precise user control and better generative performance. Extensive experiments against several baseline methods, including both commercial tools and research approaches, across multiple metrics, underscore the effectiveness and superiority of our proposed approach."),
+          Markdown("[Project]( https://maxin-cn.github.io/cinemo_project) | [GitHub](https://github.com/maxin-cn/Cinemo) | [Paper](https://arxiv.org/pdf/2407.15642) | [Model Checkpoint](https://huggingface.co/maxin-cn/Cinemo)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Xin Ma, Yaohui Wang, Gengyun Jia, Xinyuan Chen, Yuan-Fang Li, Cunjian Chen, Yu Qiao, Monash University, Shanghai Artificial Intelligence Laboratory and Nanjing University of Posts and Telecommunications."),
+          #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("📽  Roll the clip...", on_click=close_cinemo_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(cinemo_help_dlg)
+      cinemo_help_dlg.open = True
+      page.update()
+    prompt = TextField(label="Prompt Text", value=cinemo_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=cinemo_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image", pref=cinemo_prefs, key='init_image', ftype="image", page=page, col={'md':6})
+    video_length = SliderRow(label="Video Length", min=1, max=64, divisions=63, pref=cinemo_prefs, key='video_length', tooltip="The number of frames to animate.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=cinemo_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=cinemo_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Videos", min=1, max=9, step=1, value=cinemo_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=80, divisions=80, pref=cinemo_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=cinemo_prefs, key='guidance_scale')
+    motion_bucket_id = SliderRow(label="Motion Bucket ID", min=1, max=180, divisions=179, pref=cinemo_prefs, key='motion_bucket_id', tooltip="Increasing the motion bucket id will increase the Motion Intensity of the generated video. (keep between 80 - 100)")
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=cinemo_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=cinemo_prefs, key='height')
+    enable_vae_temporal_decoder = Switcher(label="Enable VAE Temporal Decoder", value=cinemo_prefs['enable_vae_temporal_decoder'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'enable_vae_temporal_decoder'), tooltip="")
+    use_dct = Switcher(label="Enable DCT", value=cinemo_prefs['use_dct'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_dct'), tooltip="Can stabilize the video generation process and effectively mitigate sudden motion change; the DCT frequency domain decomposition method can effectively mitigate the color inconsistency issues caused by the FFT frequency domain decomposition method.")
+    use_dctinit = Switcher(label="Enable DCTInit", value=cinemo_prefs['use_dctinit'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_dctinit'), tooltip="Can stabilize the video generation process and effectively mitigate sudden motion change; the DCT frequency domain decomposition method can effectively mitigate the color inconsistency issues caused by the FFT frequency domain decomposition method.")
+    dct_coefficients = SliderRow(label="DCT Coefficients", min=0, max=1, divisions=100, round=2, pref=cinemo_prefs, key='dct_coefficients', tooltip="Discrete Cosine Transform Low-frequency coefficients of the input static image as layout guidance to refine the initial inference noise.", col={'lg':6})
+    noise_level = SliderRow(label="Noise Level", min=0, max=999, divisions=999, pref=cinemo_prefs, key='noise_level', col={'lg':6})
+    cpu_offload = Switcher(label="CPU Offload", value=cinemo_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    export_to_gif = Tooltip(message="Save animated gif file along with Video", content=Switcher(label="Export to GIF", value=diffsynth_prefs['export_to_gif'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'export_to_gif')))
+    save_frames = Switcher(label="Save Frames", value=cinemo_prefs['save_frames'], tooltip="Save the dumped frames to images_out batch folder. Otherwise only saves final video, keeping pngs in temp folder.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_frames'))
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=cinemo_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    interpolate_video = Switcher(label="Interpolate Video", value=cinemo_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=cinemo_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. This is also used as a 'micro-condition' while generation.")
+    target_fps = SliderRow(label="Target FPS", min=0, max=60, suffix="fps", divisions=60, expand=1, pref=diffsynth_prefs, key='target_fps', col={'sm': 6})
+    seed = TextField(label="Seed", width=90, value=str(cinemo_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    #upscaler = UpscaleBlock(cinemo_prefs)
+    #page.upscalers.append(upscaler)
+    parameters_button = ElevatedButton(content=Text(value="🐤   Run Cinemo", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_cinemo(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_cinemo(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_cinemo(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🍿  Cinemo Image-to-Video (under construction)", "Consistent and Controllable Image Animation with Motion Diffusion Models...", actions=[save_default(cinemo_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Cinemo Settings", on_click=cinemo_help)]),
+            init_image,
+            ResponsiveRow([prompt, negative_prompt]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            motion_bucket_id,
+            video_length,
+            ResponsiveRow([fps, target_fps]),
+            Row([use_dct, use_dctinit, enable_vae_temporal_decoder]),
+            dct_coefficients, noise_level,
+            #Divider(thickness=4, height=4),
+            Row([export_to_gif, save_frames, interpolate_video]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            #upscaler,
+            parameters_row,
+        ],
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 video_infinity_prefs = {
@@ -22209,6 +22320,8 @@ pipe_video_to_video = None
 pipe_fresco_v2v = None
 pipe_latte = None
 pipe_open_sora_plan = None
+pipe_cinemo = None
+pipe_cinemo_vae = None
 pipe_video_infinity = None
 pipe_infinite_zoom = None
 pipe_deepfloyd = None
@@ -25329,6 +25442,12 @@ def clear_open_sora_plan_pipe():
     del pipe_open_sora_plan
     flush()
     pipe_open_sora_plan = None
+def clear_cinemo_pipe():
+  global pipe_cinemo, pipe_cinemo_vae
+  if pipe_cinemo is not None:
+    del pipe_cinemo, pipe_cinemo_vae
+    flush()
+    pipe_cinemo, pipe_cinemo_vae = [None] *2
 def clear_video_infinity_pipe():
   global pipe_video_infinity
   if pipe_video_infinity is not None:
@@ -25663,6 +25782,7 @@ def clear_pipes(allbut=None):
     if not 'fresco' in but: clear_fresco_pipe()
     if not 'latte' in but: clear_latte_pipe()
     if not 'open_sora_plan' in but: clear_open_sora_plan_pipe()
+    if not 'cinemo' in but: clear_cinemo_pipe()
     if not 'video_infinity' in but: clear_video_infinity_pipe()
     if not 'infinite_zoom' in but: clear_infinite_zoom_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
@@ -43991,7 +44111,7 @@ def run_kolors(page, from_list=False, with_params=False):
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
-    pip_install("triton", installer=installer)
+    pip_install("triton sentencepiece", installer=installer)
     cpu_offload = kolors_prefs['cpu_offload']
     kolors_model = "Kwai-Kolors/Kolors-diffusers" if kolors_prefs['kolors_model'] == "Kwai-Kolors/Kolors-diffusers" else kolors_prefs['custom_model']
     status.setdefault('loaded_kolors', '')
@@ -52904,7 +53024,7 @@ def run_open_sora_plan(page):
             run_sp("git clone -b dev https://github.com/PKU-YuanGroup/Open-Sora-Plan", cwd=root_dir, realtime=False)
             installer.status("...installing Open-Sora-Plan requirements")
             #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
-            pip_install("albumentations==1.4.0 av decord==0.6.0 einops fastapi==0.110.0 gdown h5py==3.10.0 idna==3.6 imageio matplotlib numpy omegaconf==2.1.1 opencv-python==4.9.0.80 opencv-python-headless==4.9.0.80 pandas pydub pytorch-lightning==1.4.2 pytorchvideo==0.1.5 PyYAML|yaml regex==2023.12.25 scikit-learn|sklearn scipy six==1.16.0 tensorboard==2.14.0 test-tube==0.7.5 timm torchdiffeq==0.2.3 torchmetrics==0.5.0 tqdm urllib3==2.2.1 uvicorn==0.27.1 scikit-video==1.1.11 triton", installer=installer, upgrade=True)
+            pip_install("albumentations==1.4.0 av decord==0.6.0 einops fastapi==0.110.0 gdown h5py==3.10.0 idna==3.6 imageio matplotlib numpy omegaconf==2.1.1 opencv-python==4.9.0.80 opencv-python-headless==4.9.0.80 pandas pydub pytorch-lightning==1.4.2 pytorchvideo==0.1.5 PyYAML|yaml regex==2023.12.25 scikit-learn|sklearn scipy six==1.16.0 tensorboard==2.14.0 test-tube==0.7.5 timm torchdiffeq==0.2.3 torchmetrics==0.5.0 tqdm urllib3==2.2.1 uvicorn==0.27.1 scikit-video==1.1.11 triton", installer=installer, upgrade=True, reinstall=True)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing Open-Sora Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -52920,7 +53040,7 @@ def run_open_sora_plan(page):
         installer.status("...installing deepspeed")
         install_deepspeed()
         pass
-    os.chdir(open_sora_plan_dir)
+    #os.chdir(open_sora_plan_dir)
     import imageio
     from diffusers import ConsistencyDecoderVAE, DPMSolverMultistepScheduler, Transformer2DModel, AutoencoderKL, SASolverScheduler
     from typing import Tuple
@@ -53085,6 +53205,304 @@ def run_open_sora_plan(page):
             prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     #prt(f"Done creating video... Check {batch_output}")
     os.chdir(root_dir)
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+def run_cinemo(page, from_list=False, with_params=False):
+    global cinemo_prefs, pipe_cinemo, pipe_cinemo_vae, prefs, status
+    if not check_diffusers(page): return
+    cinemo_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            cinemo_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':cinemo_prefs['guidance_scale'], 'num_inference_steps':cinemo_prefs['num_inference_steps'], 'width':cinemo_prefs['width'], 'height':cinemo_prefs['height'], 'init_image':cinemo_prefs['init_image'], 'num_images':cinemo_prefs['num_images'], 'seed':cinemo_prefs['seed']})
+        else:
+            cinemo_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(cinemo_prefs['init_image']):
+        alert_msg(page, "You must provide an Init Image to process your video generation...")
+        return
+      cinemo_prompts.append({'prompt': cinemo_prefs['prompt'], 'negative_prompt':cinemo_prefs['negative_prompt'], 'guidance_scale':cinemo_prefs['guidance_scale'], 'num_inference_steps':cinemo_prefs['num_inference_steps'], 'width':cinemo_prefs['width'], 'height':cinemo_prefs['height'], 'init_image':cinemo_prefs['init_image'], 'num_images':cinemo_prefs['num_images'], 'seed':cinemo_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.Cinemo.controls.append(line)
+        if update:
+          page.Cinemo.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.Cinemo, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.Cinemo.auto_scroll = scroll
+        page.Cinemo.update()
+      else:
+        page.Cinemo.auto_scroll = scroll
+        page.Cinemo.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.Cinemo.controls = page.Cinemo.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = cinemo_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    #mode = "Video2Video" if cinemo_prompts[0]['init_image'].endswith('mp4') or cinemo_prompts[0]['init_image'].endswith('gif') else "Image2Video"
+    installer = Installing(f"Installing Cinemo Engine & Models... See console for progress.")
+    prt(installer)
+    cinemo_dir = os.path.join(root_dir, "Cinemo")
+    if not os.path.exists(cinemo_dir):
+        try:
+            installer.status("...cloning maxin-cn/Cinemo")
+            run_sp("git clone https://github.com/maxin-cn/Cinemo", cwd=root_dir, realtime=False)
+            installer.status("...installing Cinemo requirements")
+            pip_install("timm tensorboard einops transformers av scikit-image|skimage decord pandas imageio-ffmpeg sentencepiece beautifulsoup4|bs4 ftfy omegaconf spaces torch_dct imageio-ffmpeg", installer=installer, upgrade=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Video Infinity Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    elif force_update("cinemo"):
+        installer.status("...updating maxin-cn/Cinemo")
+        run_sp("git pull origin main", cwd=cinemo_dir)
+    if cinemo_dir not in sys.path:
+        sys.path.append(cinemo_dir)
+    os.chdir(cinemo_dir)
+    installer.status("...preparing config")
+    import torchvision, torch
+    from pipelines.pipeline_videogen import VideoGenPipeline
+    from diffusers.schedulers import DDIMScheduler
+    from diffusers.models import AutoencoderKL
+    from diffusers.models import AutoencoderKLTemporalDecoder
+    from transformers import CLIPTokenizer, CLIPTextModel
+    from omegaconf import OmegaConf
+    from models import get_models, UNet3DConditionModel
+    import imageio
+    from datasets import video_transforms
+    from torchvision import transforms
+    from einops import rearrange, repeat
+    from utils import dct_low_pass_filter, exchanged_mixed_dct_freq
+    from copy import deepcopy
+    #import spaces
+    args = OmegaConf.load(open(os.path.join(cinemo_dir, "configs", "sample.yaml")))
+    args.use_compile = prefs['enable_torch_compile']
+    torch.set_grad_enabled(False)
+    dtype = torch.float16
+    import requests
+    from PIL import ImageOps
+    cinemo_model = "maxin-cn/Cinemo"
+    #cinemo_model = "ali-vilab/i2vgen-xl" if cinemo_prefs['cinemo_model'] == "Cinemo" else cinemo_prefs['custom_model']
+    if 'loaded_cinemo' not in status: status['loaded_cinemo'] = []
+    cinemo_mode = [cinemo_prefs['use_dct'], cinemo_prefs['use_dctinit'], cinemo_prefs['enable_vae_temporal_decoder']]
+    if cinemo_mode != status['loaded_cinemo']:
+        clear_pipes()
+    else:
+        clear_pipes("cinemo")
+    #from diffusers.utils import export_to_gif
+
+    if pipe_cinemo == None:
+        installer.status(f"...initialize Cinemo Pipeline")
+        try:
+            unet = UNet3DConditionModel.from_pretrained(cinemo_model, subfolder="unet").to(torch_device, dtype=dtype)
+            #unet = get_models(args).to(torch_device, dtype=dtype)
+            installer.status(f"...initialize AutoencoderKL")
+            if cinemo_prefs['enable_vae_temporal_decoder']:
+                pipe_cinemo_vae = AutoencoderKLTemporalDecoder.from_pretrained(cinemo_model, subfolder="vae_temporal_decoder", torch_dtype=torch.float64 if cinemo_prefs['use_dct'] else torch.float16).to(torch_device)
+                vae = deepcopy(pipe_cinemo_vae).to(dtype=dtype)
+            else:
+                pipe_cinemo_vae = AutoencoderKL.from_pretrained(cinemo_model, subfolder="vae",).to(torch_device, dtype=torch.float64)
+                vae = deepcopy(pipe_cinemo_vae).to(dtype=dtype)
+            installer.status(f"...initialize tokenizer")
+            tokenizer = CLIPTokenizer.from_pretrained(cinemo_model, subfolder="tokenizer")
+            installer.status(f"...initialize text_encoder")
+            text_encoder = CLIPTextModel.from_pretrained(cinemo_model, subfolder="text_encoder", torch_dtype=dtype).to(torch_device) # huge
+            unet.eval()
+            vae.eval()
+            text_encoder.eval()
+            installer.status(f"...initialize VideoGen Pipeline")
+            scheduler = DDIMScheduler.from_pretrained(cinemo_model, subfolder="scheduler", beta_start=args.beta_start, beta_end=args.beta_end, beta_schedule=args.beta_schedule)
+            pipe_cinemo = VideoGenPipeline(vae=vae, 
+                                                text_encoder=text_encoder, 
+                                                tokenizer=tokenizer, 
+                                                scheduler=scheduler, 
+                                                unet=unet).to(torch_device)
+            #pipe_cinemo = CinemoPipeline.from_pretrained(cinemo_model, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            '''if prefs['vae_slicing']:
+                pipe_cinemo.enable_vae_slicing()
+            if prefs['vae_tiling']:
+                pipe_cinemo.enable_vae_tiling()
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling transformer")
+                pipe_cinemo.transformer = torch.compile(pipe_cinemo.transformer, mode="reduce-overhead", fullgraph=True)
+                pipe_cinemo = pipe_cinemo.to(torch_device)
+            elif cpu_offload:
+                pipe_cinemo.enable_model_cpu_offload()
+            else:
+                pipe_cinemo = pipe_cinemo.to(torch_device)'''
+            #pipe_cinemo.set_progress_bar_config(disable=True)
+            status['loaded_cinemo'] = cinemo_mode
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Cinemo...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            autoscroll(False)
+            return
+        status['loaded_cinemo'] = cinemo_model
+    else:
+        clear_pipes('cinemo')
+    def prepare_image(image, vae, transform_video, device, dtype=torch.float16):
+        image = torch.as_tensor(np.array(image, dtype=np.uint8, copy=True)).unsqueeze(0).permute(0, 3, 1, 2)
+        image = transform_video(image)
+        image = vae.encode(image.to(dtype=dtype, device=device)).latent_dist.sample().mul_(vae.config.scaling_factor)
+        image = image.unsqueeze(2)
+        return image
+    def save_as_gif(video_path, output_path, fps=8, quality=7):
+        reader = imageio.get_reader(video_path)
+        fps = reader.get_meta_data()['fps']  # Use original FPS if available
+        frames = []
+        for frame in reader:
+            frames.append(frame)
+        pil_images = [PILImage.fromarray(np.uint8(frame)) for frame in frames]
+        imageio.mimsave(output_path, pil_images, fps=fps, quality=quality)
+    
+    clear_last()
+    s = "" if len(cinemo_prompts) == 1 else "s"
+    prt(f"Generating your Cinemo Video{s}...")
+    for pr in cinemo_prompts:
+        progress.value = None
+        prt(progress)
+        nudge(page.imageColumn if from_list else page.Cinemo, page)
+        autoscroll(False)
+        transform_video = transforms.Compose([
+            video_transforms.ToTensorVideo(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
+        ])
+        total_steps = pr['num_inference_steps']
+        random_seed = get_seed(pr['seed'])
+        torch.manual_seed(random_seed)
+        init_img = None
+        fname = os.path.basename(pr['init_image'])
+        if pr['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(pr['init_image']):
+                init_img = PILImage.open(pr['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init image {pr['init_image']}")
+                return
+        init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        
+        try:
+            base_content = prepare_image(init_img, pipe_cinemo_vae, transform_video, torch_device, dtype=torch.float64 if cinemo_prefs['use_dct'] else torch.float16).to(torch_device)
+            if cinemo_prefs['use_dctinit']:
+                #print("Using DCT!")
+                base_content_repeat = repeat(base_content, 'b c f h w -> b c (f r) h w', r=15).contiguous()
+                # define filter
+                freq_filter = dct_low_pass_filter(dct_coefficients=base_content, percentage=cinemo_prefs['dct_coefficients'])
+                noise = torch.randn(1, 4, 15, 40, 64).to(torch_device)
+                # add noise to base_content
+                diffuse_timesteps = torch.full((1,),int(cinemo_prefs['noise_level']))
+                diffuse_timesteps = diffuse_timesteps.long()
+                # 3d content
+                base_content_noise = scheduler.add_noise(
+                    original_samples=base_content_repeat.to(torch_device), 
+                    noise=noise, 
+                    timesteps=diffuse_timesteps.to(torch_device))
+                # 3d content
+                latents = exchanged_mixed_dct_freq(noise=noise, base_content=base_content_noise, LPF_3d=freq_filter).to(dtype=torch.float16)
+            base_content = base_content.to(dtype=torch.float16)
+            videos = pipe_cinemo(pr['prompt'], 
+                negative_prompt=pr['negative_prompt'],
+                latents=latents if cinemo_prefs['use_dctinit'] else None,
+                base_content=base_content,
+                video_length=cinemo_prefs['video_length'], 
+                height=pr['height'], 
+                width=pr['width'], 
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                motion_bucket_id=cinemo_prefs['motion_bucket_id'], #intensity 100- 0~20
+                callback=callback_fnc,
+                enable_vae_temporal_decoder=cinemo_prefs['enable_vae_temporal_decoder']).video
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating video...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        if videos is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        batch_output = os.path.join(prefs['image_output'], cinemo_prefs['batch_folder_name'])
+        makedir(batch_output)
+        out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+        try:
+            imageio.mimwrite(out_file, videos[0], fps=cinemo_prefs['fps'], quality=7)
+            if cinemo_prefs['export_to_gif']:
+                gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+                save_as_gif(out_file, gif_file, fps=cinemo_prefs['fps'], quality=7)
+                prt(Row([ImageButton(src=gif_file, width=pr['width'], height=pr['height'], data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Couldn't save videofile...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            pass
+        if not os.path.isfile(out_file):
+            prt(f"Problem creating video file...")
+        else:
+            prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        if cinemo_prefs['save_frames']:
+            for v, frames_batch in enumerate(videos):
+                frames_dir = available_folder(batch_output, "frames", v)
+                makedir(frames_dir)
+                for idx, image in enumerate(frames_batch):
+                    #fname = f"{cinemo_prefs['file_prefix']}{format_filename(cinemo_prefs['batch_folder_name'])}-{b}"
+                    image_path = available_file(frames_dir, "frame", idx, zfill=4)
+                    image.save(image_path)
+                    new_file = os.path.basename(image_path)
+                    prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+                if cinemo_prefs['interpolate_video']:
+                    try:
+                        installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+                        prt(installer)
+                        out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+                        if cinemo_prefs['interpolate_video']:
+                            interpolate_video(frames_dir, input_fps=cinemo_prefs['fps'], output_fps=cinemo_prefs['target_fps'], output_video=out_file, installer=installer)
+                        else:
+                            installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                            pattern = create_pattern(new_file) #fname+"-%04d.png"
+                            frames_to_video(frames_dir, pattern=pattern, input_fps=cinemo_prefs['fps'], output_fps=cinemo_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+                    except Exception as e:
+                        clear_last()
+                        alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                        pass
+                    clear_last()
+                    if not os.path.isfile(out_file):
+                        prt(f"Problem creating video file, but frames still saved...")
+                    else:
+                        prt(Markdown(f"Video saved to [{out_file}]({filepath_to_url(out_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        nudge(page.imageColumn if from_list else page.Cinemo, page)
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
@@ -58001,9 +58419,9 @@ class SliderRow(Stack):
             #e.page.update()
         self.slider_edit = TextField(value=str(self.value), on_blur=blur, autofocus=True, visible=False, text_align=TextAlign.CENTER, width=51, height=45, content_padding=padding.only(top=6), keyboard_type=KeyboardType.NUMBER, on_change=changed)
         self.slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), round=self.round, label="{value}" + self.suffix, value=float(self.value), tooltip=self.tooltip, expand=True, on_change=change_slider)
-        self.slider_value = Text(f" {self.value}{self.suffix}", weight=FontWeight.BOLD)
+        self.slider_value = Text(f"{self.value}{self.suffix}", weight=FontWeight.BOLD)
         slider_text = GestureDetector(self.slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
-        slider_label = Text(f"{self.label}:")
+        slider_label = Text(f"{self.label}: ")
         left = Text("", visible=False)
         right = Text("", visible=False)
         if bool(self.left_text): left.value = self.left_text
@@ -58193,12 +58611,14 @@ def show_upscalers(page, show=True):
     for u in page.upscalers:
         u.show(show)
 
-def pip_install(packages, installer=None, print=False, prt=None, cwd=None, upgrade=False, q=False):
+def pip_install(packages, installer=None, print=False, prt=None, cwd=None, upgrade=False, q=False, reinstall=False):
     arg = ""
     if upgrade: arg += "--upgrade "
     if q: arg += "-q "
     for package in packages.split():
         try:
+            if reinstall:
+                raise ImportError
             pkg = package
             if '|' in pkg: pkg = pkg.rpartition('|')[2]
             if '-' in pkg: pkg = pkg.replace('-', '_')
@@ -59240,6 +59660,13 @@ elif tunnel_type == "localtunnel":
     localtunnel = subprocess.Popen(['lt', '--port', str(port), 'http'], stdout=subprocess.PIPE)
     url = str(localtunnel.stdout.readline())
     public_url = (re.search(r"(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
+elif '.' in tunnel_type:
+    if ':' in tunnel_type:
+        port = tunnel_type.rpartition[':'][2]
+        address = tunnel_type.rpartition[':'][0]
+    else:
+        address = tunnel_type
+    public_url = f"https://{address}:{port}"
 else: public_url=""
 from IPython.display import Javascript
 if bool(public_url):
