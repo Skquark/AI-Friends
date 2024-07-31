@@ -17163,14 +17163,15 @@ cinemo_prefs = {
     'num_inference_steps': 50,
     "seed": 0,
     'init_image': '',
-    'video_length': 15,
+    'crop_image': False,
+    'video_length': 30,
     'motion_bucket_id': 95,  # 180
     'enable_vae_temporal_decoder': True,
     'use_dct': True,
     'use_dctinit': True,
     'dct_coefficients': 0.23,
     'noise_level': 985,
-    'fps': 16,
+    'fps': 8,
     'target_fps': 24,
     'export_to_gif': True,
     'export_to_video': True,
@@ -17209,7 +17210,7 @@ def buildCinemo(page):
       page.update()
     prompt = TextField(label="Prompt Text", value=cinemo_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=cinemo_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
-    init_image = FileInput(label="Init Image", pref=cinemo_prefs, key='init_image', ftype="image", page=page, col={'md':6})
+    init_image = FileInput(label="Init Image (512x320 fixed)", pref=cinemo_prefs, key='init_image', ftype="image", page=page, expand=True)
     video_length = SliderRow(label="Video Length", min=1, max=64, divisions=63, pref=cinemo_prefs, key='video_length', tooltip="The number of frames to animate.")
     batch_folder_name = TextField(label="Batch Folder Name", value=cinemo_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=cinemo_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
@@ -17217,14 +17218,15 @@ def buildCinemo(page):
     steps = SliderRow(label="Number of Steps", min=0, max=80, divisions=80, pref=cinemo_prefs, key='num_inference_steps')
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=cinemo_prefs, key='guidance_scale')
     motion_bucket_id = SliderRow(label="Motion Bucket ID", min=1, max=180, divisions=179, pref=cinemo_prefs, key='motion_bucket_id', tooltip="Increasing the motion bucket id will increase the Motion Intensity of the generated video. (keep between 80 - 100)")
-    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=cinemo_prefs, key='width')
-    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=cinemo_prefs, key='height')
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=cinemo_prefs, key='width', disable=True, col={'lg':6})
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=cinemo_prefs, key='height', disable=True, col={'lg':6})
     enable_vae_temporal_decoder = Switcher(label="Enable VAE Temporal Decoder", value=cinemo_prefs['enable_vae_temporal_decoder'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'enable_vae_temporal_decoder'), tooltip="")
     use_dct = Switcher(label="Enable DCT", value=cinemo_prefs['use_dct'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_dct'), tooltip="Can stabilize the video generation process and effectively mitigate sudden motion change; the DCT frequency domain decomposition method can effectively mitigate the color inconsistency issues caused by the FFT frequency domain decomposition method.")
     use_dctinit = Switcher(label="Enable DCTInit", value=cinemo_prefs['use_dctinit'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_dctinit'), tooltip="Can stabilize the video generation process and effectively mitigate sudden motion change; the DCT frequency domain decomposition method can effectively mitigate the color inconsistency issues caused by the FFT frequency domain decomposition method.")
     dct_coefficients = SliderRow(label="DCT Coefficients", min=0, max=1, divisions=100, round=2, pref=cinemo_prefs, key='dct_coefficients', tooltip="Discrete Cosine Transform Low-frequency coefficients of the input static image as layout guidance to refine the initial inference noise.", col={'lg':6})
     noise_level = SliderRow(label="Noise Level", min=0, max=999, divisions=999, pref=cinemo_prefs, key='noise_level', col={'lg':6})
     cpu_offload = Switcher(label="CPU Offload", value=cinemo_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    crop_image = Switcher(label="Crop", value=cinemo_prefs['crop_image'], tooltip="Resize and Crop Init Image to 512x320, otherwise resizes and stretches.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'crop_image'))
     export_to_gif = Tooltip(message="Save animated gif file along with Video", content=Switcher(label="Export to GIF", value=diffsynth_prefs['export_to_gif'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'export_to_gif')))
     save_frames = Switcher(label="Save Frames", value=cinemo_prefs['save_frames'], tooltip="Save the dumped frames to images_out batch folder. Otherwise only saves final video, keeping pngs in temp folder.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_frames'))
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=cinemo_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
@@ -17240,11 +17242,12 @@ def buildCinemo(page):
     parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🍿  Cinemo Image-to-Video (under construction)", "Consistent and Controllable Image Animation with Motion Diffusion Models...", actions=[save_default(cinemo_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Cinemo Settings", on_click=cinemo_help)]),
-            init_image,
+            Header("🍿  Cinemo Image-to-Video", "Consistent and Controllable Image Animation with Motion Diffusion Models...", actions=[save_default(cinemo_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Cinemo Settings", on_click=cinemo_help)]),
+            Row([init_image, crop_image]),
             ResponsiveRow([prompt, negative_prompt]),
             steps,
-            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            guidance, 
+            ResponsiveRow([width_slider, height_slider]), #Divider(height=9, thickness=2),
             motion_bucket_id,
             video_length,
             ResponsiveRow([fps, target_fps]),
@@ -21350,17 +21353,17 @@ def buildMusicLDM(page):
 
 stable_audio_prefs = {
     'text': '',
-    'negative_prompt':'',
+    'negative_prompt': '',
+    'audio_file': '',
     'model_name': 'stabilityai/stable-audio-open-1.0',
     'custom_model': '',
     'sampler': 'dpmpp-3m-sde',
     'duration': 30.0,
-    'steps': 100,
+    'steps': 200,
     'guidance_scale': 7.0,
-    'sigma_min': 0.3,
-    'sigma_max': 500,
     'seed': 0,
     'batch_size': 1,
+    'num_audio': 1,
     'batch_folder_name': '',
     'file_prefix': 'stableaudio-',
     'save_mp3': False,
@@ -21381,13 +21384,111 @@ def buildStableAudio(page):
           stable_audio_help_dlg.open = False
           page.update()
         stable_audio_help_dlg = AlertDialog(title=Text("💁   Help with Stable Audio"), content=Column([
+            Text("Stable Audio was proposed in Stable Audio Open by Zach Evans et al.. It takes a text prompt as input and predicts the corresponding sound or music sample. Stable Audio Open generates variable-length (up to 47s) stereo audio at 44.1kHz from text prompts. It comprises three components: an autoencoder that compresses waveforms into a manageable sequence length, a T5-based text embedding for text conditioning, and a transformer-based diffusion (DiT) model that operates in the latent space of the autoencoder. Stable Audio is trained on a corpus of around 48k audio recordings, where around 47k are from Freesound and the rest are from the Free Music Archive (FMA). All audio files are licensed under CC0, CC BY, or CC Sampling+. This data is used to train the autoencoder and the DiT."),
+            Text("Open generative models are vitally important for the community, allowing for fine-tunes and serving as baselines when presenting new models. However, most current text-to-audio models are private and not accessible for artists and researchers to build upon. Here we describe the architecture and training process of a new open-weights text-to-audio model trained with Creative Commons data. Our evaluation shows that the model's performance is competitive with the state-of-the-art across various metrics. Notably, the reported FDopenl3 results (measuring the realism of the generations) showcase its potential for high-quality stereo sound synthesis at 44.1kHz."),
+            Text('When constructing a prompt, keep in mind: Descriptive prompt inputs work best; use adjectives to describe the sound (for example, "high quality" or "clear") and make the prompt context specific where possible (e.g. "melodic techno with a fast beat and synths" works better than "techno").  Using a *negative prompt* can significantly improve the quality of the generated audio. Try using a negative prompt of "low quality, average quality".'),
+            Markdown("[Project Page](https://stableaudio.com) | [Paper](https://arxiv.org/abs/2407.14358) | [Research](https://stability.ai/research/stable-audio-efficient-timing-latent-diffusion) | [Model Card](https://huggingface.co/stabilityai/stable-audio-open-1.0) | [GitHub Code](https://github.com/Stability-AI/stable-audio-tools) | [Blog](https://stability.ai/news/stable-audio-2-0)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🎛  How Stable is it? ", on_click=close_stable_audio_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.overlay.append(stable_audio_help_dlg)
+        stable_audio_help_dlg.open = True
+        page.update()
+    def switch_version(e):
+        page.StableAudio = buildStableAudioOpen(page)
+        for t in page.AudioAIs.tabs:
+          if t.text == "Stable Audio":
+            t.content = page.StableAudio
+            break
+        page.AudioAIs.update()
+        page.update()
+    def change_model(e):
+        changed(e, 'model_name')
+        custom_model.visible = e.control.value == "Custom"
+        custom_model.update()
+        accept_model.visible = e.control.value != "Custom"
+        accept_model.update()
+    model_name = Dropdown(label="Stable Audio Model", width=320, options=[dropdown.Option("stabilityai/stable-audio-open-1.0"), dropdown.Option("Custom")], value=stable_audio_prefs['model_name'], on_change=change_model)
+    custom_model = TextField(label="Custom StableAudio Model (URL or HF Path)", value=stable_audio_prefs['custom_model'], expand=True, visible=stable_audio_prefs['model_name']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    accept_model = Markdown(" [ ACCEPT HF Model Agreement First](https://huggingface.co/stabilityai/stable-audio-open-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data), visible=stable_audio_prefs['model_name']!="Custom")
+    #sampler = Dropdown(label="Sampler Type", width=230, options=[dropdown.Option(s) for s in ["dpmpp-2m-sde", "dpmpp-3m-sde", "k-heun", "k-lms", "k-dpmpp-2s-ancestral", "k-dpm-2", "k-dpm-fast"]], value=stable_audio_prefs['sampler'], on_change=lambda e:changed(e,'sampler'))
+    duration_row = SliderRow(label="Duration", min=1, max=47, divisions=46, round=0, suffix="s", pref=stable_audio_prefs, key='duration')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=15, divisions=30, round=1, pref=stable_audio_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
+    steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=stable_audio_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality audio at the expense of slower inference.")
+    text = TextField(label="Audio Prompt to Generate", value=stable_audio_prefs['text'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt", value=stable_audio_prefs['negative_prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
+    audio_file = FileInput(label="Initial Audio File (optional)", pref=stable_audio_prefs, key='audio_file', ftype="audio", page=page)
+    save_mp3 = Checkbox(label="Save as mp3", tooltip="Otherwise saves larger wav file.", value=stable_audio_prefs['save_mp3'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_mp3'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=stable_audio_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=stable_audio_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    batch_size = NumberPicker(label="Batch Size: ", min=1, max=8, value=stable_audio_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    num_audio = NumberPicker(label=" Number of Iterations: ", min=1, max=12, value=stable_audio_prefs['num_audio'], on_change=lambda e: changed(e, 'num_audio'))
+    seed = TextField(label="Seed", value=stable_audio_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    page.stable_audio_output = Column([])
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🫢   Stable Audio Diffusers (under construction)", "Generate Variable-Length Stereo Audio at 44.1kHz from Text Prompts using StabilityAI Open Model...", actions=[ft.OutlinedButton(content=Text("Switch to Stable Audio Open", size=18), on_click=switch_version), save_default(stable_audio_prefs), IconButton(icon=icons.HELP, tooltip="Help with StableAudio Settings", on_click=stable_audio_help)]),
+        ResponsiveRow([text, negative_prompt]),
+        audio_file,
+        duration_row,
+        guidance,
+        steps_row,
+        Row([model_name, accept_model, custom_model]),
+        Row([batch_size, num_audio, seed]),
+        Row([batch_folder_name, file_prefix, save_mp3]),
+        ElevatedButton(content=Text("🎺  Run Stable Audio", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_audio(page)),
+        page.stable_audio_output,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+stable_audio_open_prefs = {
+    'text': '',
+    'negative_prompt':'',
+    'model_name': 'stabilityai/stable-audio-open-1.0',
+    'custom_model': '',
+    'sampler': 'dpmpp-3m-sde',
+    'duration': 30.0,
+    'steps': 100,
+    'guidance_scale': 7.0,
+    'sigma_min': 0.3,
+    'sigma_max': 500,
+    'seed': 0,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'file_prefix': 'stableaudio-',
+    'save_mp3': False,
+}
+
+def buildStableAudioOpen(page):
+    global prefs, stable_audio_open_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            stable_audio_open_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def stable_audio_open_help(e):
+        def close_stable_audio_open_dlg(e):
+          nonlocal stable_audio_open_help_dlg
+          stable_audio_open_help_dlg.open = False
+          page.update()
+        stable_audio_open_help_dlg = AlertDialog(title=Text("💁   Help with Stable Audio"), content=Column([
             Text("Stable Audio Open 1.0 generates variable-length (up to 47s) stereo audio at 44.1kHz from text prompts. It comprises three components: an autoencoder that compresses waveforms into a manageable sequence length, a T5-based text embedding for text conditioning, and a transformer-based diffusion (DiT) model that operates in the latent space of the autoencoder.  This model is made to be used with the stable-audio-tools library for inference."),
             Text("Our dataset consists of 486492 audio recordings, where 472618 are from Freesound and 13874 are from the Free Music Archive (FMA). All audio files are licensed under CC0, CC BY, or CC Sampling+. This data is used to train our autoencoder and DiT. We use a publicly available pre-trained T5 model (t5-base) for text conditioning. The primary use of Stable Audio Open is research and experimentation on AI-based music and audio generation."),
             Text("Limitations: The model is not able to generate realistic vocals. The model has been trained with English descriptions and will not perform as well in other languages. The model does not perform equally well for all music styles and cultures. The model is better at generating sound effects and field recordings than music. It is sometimes difficult to assess what types of text descriptions provide the best generations. Prompt engineering may be required to obtain satisfying results."),
             Markdown("[Project Page](https://stableaudio.com) | [Paper](https://stability.ai/research/stable-audio-efficient-timing-latent-diffusion) | [Model Card](https://huggingface.co/stabilityai/stable-audio-open-1.0) | [GitHub Code](https://github.com/Stability-AI/stable-audio-tools) | [Blog](https://stability.ai/news/stable-audio-2-0)", on_tap_link=lambda e: e.page.launch_url(e.data)),
-          ], scroll=ScrollMode.AUTO), actions=[TextButton("🎛  How Stable is it? ", on_click=close_stable_audio_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.overlay.append(stable_audio_help_dlg)
-        stable_audio_help_dlg.open = True
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🎛  How Stable is it? ", on_click=close_stable_audio_open_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.overlay.append(stable_audio_open_help_dlg)
+        stable_audio_open_help_dlg.open = True
+        page.update()
+    def switch_version(e):
+        page.StableAudio = buildStableAudio(page)
+        for t in page.AudioAIs.tabs:
+          if t.text == "Stable Audio":
+            t.content = page.StableAudio
+            break
+        page.AudioAIs.update()
         page.update()
     def change_model(e):
         changed(e, 'model_name')
@@ -21395,27 +21496,27 @@ def buildStableAudio(page):
         accept_model.visible = e.control.value != "Custom"
         custom_model.update()
         accept_model.update()
-    model_name = Dropdown(label="Stable Audio Model", width=320, options=[dropdown.Option("stabilityai/stable-audio-open-1.0"), dropdown.Option("Custom")], value=stable_audio_prefs['model_name'], on_change=change_model)
-    custom_model = TextField(label="Custom StableAudio Model (URL or HF Path)", value=stable_audio_prefs['custom_model'], expand=True, visible=stable_audio_prefs['model_name']=="Custom", on_change=lambda e:changed(e,'custom_model'))
-    accept_model = Markdown(" [ ACCEPT HF Model Agreement First](https://huggingface.co/stabilityai/stable-audio-open-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data), visible=stable_audio_prefs['model_name']!="Custom")
-    sampler = Dropdown(label="Sampler Type", width=230, options=[dropdown.Option(s) for s in ["dpmpp-2m-sde", "dpmpp-3m-sde", "k-heun", "k-lms", "k-dpmpp-2s-ancestral", "k-dpm-2", "k-dpm-fast"]], value=stable_audio_prefs['sampler'], on_change=lambda e:changed(e,'sampler'))
-    duration_row = SliderRow(label="Duration", min=1, max=47, divisions=46, round=0, suffix="s", pref=stable_audio_prefs, key='duration')
-    guidance = SliderRow(label="Guidance Scale", min=0, max=15, divisions=30, round=1, pref=stable_audio_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
-    steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=stable_audio_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality audio at the expense of slower inference.")
-    sigma_min = SliderRow(label="Sigma Min", min=0, max=5, divisions=100, round=2, pref=stable_audio_prefs, key='sigma_min', col={'md':6}, tooltip="")
-    sigma_max = SliderRow(label="Sigma Max", min=0, max=1000, divisions=2000, round=1, pref=stable_audio_prefs, key='sigma_max', col={'md':6}, tooltip="")
-    text = TextField(label="Audio Prompt to Generate", value=stable_audio_prefs['text'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
-    negative_prompt = TextField(label="Negative Prompt", value=stable_audio_prefs['negative_prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
-    save_mp3 = Checkbox(label="Save as mp3", tooltip="Otherwise saves larger wav file.", value=stable_audio_prefs['save_mp3'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_mp3'))
-    batch_folder_name = TextField(label="Batch Folder Name", value=stable_audio_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    file_prefix = TextField(label="Filename Prefix", value=stable_audio_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
-    batch_size = NumberPicker(label=" Number of Iterations:  ", min=1, max=10, value=stable_audio_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
-    seed = TextField(label="Seed", value=stable_audio_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
-    page.stable_audio_output = Column([])
+    model_name = Dropdown(label="Stable Audio Model", width=320, options=[dropdown.Option("stabilityai/stable-audio-open-1.0"), dropdown.Option("Custom")], value=stable_audio_open_prefs['model_name'], on_change=change_model)
+    custom_model = TextField(label="Custom StableAudioOpen Model (URL or HF Path)", value=stable_audio_open_prefs['custom_model'], expand=True, visible=stable_audio_open_prefs['model_name']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    accept_model = Markdown(" [ ACCEPT HF Model Agreement First](https://huggingface.co/stabilityai/stable-audio-open-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data), visible=stable_audio_open_prefs['model_name']!="Custom")
+    sampler = Dropdown(label="Sampler Type", width=230, options=[dropdown.Option(s) for s in ["dpmpp-2m-sde", "dpmpp-3m-sde", "k-heun", "k-lms", "k-dpmpp-2s-ancestral", "k-dpm-2", "k-dpm-fast"]], value=stable_audio_open_prefs['sampler'], on_change=lambda e:changed(e,'sampler'))
+    duration_row = SliderRow(label="Duration", min=1, max=47, divisions=46, round=0, suffix="s", pref=stable_audio_open_prefs, key='duration')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=15, divisions=30, round=1, pref=stable_audio_open_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
+    steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=stable_audio_open_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality audio at the expense of slower inference.")
+    sigma_min = SliderRow(label="Sigma Min", min=0, max=5, divisions=100, round=2, pref=stable_audio_open_prefs, key='sigma_min', col={'md':6}, tooltip="")
+    sigma_max = SliderRow(label="Sigma Max", min=0, max=1000, divisions=2000, round=1, pref=stable_audio_open_prefs, key='sigma_max', col={'md':6}, tooltip="")
+    text = TextField(label="Audio Prompt to Generate", value=stable_audio_open_prefs['text'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt", value=stable_audio_open_prefs['negative_prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
+    save_mp3 = Checkbox(label="Save as mp3", tooltip="Otherwise saves larger wav file.", value=stable_audio_open_prefs['save_mp3'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_mp3'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=stable_audio_open_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=stable_audio_open_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    batch_size = NumberPicker(label=" Number of Iterations:  ", min=1, max=10, value=stable_audio_open_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    seed = TextField(label="Seed", value=stable_audio_open_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    page.stable_audio_open_output = Column([])
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🫢   Stable Audio Open v1.0 (Under construction)", "Generate Variable-Length Stereo Audio at 44.1kHz from Text Prompts using StabilityAI Open Model...", actions=[save_default(stable_audio_prefs), IconButton(icon=icons.HELP, tooltip="Help with StableAudio Settings", on_click=stable_audio_help)]),
+        Header("🫢   Stable Audio Open v1.0 (under construction, was getting version conflicts)", "Generate Variable-Length Stereo Audio at 44.1kHz from Text Prompts using StabilityAI Open Model...", actions=[ft.OutlinedButton(content=Text("Switch to Diffusers Stable Audio", size=18), on_click=switch_version), save_default(stable_audio_open_prefs), IconButton(icon=icons.HELP, tooltip="Help with StableAudioOpen Settings", on_click=stable_audio_open_help)]),
         ResponsiveRow([text, negative_prompt]),
         duration_row,
         guidance,
@@ -21424,8 +21525,8 @@ def buildStableAudio(page):
         Row([model_name, accept_model, custom_model]),
         Row([sampler, batch_size, seed]),
         Row([batch_folder_name, file_prefix, save_mp3]),
-        ElevatedButton(content=Text("🎺  Run Stable Audio", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_audio(page)),
-        page.stable_audio_output,
+        ElevatedButton(content=Text("🎺  Run Stable Audio Open", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_audio_open(page)),
+        page.stable_audio_open_output,
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -22307,6 +22408,7 @@ pipe_audio_ldm = None
 pipe_audio_ldm2 = None
 pipe_music_ldm = None
 pipe_stable_audio = None
+pipe_stable_audio_open = None
 config_stable_audio = None
 pipe_riffusion = None
 pipe_audio_diffusion = None
@@ -25588,11 +25690,17 @@ def clear_music_ldm_pipe():
     flush()
     pipe_music_ldm = None
 def clear_stable_audio_pipe():
-  global pipe_stable_audio, config_stable_audio
+  global pipe_stable_audio
   if pipe_stable_audio is not None:
-    del pipe_stable_audio, config_stable_audio
+    del pipe_stable_audio
     flush()
     pipe_stable_audio = None
+def clear_stable_audio_open_pipe():
+  global pipe_stable_audio_open, config_stable_audio
+  if pipe_stable_audio_open is not None:
+    del pipe_stable_audio_open, config_stable_audio
+    flush()
+    pipe_stable_audio_open = None
     config_stable_audio = None
 def clear_gpt2_pipe():
   global pipe_gpt2
@@ -25790,6 +25898,7 @@ def clear_pipes(allbut=None):
     if not 'audio_ldm2' in but: clear_audio_ldm2_pipe()
     if not 'music_ldm' in but: clear_music_ldm_pipe()
     if not 'stable_audio' in but: clear_stable_audio_pipe()
+    if not 'stable_audio_open' in but: clear_stable_audio_open_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
     if not 'superprompt' in but: clear_superprompt_pipe()
@@ -36661,7 +36770,7 @@ def run_music_ldm(page):
     play_snd(Snd.ALERT, page)
 
 def run_stable_audio(page):
-    global stable_audio_prefs, pipe_stable_audio, config_stable_audio, status
+    global stable_audio_prefs, pipe_stable_audio, status
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -36673,6 +36782,140 @@ def run_stable_audio(page):
       alert_msg(page, "Provide Text for the AI to create the sound of...")
       return
     progress = ProgressBar(bar_height=8)
+    total_steps = stable_audio_prefs['steps']
+    def callback_fnc(step: int, timestep: int, latents) -> None:
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    installer = Installing("Loading Stable Audio Pipeline...")
+    prt(installer)
+    pip_install("einops scipy soundfile", installer=installer)
+    import torchaudio
+    from diffusers import StableAudioPipeline
+    import soundfile as sf
+    if stable_audio_prefs['save_mp3']:
+        pip_install("pydub", q=True, installer=installer)
+        import pydub
+    model_id = stable_audio_prefs['model_name'] if stable_audio_prefs['model_name'] != "Custom" else stable_audio_prefs['custom_model']
+    clear_pipes('stable_audio')
+    if pipe_stable_audio == None:
+      try:
+        installer.status("...loading model")
+        pipe_stable_audio = StableAudioPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
+        pipe_stable_audio.to(torch_device)
+        pipe_stable_audio.set_progress_bar_config(disable=True)
+      except Exception as e:
+        clear_last()
+        alert_msg(page, "Error downloading Stable Audio model", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    sample_rate = pipe_stable_audio.vae.sampling_rate
+    initial_audio = {}
+    if bool(stable_audio_prefs['audio_file']):
+        init = stable_audio_prefs['audio_file']
+        if bool(init):
+            if init.startswith('http'):
+                init_audio = download_file(init)
+            else:
+                if os.path.isfile(init):
+                    init_audio = init
+                else:
+                    init_audio = None
+        else:
+            init_audio = None
+        if init_audio != None:
+            pip_install("librosa", installer=installer)
+            import librosa
+            audio, sr = librosa.load(init_audio, sr=sample_rate)
+            audio_waveforms = torch.from_numpy(audio).float().unsqueeze(0)
+            initial_audio = {'initial_audio_waveforms': audio_waveforms, 'initial_audio_sampling_rate': sample_rate}
+            #initial_audio_waveforms = torch.ones((1, 5)) torch.ones((batch_size, 2, 5))
+    clear_last()
+    random_seed = get_seed(stable_audio_prefs['seed'])
+    for n in range(stable_audio_prefs['num_audio']):
+        prt(Text("  Generating Stable Audio...", weight=FontWeight.BOLD))
+        progress.value = None
+        prt(progress)
+        generator = torch.Generator("cuda").manual_seed(random_seed + n)
+        try:
+            audios = pipe_stable_audio(
+                stable_audio_prefs['text'],
+                negative_prompt=stable_audio_prefs['negative_prompt'],
+                num_inference_steps=stable_audio_prefs['steps'],
+                audio_end_in_s=stable_audio_prefs['duration'],
+                num_waveforms_per_prompt=stable_audio_prefs['batch_size'],
+                guidance_scale=stable_audio_prefs['guidance_scale'],
+                callback=callback_fnc,
+                generator=generator,
+                **initial_audio,
+                #initial_audio_waveforms: Optional[torch.Tensor] = None,
+                #initial_audio_sampling_rate: Optional[torch.Tensor] = None,
+            ).audios
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error generating StableAudio waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+        
+        audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+        if bool(stable_audio_prefs['batch_folder_name']):
+          audio_out = os.path.join(audio_out, stable_audio_prefs['batch_folder_name'])
+        makedir(audio_out)
+        fname = format_filename(stable_audio_prefs['text'])
+        if fname[-1] == '.': fname = fname[:-1]
+        file_prefix = stable_audio_prefs['file_prefix']
+        audio_name = f'{file_prefix}-{fname}'
+        audio_name = audio_name[:int(prefs['file_max_length'])]
+        clear_last(2)
+        for audio in audios:
+            wav_out = available_file(audio_out, audio_name, n, ext="wav")
+            output = audio.T.float().cpu().numpy()
+            audio_metadata = {
+                "sample_rate": sample_rate,
+                #"sample_size": sample_size,
+                "artist": prefs['meta_ArtistName'],
+                "copyright": prefs['meta_Copyright'],
+                "software": "Stable Diffusion Deluxe",
+            }
+            if prefs['save_config_in_metadata']:
+                config_json = stable_audio_prefs.copy()
+                del config_json['batch_size']
+                del config_json['file_prefix']
+                config_json['seed'] = random_seed + n
+                audio_metadata["config"] = config_json
+            fname = available_file(audio_out, audio_name, n, ext="wav")
+            #torchaudio.save(fname, output, sample_rate)
+            sf.write(wav_out, output, sample_rate)
+            if stable_audio_prefs['save_mp3']:
+                wav_file = pydub.AudioSegment.from_wav(wav_out)
+                #tags = pydub.utils.mediainfo(wav_file).get('TAG', {})
+                mp3_name = available_file(audio_out, audio_name, n, ext="mp3")
+                mp3_file = wav_file.export(mp3_name, format="mp3", tags=audio_metadata)
+                os.remove(wav_out)
+                wav_out = mp3_name
+                display_name = wav_out
+            else:
+                import json
+                audio_data, _ = sf.read(wav_out)
+                metadata_comment = json.dumps(audio_metadata)
+                sf.write(wav_out, audio_data, sample_rate, format='WAV', subtype='PCM_16', **metadata_comment)
+                display_name = audio_out
+            prt(AudioPlayer(src=wav_out, display=display_name, data=display_name, page=page))
+    play_snd(Snd.ALERT, page)
+
+def run_stable_audio_open(page):
+    global stable_audio_open_prefs, pipe_stable_audio_open, config_stable_audio_open, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.stable_audio_open_output.controls.append(line)
+      page.stable_audio_open_output.update()
+    def clear_last(lines=1):
+      clear_line(page.stable_audio_open_output, lines=lines)
+    if not bool(stable_audio_open_prefs['text']):
+      alert_msg(page, "Provide Text for the AI to create the sound of...")
+      return
+    progress = ProgressBar(bar_height=8)
     installer = Installing("Loading Stable Audio Tools...")
     prt(installer)
     pip_install("stable-audio-tools einops scipy", installer=installer)
@@ -36680,19 +36923,19 @@ def run_stable_audio(page):
     from einops import rearrange
     from stable_audio_tools import get_pretrained_model
     from stable_audio_tools.inference.generation import generate_diffusion_cond
-    if stable_audio_prefs['save_mp3']:
+    if stable_audio_open_prefs['save_mp3']:
         pip_install("pydub", q=True, installer=installer)
         import pydub
     else:
         pip_install("soundfile", q=True, installer=installer)
         import soundfile as sf
-    model_id = stable_audio_prefs['model_name'] if stable_audio_prefs['model_name'] != "Custom" else stable_audio_prefs['custom_model']
-    clear_pipes('stable_audio')
-    if pipe_stable_audio == None:
+    model_id = stable_audio_open_prefs['model_name'] if stable_audio_open_prefs['model_name'] != "Custom" else stable_audio_open_prefs['custom_model']
+    clear_pipes('stable_audio_open')
+    if pipe_stable_audio_open == None:
       try:
         installer.status("...loading model")
-        pipe_stable_audio, config_stable_audio = get_pretrained_model(model_id)
-        pipe_stable_audio = pipe_stable_audio.to(torch_device)
+        pipe_stable_audio_open, config_stable_audio_open = get_pretrained_model(model_id)
+        pipe_stable_audio_open = pipe_stable_audio_open.to(torch_device)
       except Exception as e:
         clear_last()
         alert_msg(page, "Error downloading Stable Audio model", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
@@ -36701,58 +36944,58 @@ def run_stable_audio(page):
     def progress_callback(callback_info):
         nonlocal progress
         current_step = callback_info["i"]
-        progress.value = current_step / stable_audio_prefs['steps']
+        progress.value = current_step / stable_audio_open_prefs['steps']
         progress.update()
-    random_seed = get_seed(stable_audio_prefs['seed'])
-    for n in range(stable_audio_prefs['batch_size']):
+    random_seed = get_seed(stable_audio_open_prefs['seed'])
+    for n in range(stable_audio_open_prefs['batch_size']):
         prt(Text("  Generating Stable Audio...", weight=FontWeight.BOLD))
         prt(progress)
-        sample_rate = config_stable_audio["sample_rate"]
-        sample_size = config_stable_audio["sample_size"]
+        sample_rate = config_stable_audio_open["sample_rate"]
+        sample_size = config_stable_audio_open["sample_size"]
         conditioning = [{
-            "prompt": stable_audio_prefs['text'],
+            "prompt": stable_audio_open_prefs['text'],
             "seconds_start": 0,
-            "seconds_total": stable_audio_prefs['duration']
+            "seconds_total": stable_audio_open_prefs['duration']
         }]
-        if bool(stable_audio_prefs['negative_prompt']):
-            negative_conditioning = [{"prompt": stable_audio_prefs['negative_prompt'], "seconds_start": 0, "seconds_total": stable_audio_prefs['duration']}]
+        if bool(stable_audio_open_prefs['negative_prompt']):
+            negative_conditioning = [{"prompt": stable_audio_open_prefs['negative_prompt'], "seconds_start": 0, "seconds_total": stable_audio_open_prefs['duration']}]
         else:
             negative_conditioning = None
         try:
             output = generate_diffusion_cond(
                 model_id,
-                steps=stable_audio_prefs['steps'],
-                #batch_size=stable_audio_prefs['batch_size'],
+                steps=stable_audio_open_prefs['steps'],
+                #batch_size=stable_audio_open_prefs['batch_size'],
                 seed=random_seed + n,
-                cfg_scale=stable_audio_prefs['guidance_scale'],
+                cfg_scale=stable_audio_open_prefs['guidance_scale'],
                 conditioning=conditioning,
                 negative_conditioning=negative_conditioning,
                 sample_size=sample_size,
-                sigma_min=stable_audio_prefs['sigma_min'],
-                sigma_max=stable_audio_prefs['sigma_max'],
-                sampler_type=stable_audio_prefs['sampler'],#"dpmpp-3m-sde",
+                sigma_min=stable_audio_open_prefs['sigma_min'],
+                sigma_max=stable_audio_open_prefs['sigma_max'],
+                sampler_type=stable_audio_open_prefs['sampler'],#"dpmpp-3m-sde",
                 callback=progress_callback,
                 device=torch_device,
             )
             progress.value = None
         except Exception as e:
             clear_last()
-            alert_msg(page, "Error generating StableAudio waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            alert_msg(page, "Error generating StableAudioOpen waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
             return
         audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
-        if bool(stable_audio_prefs['batch_folder_name']):
-          audio_out = os.path.join(audio_out, stable_audio_prefs['batch_folder_name'])
+        if bool(stable_audio_open_prefs['batch_folder_name']):
+          audio_out = os.path.join(audio_out, stable_audio_open_prefs['batch_folder_name'])
         makedir(audio_out)
         clear_last(2)
         # TODO: Figure out batch file seperation
         output = rearrange(output, "b d n -> d (b n)")
         output = output.to(torch.float32).div(torch.max(torch.abs(output))).clamp(-1, 1).mul(32767).to(torch.int16).cpu()
-        max_length = sample_rate * stable_audio_prefs['duration']
+        max_length = sample_rate * stable_audio_open_prefs['duration']
         if output.shape[1] > max_length:
             output = output[:, :max_length]
-        fname = format_filename(stable_audio_prefs['text'])
+        fname = format_filename(stable_audio_open_prefs['text'])
         if fname[-1] == '.': fname = fname[:-1]
-        file_prefix = stable_audio_prefs['file_prefix']
+        file_prefix = stable_audio_open_prefs['file_prefix']
         audio_name = f'{file_prefix}-{fname}'
         audio_name = audio_name[:int(prefs['file_max_length'])]
         audio_metadata = {
@@ -36763,14 +37006,14 @@ def run_stable_audio(page):
             "software": "Stable Diffusion Deluxe",
         }
         if prefs['save_config_in_metadata']:
-            config_json = stable_audio_prefs.copy()
+            config_json = stable_audio_open_prefs.copy()
             del config_json['batch_size']
             del config_json['file_prefix']
             config_json['seed'] = random_seed + n
             audio_metadata["config"] = config_json
         fname = available_file(audio_out, audio_name, n, ext="wav")
         torchaudio.save(fname, output, sample_rate)
-        if stable_audio_prefs['save_mp3']:
+        if stable_audio_open_prefs['save_mp3']:
             wav_file = pydub.AudioSegment.from_wav(fname)
             #tags = pydub.utils.mediainfo(wav_file).get('TAG', {})
             mp3_name = available_file(audio_out, audio_name, n, ext="mp3")
@@ -53258,7 +53501,7 @@ def run_cinemo(page, from_list=False, with_params=False):
         page.Cinemo.controls = page.Cinemo.controls[:1]
     progress = ProgressBar(bar_height=8)
     total_steps = cinemo_prefs['num_inference_steps']
-    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+    def callback_fnc(step: int, timestep: int, latents) -> None:
       nonlocal progress, total_steps
       percent = (step +1)/ total_steps
       progress.value = percent
@@ -53278,7 +53521,7 @@ def run_cinemo(page, from_list=False, with_params=False):
             installer.status("...cloning maxin-cn/Cinemo")
             run_sp("git clone https://github.com/maxin-cn/Cinemo", cwd=root_dir, realtime=False)
             installer.status("...installing Cinemo requirements")
-            pip_install("timm tensorboard einops transformers av scikit-image|skimage decord pandas imageio-ffmpeg sentencepiece beautifulsoup4|bs4 ftfy omegaconf spaces torch_dct imageio-ffmpeg", installer=installer, upgrade=True)
+            pip_install("torch_dct timm tensorboard einops transformers av scikit-image|skimage decord pandas imageio-ffmpeg sentencepiece beautifulsoup4|bs4 ftfy omegaconf spaces torch_dct imageio-ffmpeg", installer=installer, upgrade=True)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing Video Infinity Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -53290,7 +53533,7 @@ def run_cinemo(page, from_list=False, with_params=False):
         sys.path.append(cinemo_dir)
     os.chdir(cinemo_dir)
     installer.status("...preparing config")
-    import torchvision, torch
+    import torchvision
     from pipelines.pipeline_videogen import VideoGenPipeline
     from diffusers.schedulers import DDIMScheduler
     from diffusers.models import AutoencoderKL
@@ -53307,6 +53550,7 @@ def run_cinemo(page, from_list=False, with_params=False):
     #import spaces
     args = OmegaConf.load(open(os.path.join(cinemo_dir, "configs", "sample.yaml")))
     args.use_compile = prefs['enable_torch_compile']
+    args.image_size = [cinemo_prefs['height'], cinemo_prefs['width']]
     torch.set_grad_enabled(False)
     dtype = torch.float16
     import requests
@@ -53395,6 +53639,7 @@ def run_cinemo(page, from_list=False, with_params=False):
         autoscroll(False)
         transform_video = transforms.Compose([
             video_transforms.ToTensorVideo(),
+            video_transforms.SDXLCenterCrop((pr['height'], pr['width'])), # center crop using shor edge, then resize
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
         ])
         total_steps = pr['num_inference_steps']
@@ -53410,7 +53655,24 @@ def run_cinemo(page, from_list=False, with_params=False):
             else:
                 alert_msg(page, f"ERROR: Couldn't find your init image {pr['init_image']}")
                 return
-        init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+        if cinemo_prefs['crop_image']:
+            original_width, original_height = init_img.size
+            ratio1 = pr['height'] / original_height
+            ratio2 = pr['width'] / original_width
+            if ratio1 > ratio2:
+                new_width = int(original_width * ratio1)
+                new_height = int(original_height * ratio1)
+            else:
+                new_width = int(original_width * ratio2)
+                new_height = int(original_height * ratio2)
+            init_img = init_img.resize((new_width, new_height), PILImage.LANCZOS)
+            left = (new_width - pr['width']) / 2
+            top = (new_height - pr['height']) / 2
+            right = left + pr['width']
+            bottom = top + pr['height']
+            init_img = init_img.crop((left, top, right, bottom))
+        else:
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
         init_img = ImageOps.exif_transpose(init_img).convert("RGB")
         
         try:
@@ -58324,7 +58586,7 @@ class NumberPicker(Row):
         return Row([label_text, IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
 class SliderRow(Stack):
-    def __init__(self, label="", value=None, min=0, max=20, divisions=20, step=None, multiple=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, expand=None, col=None, stack=False, on_change=None, data=None):
+    def __init__(self, label="", value=None, min=0, max=20, divisions=20, step=None, multiple=1, round=0, suffix="", left_text=None, right_text=None, visible=True, disable=False, tooltip="", pref=None, key=None, expand=None, col=None, stack=False, on_change=None, data=None):
         super().__init__()
         self.value = value or pref[key]
         self.min = min
@@ -58341,6 +58603,7 @@ class SliderRow(Stack):
         self.right_text = right_text
         self._visible = visible
         self.slider_row = Container(content=None)
+        self.disable = disable
         self.tooltip = tooltip
         self.expand = expand
         self.pref = pref
@@ -58407,6 +58670,7 @@ class SliderRow(Stack):
             slider_label.value = f"{self.label}: "
             slider_label.update()
         def edit(e):
+            if self.disable: return
             self.slider_edit.visible = True
             slider_text.visible = False
             slider_text.update()
@@ -58418,9 +58682,10 @@ class SliderRow(Stack):
             #e.control.update()
             #e.page.update()
         self.slider_edit = TextField(value=str(self.value), on_blur=blur, autofocus=True, visible=False, text_align=TextAlign.CENTER, width=51, height=45, content_padding=padding.only(top=6), keyboard_type=KeyboardType.NUMBER, on_change=changed)
-        self.slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), round=self.round, label="{value}" + self.suffix, value=float(self.value), tooltip=self.tooltip, expand=True, on_change=change_slider)
+        slider_extras = {} if not self.disable else {'mouse_cursor': ft.MouseCursor.FORBIDDEN, 'interaction': ft.SliderInteraction.TAP_ONLY}
+        self.slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), round=self.round, label="{value}" + self.suffix, value=float(self.value), tooltip=self.tooltip, expand=True, on_change=change_slider, **slider_extras)
         self.slider_value = Text(f"{self.value}{self.suffix}", weight=FontWeight.BOLD)
-        slider_text = GestureDetector(self.slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
+        slider_text = GestureDetector(self.slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE if not self.disable else ft.MouseCursor.BASIC)
         slider_label = Text(f"{self.label}: ")
         left = Text("", visible=False)
         right = Text("", visible=False)
@@ -59413,7 +59678,7 @@ def install_deepspeed():
         except subprocess.CalledProcessError:
             print(f"Failed to install DeepSpeed for {platform.system()} (Python {python_version})")
 
-def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False, metadata=None):
+def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False, scale=1, metadata=None):
     install_ffmpeg()
     import ffmpeg
     def stat(msg):
@@ -59430,6 +59695,10 @@ def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=3
         #video = video.filter("fps", fps=output_fps, round="up")
         #video = video.framerate(output_fps)
         video = ffmpeg.filter(video, "minterpolate", fps=output_fps, mi_mode="mci", mc_mode="aobmc")
+    if scale != 1:
+        stat("upscale")
+        x = "scale4x" if scale >= 4 else "scale2x"
+        video = ffmpeg.filter(video, x, scale=scale)
     if deflicker:
         stat("deflicker")
         #video = video.filter("deflicker", mode="pm", size=10)
