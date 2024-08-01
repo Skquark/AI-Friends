@@ -40,6 +40,8 @@ A collection of handy helpers for AI art generation, AI writing and other experi
 *   Experimental DreamFusion 3D model generator with texture & video
 *   Additional features added regularly...
 
+#### <a href="https://github.com/Skquark/AI-Friends/raw/main/Stable-Diffusion-Deluxe/SDD-setup.exe">Download Windows</a> | <a href="https://github.com/Skquark/AI-Friends/raw/main/Stable-Diffusion-Deluxe/SDD-setup-noadmin.exe">Download Windows No-Admin</a> | <a href="https://github.com/Skquark/AI-Friends/raw/main/Stable-Diffusion-Deluxe/sdd-linux.sh">Download Linux/Mac Script</a> | <a href="https://DiffusionDeluxe.com">Project Website</a>
+
 Can also use origional Colab implementation of [Enhanced Stable Diffusion](https://colab.research.google.com/github/Skquark/structured-prompt-generator/blob/main/Enhanced_Stable_Diffusion_with_diffusers.ipynb) instead..
 
 Try these other useful notebooks [Enhanced DiscoArt](https://colab.research.google.com/github/Skquark/structured-prompt-generator/blob/main/DiscoArt_%5B_w_Batch_Prompts_%26_GPT_3_Generator%5D.ipynb) and [Structured Prompt Generator](https://colab.research.google.com/github/Skquark/structured-prompt-generator/blob/main/Structured_Prompt_Generator.ipynb)

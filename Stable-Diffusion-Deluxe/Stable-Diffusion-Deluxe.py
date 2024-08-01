@@ -36768,6 +36768,7 @@ def run_stable_audio(page):
     if not bool(stable_audio_prefs['text']):
       alert_msg(page, "Provide Text for the AI to create the sound of...")
       return
+    if not check_diffusers(page): return
     progress = ProgressBar(bar_height=8)
     total_steps = stable_audio_prefs['steps']
     def callback_fnc(step: int, timestep: int, latents) -> None:
@@ -36778,7 +36779,7 @@ def run_stable_audio(page):
       progress.update()
     installer = Installing("Loading Stable Audio Pipeline...")
     prt(installer)
-    pip_install("einops scipy soundfile", installer=installer)
+    pip_install("einops scipy soundfile torchsde", installer=installer)
     import torchaudio
     from diffusers import StableAudioPipeline
     import soundfile as sf
@@ -36790,7 +36791,7 @@ def run_stable_audio(page):
     if pipe_stable_audio == None:
       try:
         installer.status("...loading model")
-        pipe_stable_audio = StableAudioPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
+        pipe_stable_audio = StableAudioPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         pipe_stable_audio.to(torch_device)
         pipe_stable_audio.set_progress_bar_config(disable=True)
       except Exception as e:
@@ -36812,10 +36813,14 @@ def run_stable_audio(page):
         else:
             init_audio = None
         if init_audio != None:
-            pip_install("librosa", installer=installer)
+            '''pip_install("librosa", installer=installer)
             import librosa
             audio, sr = librosa.load(init_audio, sr=sample_rate)
-            audio_waveforms = torch.from_numpy(audio).float().unsqueeze(0)
+            audio_waveforms = torch.from_numpy(audio).float().unsqueeze(0)'''
+            audio_waveforms, sr = torchaudio.load(init_audio)
+            if sr is not None and sr != sample_rate:
+                resampler = torchaudio.transforms.Resample(sample_rate, sr)
+                audio_waveforms = resampler(audio_waveforms)
             initial_audio = {'initial_audio_waveforms': audio_waveforms, 'initial_audio_sampling_rate': sample_rate}
             #initial_audio_waveforms = torch.ones((1, 5)) torch.ones((batch_size, 2, 5))
     clear_last()
@@ -36885,9 +36890,10 @@ def run_stable_audio(page):
                 import json
                 audio_data, _ = sf.read(wav_out)
                 metadata_comment = json.dumps(audio_metadata)
-                sf.write(wav_out, audio_data, sample_rate, format='WAV', subtype='PCM_16', **metadata_comment)
+                sf.write(wav_out, audio_data, sample_rate, format='WAV', subtype='PCM_16', **audio_metadata)
                 display_name = audio_out
             prt(AudioPlayer(src=wav_out, display=display_name, data=display_name, page=page))
+            nudge(page.StableAudio)
     play_snd(Snd.ALERT, page)
 
 def run_stable_audio_open(page):
@@ -37012,9 +37018,10 @@ def run_stable_audio_open(page):
             import json
             audio_data, _ = sf.read(fname)
             metadata_comment = json.dumps(audio_metadata)
-            sf.write(fname, audio_data, sample_rate, format='WAV', subtype='PCM_16', **metadata_comment)
+            sf.write(fname, audio_data, sample_rate, format='WAV', subtype='PCM_16', **audio_metadata)
             display_name = audio_out
         prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
+        nudge(page.StableAudio)
     play_snd(Snd.ALERT, page)
 
 def run_bark(page):
@@ -53508,7 +53515,7 @@ def run_cinemo(page, from_list=False, with_params=False):
             installer.status("...cloning maxin-cn/Cinemo")
             run_sp("git clone https://github.com/maxin-cn/Cinemo", cwd=root_dir, realtime=False)
             installer.status("...installing Cinemo requirements")
-            pip_install("torch_dct timm tensorboard einops transformers av scikit-image|skimage decord pandas imageio-ffmpeg sentencepiece beautifulsoup4|bs4 ftfy omegaconf spaces torch_dct imageio-ffmpeg", installer=installer, upgrade=True)
+            pip_install("torch_dct petf timm tensorboard einops transformers av scikit-image|skimage decord pandas imageio-ffmpeg sentencepiece beautifulsoup4|bs4 ftfy omegaconf spaces torch_dct imageio-ffmpeg", installer=installer, upgrade=True)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing Video Infinity Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -53555,29 +53562,26 @@ def run_cinemo(page, from_list=False, with_params=False):
     if pipe_cinemo == None:
         installer.status(f"...initialize Cinemo Pipeline")
         try:
-            unet = UNet3DConditionModel.from_pretrained(cinemo_model, subfolder="unet").to(torch_device, dtype=dtype)
+            unet = UNet3DConditionModel.from_pretrained(cinemo_model, subfolder="unet", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to(torch_device, dtype=dtype)
             #unet = get_models(args).to(torch_device, dtype=dtype)
             installer.status(f"...initialize AutoencoderKL")
             if cinemo_prefs['enable_vae_temporal_decoder']:
-                pipe_cinemo_vae = AutoencoderKLTemporalDecoder.from_pretrained(cinemo_model, subfolder="vae_temporal_decoder", torch_dtype=torch.float64 if cinemo_prefs['use_dct'] else torch.float16).to(torch_device)
+                pipe_cinemo_vae = AutoencoderKLTemporalDecoder.from_pretrained(cinemo_model, subfolder="vae_temporal_decoder", torch_dtype=torch.float64 if cinemo_prefs['use_dct'] else torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to(torch_device)
                 vae = deepcopy(pipe_cinemo_vae).to(dtype=dtype)
             else:
-                pipe_cinemo_vae = AutoencoderKL.from_pretrained(cinemo_model, subfolder="vae",).to(torch_device, dtype=torch.float64)
+                pipe_cinemo_vae = AutoencoderKL.from_pretrained(cinemo_model, subfolder="vae", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to(torch_device, dtype=torch.float64)
                 vae = deepcopy(pipe_cinemo_vae).to(dtype=dtype)
             installer.status(f"...initialize tokenizer")
-            tokenizer = CLIPTokenizer.from_pretrained(cinemo_model, subfolder="tokenizer")
+            tokenizer = CLIPTokenizer.from_pretrained(cinemo_model, subfolder="tokenizer", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             installer.status(f"...initialize text_encoder")
-            text_encoder = CLIPTextModel.from_pretrained(cinemo_model, subfolder="text_encoder", torch_dtype=dtype).to(torch_device) # huge
+            text_encoder = CLIPTextModel.from_pretrained(cinemo_model, subfolder="text_encoder", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to(torch_device) # huge
             unet.eval()
             vae.eval()
             text_encoder.eval()
             installer.status(f"...initialize VideoGen Pipeline")
+            #scheduler = DDIMScheduler.from_config(pipe_cinemo.scheduler.config, beta_start=args.beta_start, beta_end=args.beta_end, beta_schedule=args.beta_schedule)
             scheduler = DDIMScheduler.from_pretrained(cinemo_model, subfolder="scheduler", beta_start=args.beta_start, beta_end=args.beta_end, beta_schedule=args.beta_schedule)
-            pipe_cinemo = VideoGenPipeline(vae=vae, 
-                                                text_encoder=text_encoder, 
-                                                tokenizer=tokenizer, 
-                                                scheduler=scheduler, 
-                                                unet=unet).to(torch_device)
+            pipe_cinemo = VideoGenPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer, scheduler=scheduler, unet=unet).to(torch_device)
             #pipe_cinemo = CinemoPipeline.from_pretrained(cinemo_model, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             '''if prefs['vae_slicing']:
                 pipe_cinemo.enable_vae_slicing()
@@ -53626,7 +53630,7 @@ def run_cinemo(page, from_list=False, with_params=False):
         autoscroll(False)
         transform_video = transforms.Compose([
             video_transforms.ToTensorVideo(),
-            video_transforms.SDXLCenterCrop((pr['height'], pr['width'])), # center crop using shor edge, then resize
+            #video_transforms.SDXLCenterCrop((pr['height'], pr['width'])), # center crop using shor edge, then resize
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
         ])
         total_steps = pr['num_inference_steps']
@@ -59671,8 +59675,12 @@ def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=3
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
     stat("frames_to_video")
-    input_path = os.path.join(frames_dir, pattern)
-    video = ffmpeg.input(input_path, framerate=input_fps or output_fps)
+    if isinstance(frames_dir, list):
+        height, width, channels = frames_dir[0].shape
+        video = ffmpeg.input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height), r=input_fps or output_fps)
+    else:
+        input_path = os.path.join(frames_dir, pattern)
+        video = ffmpeg.input(input_path, framerate=input_fps or output_fps)
     video = video.filter('fps', fps=input_fps or output_fps, round='up')
     #video = video.pix_fmt('yuv420p')
     if input_fps is not None and input_fps != output_fps:
