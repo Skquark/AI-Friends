@@ -806,6 +806,7 @@ def buildImageAIs(page):
     page.PixArtAlpha = buildPixArtAlpha(page)
     page.PixArtSigma = buildPixArtSigma(page)
     page.Hunyuan = buildHunyuanDiT(page)
+    page.Flux = buildFlux(page)
     page.Lumina = buildLuminaNext(page)
     page.Kolors = buildKolors(page)
     page.AuraFlow = buildAuraFlow(page)
@@ -842,6 +843,7 @@ def buildImageAIs(page):
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
             Tab(text="DALL•E", content=page.DallE, icon=icons.BLUR_ON),
+            Tab(text="FLUX.1", content=page.Flux, icon=icons.TRACK_CHANGES),
             Tab(text="Lumina-Next", content=page.Lumina, icon=icons.SYNAGOGUE),
             Tab(text="Hunyuan-DiT", content=page.Hunyuan, icon=icons.TEMPLE_BUDDHIST),
             Tab(text="Stable Cascade", content=page.StableCascade, icon=icons.SPA),
@@ -11235,6 +11237,100 @@ def buildLuminaNext(page):
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
+
+flux_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "flux-",
+    "num_images": 1,
+    "steps":50,
+    "lightning_steps":4,
+    "width": 720,
+    "height": 1280,
+    "guidance_scale":4.0,
+    "cpu_offload": True,
+    "seed": 0,
+    "flux_model": "FLUX.1-dev",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildFlux(page):
+    global prefs, flux_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          flux_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def flux_help(e):
+      def close_flux_dlg(e):
+        nonlocal flux_help_dlg
+        flux_help_dlg.open = False
+        page.update()
+      flux_help_dlg = AlertDialog(title=Text("🙅   Help with Flux Pipeline"), content=Column([
+          Text("Flux is a series of text-to-image generation models based on diffusion transformers, created by Black Forest Labs. Flux can be quite expensive to run on consumer hardware devices. However, you can perform a suite of optimizations to run it faster and in a more memory-friendly manner."),
+          Markdown("""We release the FLUX.1 suite of text-to-image models that define a new state-of-the-art in image detail, prompt adherence, style diversity and scene complexity for text-to-image synthesis. 
+To strike a balance between accessibility and model capabilities, FLUX.1 comes in three variants: FLUX.1 [pro], FLUX.1 [dev] and FLUX.1 [schnell]: 
+* FLUX.1 [pro]: The best of FLUX.1, offering state-of-the-art performance image generation with top of the line prompt following, visual quality, image detail and output diversity. Sign up for FLUX.1 [pro] access via our [API](https://docs.bfl.ml/) here. FLUX.1 [pro] is also available via [Replicate](https://replicate.com/black-forest-labs/flux-pro) and [fal.ai](https://fal.ai/models/fal-ai/flux-pro). Moreover we offer dedicated and customized enterprise solutions – reach out via flux@blackforestlabs.ai to get in touch.
+* FLUX.1 [dev]: FLUX.1 [dev] is an open-weight, guidance-distilled model for non-commercial applications. Directly distilled from FLUX.1 [pro], FLUX.1 [dev] obtains similar quality and prompt adherence capabilities, while being more efficient than a standard model of the same size. FLUX.1 [dev] weights are available on HuggingFace and can be directly tried out on Replicate or Fal.ai. For applications in commercial contexts, get in touch out via flux@blackforestlabs.ai. 
+* FLUX.1 [schnell]: our fastest model is tailored for local development and personal use. FLUX.1 [schnell] is openly available under an Apache2.0 license. Similar, FLUX.1 [dev], weights are available on Hugging Face and inference code can be found on GitHub and in HuggingFace’s Diffusers.""", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Project Page](https://blackforestlabs.ai) | [Github](https://github.com/black-forest-labs/flux) | [Blog](https://blackforestlabs.ai/announcing-black-forest-labs/) | [Model Checkpoint](https://huggingface.co/black-forest-labs/FLUX.1-schnell) | [HF Space](https://huggingface.co/spaces/ChristianHappy/FLUX.1-schnell) | [FLUX.1 Pro](https://fal.ai/models/fal-ai/flux-pro)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🦿  It's all in Flux... ", on_click=close_flux_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(flux_help_dlg)
+      flux_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        flux_prefs['flux_model'] = e.control.value
+        flux_custom_model.visible = e.control.value == "Custom"
+        flux_custom_model.update()
+        schnell = flux_prefs['flux_model'] == "FLUX.1-schnell"
+        guidance.show = not schnell
+        steps.show = not schnell
+        lightning_steps.show = schnell
+    prompt = TextField(label="Prompt Text", value=flux_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    #negative_prompt = TextField(label="Negative Prompt Text", value=flux_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=flux_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=flux_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=flux_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=100, divisions=100, pref=flux_prefs, key='steps', visible = flux_prefs['flux_model'] != "FLUX.1-schnell")
+    lightning_steps = SliderRow(label="Number of Steps", min=0, max=10, divisions=10, pref=flux_prefs, key='lightning_steps', visible = flux_prefs['flux_model'] == "FLUX.1-schnell")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=10, pref=flux_prefs, key='guidance_scale', visible = flux_prefs['flux_model'] != "FLUX.1-schnell")
+    width_slider = SliderRow(label="Width", min=256, max=1360, divisions=69, multiple=16, suffix="px", pref=flux_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1360, divisions=69, multiple=16, suffix="px", pref=flux_prefs, key='height')
+    flux_model = Dropdown(label="FLUX.1 Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("FLUX.1-dev"), dropdown.Option("FLUX.1-schnell")], value=flux_prefs['flux_model'], on_change=changed_model)
+    flux_custom_model = TextField(label="Custom Flux Model (URL or Path)", value=flux_prefs['custom_model'], expand=True, visible=flux_prefs['flux_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
+    #distilled_model = Switcher(label="Use Distilled Model", value=flux_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
+    seed = TextField(label="Seed", width=90, value=str(flux_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    upscaler = UpscaleBlock(flux_prefs)
+    page.upscalers.append(upscaler)
+    parameters_button = ElevatedButton(content=Text(value="🦾   Run FLUX.1", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_flux(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_flux(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_flux(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.Flux_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
+            Header("🌀  FLUX.1", "12B param rectified flow transformer distilled from FLUX.1 [pro]...", actions=[save_default(flux_prefs), IconButton(icon=icons.HELP, tooltip="Help with Flux Settings", on_click=flux_help)]),
+            #ResponsiveRow([prompt, negative_prompt]),
+            prompt,
+            steps, lightning_steps,
+            guidance, width_slider, height_slider,
+            Row([flux_model, flux_custom_model]),
+            upscaler,
+            ResponsiveRow([Row([n_images, seed, cpu_offload], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            parameters_row,
+            page.Flux_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 kolors_prefs = {
     "prompt": '',
@@ -22369,6 +22465,7 @@ pipe_pixart_alpha_encoder = None
 pipe_pixart_sigma = None
 pipe_pixart_sigma_encoder = None
 pipe_hunyuan = None
+pipe_flux = None
 pipe_lumina = None
 pipe_kolors = None
 pipe_auraflow = None
@@ -25286,6 +25383,12 @@ def clear_hunyuan_pipe():
       del pipe_SDXL_refiner
       flush()
       pipe_SDXL_refiner = None
+def clear_flux_pipe():
+  global pipe_flux
+  if pipe_flux is not None:
+    del pipe_flux
+    flush()
+    pipe_flux = None
 def clear_lumina_pipe():
   global pipe_lumina
   if pipe_lumina is not None:
@@ -25834,6 +25937,7 @@ def clear_pipes(allbut=None):
     if not 'pixart_alpha' in but: clear_pixart_alpha_pipe()
     if not 'pixart_sigma' in but: clear_pixart_sigma_pipe()
     if not 'hunyuan' in but: clear_hunyuan_pipe()
+    if not 'flux' in but: clear_flux_pipe()
     if not 'lumina' in but: clear_lumina_pipe()
     if not 'kolors' in but: clear_kolors_pipe()
     if not 'auraflow' in but: clear_auraflow_pipe()
@@ -36903,7 +37007,11 @@ def run_stable_audio(page):
                 import json
                 audio_data, _ = sf.read(wav_out)
                 metadata_comment = json.dumps(audio_metadata)
-                sf.write(wav_out, audio_data, sample_rate, format='WAV', subtype='PCM_16', **audio_metadata)
+                #sf.write(wav_out, audio_data, sample_rate, format='WAV', subtype='PCM_16', **audio_metadata)
+                with sf.SoundFile(fname, 'w', samplerate=sample_rate, channels=audio_data.shape[1] if audio_data.ndim > 1 else 1, format='WAV', subtype='PCM_16') as file:
+                    for key, value in audio_metadata.items():
+                        file.set_string(key, value)
+                    file.write(audio_data)
                 display_name = audio_out
             prt(AudioPlayer(src=wav_out, display=display_name, data=display_name, page=page))
             nudge(page.StableAudio)
@@ -37031,7 +37139,11 @@ def run_stable_audio_open(page):
             import json
             audio_data, _ = sf.read(fname)
             metadata_comment = json.dumps(audio_metadata)
-            sf.write(fname, audio_data, sample_rate, format='WAV', subtype='PCM_16', **audio_metadata)
+            #sf.write(fname, audio_data, sample_rate, format='WAV', subtype='PCM_16', **audio_metadata)
+            with sf.SoundFile(fname, 'w', samplerate=sample_rate, channels=audio_data.shape[1] if audio_data.ndim > 1 else 1, format='WAV', subtype='PCM_16') as file:
+                for key, value in audio_metadata.items():
+                    file.set_string(key, value)
+                file.write(audio_data)
             display_name = audio_out
         prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
         nudge(page.StableAudio)
@@ -44285,6 +44397,176 @@ def run_lumina(page, from_list=False, with_params=False):
                 if lumina_next_prefs['display_upscaled_image']:
                     prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(lumina_next_prefs["enlarge_scale"]), height=pr['height'] * float(lumina_next_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], lumina_next_prefs['batch_folder_name']), fname, 0)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        n += 1
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+
+def run_flux(page, from_list=False, with_params=False):
+    global flux_prefs, pipe_flux, prefs
+    if not check_diffusers(page): return
+    if int(status['cpu_memory']) <= 8:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Flux DiT right now. Either Change runtime type to High-RAM mode and restart.")
+      return
+    flux_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            flux_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':flux_prefs['guidance_scale'], 'steps':flux_prefs['steps'], 'width':flux_prefs['width'], 'height':flux_prefs['height'], 'num_images':flux_prefs['num_images'], 'seed':flux_prefs['seed']})
+        else:
+            flux_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(flux_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      flux_prompts.append({'prompt': flux_prefs['prompt'], 'negative_prompt':flux_prefs['negative_prompt'], 'guidance_scale':flux_prefs['guidance_scale'], 'steps':flux_prefs['steps'], 'width':flux_prefs['width'], 'height':flux_prefs['height'], 'num_images':flux_prefs['num_images'], 'seed':flux_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.Flux.controls.append(line)
+        if update:
+          page.Flux.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.Flux, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.Flux.auto_scroll = scroll
+        page.Flux.update()
+      else:
+        page.Flux.auto_scroll = scroll
+        page.Flux.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.Flux.controls = page.Flux.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = flux_prefs['steps']
+    def callback_fn(pipe, step, timestep, callback_kwargs):
+      #callback_fn.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    model_id = "black-forest-labs/FLUX.1-dev" if flux_prefs['flux_model'] == "FLUX.1-dev" else "black-forest-labs/FLUX.1-schnell" if flux_prefs['flux_model'] == "FLUX.1-schnell" else flux_prefs['custom_model']
+    schnell = flux_prefs['flux_model'] == "FLUX.1-schnell"
+    if 'loaded_flux_model' not in status: status['loaded_flux_model'] = ''
+    installer = Installing(f"Installing FLUX.1 Engine & Models... See console log for progress.")
+    cpu_offload = flux_prefs['cpu_offload']
+    prt(installer)
+    if status['loaded_flux_model'] != model_id:
+        clear_pipes()
+    else:
+        clear_pipes('flux')
+    if pipe_flux == None:
+        try:
+            from diffusers import FluxPipeline
+            pipe_flux = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling unet")
+                pipe_flux = pipe_flux.to("cuda")
+                pipe_flux.transformer.to(memory_format=torch.channels_last)
+                pipe_flux.vae.to(memory_format=torch.channels_last)
+                pipe_flux.transformer = torch.compile(pipe_flux.transformer, mode="max-autotune", fullgraph=True)
+                pipe_flux.vae.decode = torch.compile(pipe_flux.vae.decode, mode="max-autotune", fullgraph=True)
+            elif cpu_offload:
+                pipe_flux.enable_model_cpu_offload()
+            else:
+                pipe_flux = pipe_flux.to("cuda")
+                #pipe_flux.transformer.enable_forward_chunking(chunk_size=1, dim=1)
+            pipe_flux.set_progress_bar_config(disable=True)
+            status['loaded_flux_model'] = model_id
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Flux, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_last()
+    n = 0
+    for pr in flux_prompts:
+        prt(f"{f'[{n + 1}/{len(flux_prompts)}]  ' if from_list else ''}{pr['prompt']}")
+        progress.value = None
+        prt(progress)
+        nudge(page.imageColumn if from_list else page.Flux, page=page)
+        autoscroll(False)
+        total_steps = pr['steps'] if not schnell else pr['lightning_steps']
+        random_seed = get_seed(pr['seed'])
+        generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        try:
+            images = pipe_flux(
+                prompt=pr['prompt'],
+                #negative_prompt=pr['negative_prompt'],
+                num_images_per_prompt=pr['num_images'],
+                width=pr['width'],
+                height=pr['height'],
+                num_inference_steps=total_steps,
+                guidance_scale=pr['guidance_scale'] if not schnell else 0.,
+                max_sequence_length=256 if schnell else 512,
+                generator=generator,
+                callback_on_step_end=callback_fn,
+            ).images
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        clear_last(2)
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(flux_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, flux_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        #print(str(images))
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            fname = f'{flux_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not flux_prefs['display_upscaled_image'] or not flux_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, flux_prefs, f"FLUX.1", model_id, random_seed, extra=pr)
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], flux_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if flux_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=flux_prefs["enlarge_scale"], face_enhance=flux_prefs["face_enhance"])
+                image_path = upscaled_path
+                save_metadata(upscaled_path, flux_prefs, f"FLUX.1", model_id, random_seed, extra=pr)
+                if flux_prefs['display_upscaled_image']:
+                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(flux_prefs["enlarge_scale"]), height=pr['height'] * float(flux_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            new_file = available_file(os.path.join(prefs['image_output'], flux_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
