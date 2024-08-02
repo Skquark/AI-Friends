@@ -10918,6 +10918,11 @@ pixart_sigma_prefs = {
     "guidance_scale":4.5,
     'num_inference_steps': 30,
     "seed": 0,
+    'use_pag': False,
+    'pag_scale': 5.0,
+    'applied_layer_down': False,
+    'applied_layer_mid': True,
+    'applied_layer_up': False,
     "clean_caption": True,
     "resolution_binning": True,
     #"mask_feature": True,
@@ -10963,6 +10968,10 @@ def buildPixArtSigma(page):
     def toggle_refiner(e):
         pixart_sigma_prefs['use_refiner'] = e.control.value
         SDXL_high_noise_frac.show = e.control.value
+    def toggle_pag(e):
+        pixart_sigma_prefs['use_pag'] = e.control.value
+        pag_container.height = None if e.control.value else 0
+        pag_container.update()
     prompt = TextField(label="Prompt Text", value=pixart_sigma_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=pixart_sigma_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=pixart_sigma_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -10976,6 +10985,14 @@ def buildPixArtSigma(page):
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_sigma_prefs, key='height')
     pixart_model = Dropdown(label="PixArt-Σ Model", width=260, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-Sigma-XL-2-512-MS"), dropdown.Option("PixArt-Sigma-XL-2-1024-MS"), dropdown.Option("PixArt-Sigma-XL-2-2K-MS"), dropdown.Option("SigmaJourney-1024ms")], value=pixart_sigma_prefs['pixart_model'], on_change=changed_model)
     pixart_custom_model = TextField(label="Custom PixArt-Σ Model (URL or Path)", value=pixart_sigma_prefs['custom_model'], expand=True, visible=pixart_sigma_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    use_pag = Switcher(label="Use PAG: Perturbed-Attention Guidance", value=pixart_sigma_prefs['use_pag'], on_change=toggle_pag, tooltip="Improves sample quality across both unconditional and conditional settings. Progressively enhance the structure of synthesized samples throughout the denoising process by considering the self-attention mechanisms' ability to capture structural information.")
+    pag_scale = SliderRow(label="PAG Guidance Scale", min=0, max=50, divisions=50, pref=pixart_sigma_prefs, key='pag_scale', tooltip="Gain more semantically coherent structures and exhibit fewer artifacts. Large guidance scale can lead to smoother textures and slight saturation in the images.")
+    applied_layer_down = Checkbox(label="Down", value=pixart_sigma_prefs['applied_layer_down'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_down'))
+    applied_layer_mid = Checkbox(label="Mid", value=pixart_sigma_prefs['applied_layer_mid'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_mid'))
+    applied_layer_up = Checkbox(label="Up", value=pixart_sigma_prefs['applied_layer_up'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_up'))
+    pag_applied_layers = Container(Row([Text("PAG Applied Layers:"), applied_layer_down, applied_layer_mid, applied_layer_up]), tooltip="Specify which layers PAG is applied to. Changing this setting will significantly impact the output, so experiment.")
+    pag_container = Container(Column([pag_scale, pag_applied_layers], spacing=0), padding=padding.only(left=32), height=None if pixart_sigma_prefs['use_pag'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+
     clean_caption = Switcher(label="Clean Caption", value=pixart_sigma_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
     resolution_binning = Switcher(label="Resolution Binning", value=pixart_sigma_prefs['resolution_binning'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'resolution_binning'), tooltip="The requested height and width are first mapped to the closest resolutions using `ASPECT_RATIO_1024_BIN`. After the produced latents are decoded into images, they are resized back to the requested resolution. Useful for generating non-square images.")
     #mask_feature = Switcher(label="Feature Mask", value=pixart_sigma_prefs['mask_feature'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'mask_feature'), tooltip="If enabled, the text embeddings will be masked.")
@@ -11001,6 +11018,8 @@ def buildPixArtSigma(page):
             Row([pixart_model, pixart_custom_model]),
             #use_refiner,
             #SDXL_high_noise_frac,
+            use_pag,
+            pag_container,
             Row([clean_caption, resolution_binning, cpu_offload, use_8bit]),
             #Can't get wrap to work!! Container(Row([Container(clean_caption), Container(resolution_binning), Container(cpu_offload), Container(use_8bit)], wrap=True, expand=True, width=page.width, alignment=ft.MainAxisAlignment.START), width=800),#], expand=True),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
@@ -40589,9 +40608,9 @@ def run_controlnet_xl(page, from_list=False):
     model_path = "stabilityai/stable-diffusion-xl-base-1.0"
     if controlnet_xl_prefs['use_pag'] and not controlnet_xl_prefs['use_image2image']:
         pag_applied_layers = []
-        if pag_prefs['applied_layer_down']: pag_applied_layers.append("down")
-        if pag_prefs['applied_layer_mid']: pag_applied_layers.append("mid")
-        if pag_prefs['applied_layer_up']: pag_applied_layers.append("up")
+        if controlnet_xl_prefs['applied_layer_down']: pag_applied_layers.append("down")
+        if controlnet_xl_prefs['applied_layer_mid']: pag_applied_layers.append("mid")
+        if controlnet_xl_prefs['applied_layer_up']: pag_applied_layers.append("up")
     if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_xl_prefs["control_task"]:
         vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
         if controlnet_type == "text2image":
@@ -43693,11 +43712,17 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
     cpu_offload = pixart_sigma_prefs['cpu_offload']
     pixart_model = "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-1024-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-512-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-512-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-2K-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-2K-MS" else "AlanB/SigmaJourney-1024ms" if pixart_sigma_prefs['pixart_model'] == "SigmaJourney-1024ms" else pixart_sigma_prefs['custom_model']
     pixart_vae = "PixArt-alpha/pixart_sigma_sdxlvae_T5_diffusers"
-    if 'loaded_pixart_8bit' not in status: status['loaded_pixart_8bit'] = use_8bit
-    if 'loaded_pixart' not in status: status['loaded_pixart'] = ""
-    if pixart_model != status['loaded_pixart'] or use_8bit != status['loaded_pixart_8bit']:
+    status.setdefault('loaded_pixart_8bit', use_8bit)
+    status.setdefault('loaded_pixart', "")
+    status.setdefault('loaded_pixart_pag', False)
+    if pixart_model != status['loaded_pixart'] or use_8bit != status['loaded_pixart_8bit'] or pixart_sigma_prefs['use_pag'] != status['loaded_pixart_pag']:
         clear_pipes()
     scheduler = {'scheduler': 'LCM'} if 'LCM' in pixart_model else {}
+    if pixart_sigma_prefs['use_pag']:
+        pag_applied_layers = []
+        if pixart_sigma_prefs['applied_layer_down']: pag_applied_layers.append("down")
+        if pixart_sigma_prefs['applied_layer_mid']: pag_applied_layers.append("mid")
+        if pixart_sigma_prefs['applied_layer_up']: pag_applied_layers.append("up")
     if pipe_pixart_sigma == None:
         installer.status(f"...initialize PixArt-Sigma Pipeline")
         try:
@@ -43710,9 +43735,15 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
                     torch_dtype=torch.float16,
                     use_additional_conditions=False,
                     use_safetensors=True,
+                    cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
                 )
                 installer.status(f"...initialize PixArt-Sigma Pipeline")
-                pipe_pixart_sigma = PixArtSigmaPipeline.from_pretrained(pixart_vae, transformer=transformer, torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                if pixart_sigma_prefs['use_pag']:
+                    from diffusers import PixArtSigmaPAGPipeline
+                    pipe_pixart_sigma = PixArtSigmaPAGPipeline.from_pretrained(pixart_vae, transformer=transformer, torch_dtype=torch.float16, use_safetensors=True, pag_applied_layers=pag_applied_layers, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    status['loaded_pag_layers'] = pag_applied_layers
+                else:
+                    pipe_pixart_sigma = PixArtSigmaPipeline.from_pretrained(pixart_vae, transformer=transformer, torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 pipe_pixart_sigma = pipeline_scheduler(pipe_pixart_sigma, **scheduler)
                 if prefs['enable_torch_compile']:
                     installer.status(f"...Torch compiling transformer")
@@ -43725,10 +43756,15 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
             else:
                 from transformers import T5EncoderModel
                 installer.status(f"...loading text encoder")
-                text_encoder = T5EncoderModel.from_pretrained(pixart_model, subfolder="text_encoder", load_in_8bit=True, device_map="auto")
+                text_encoder = T5EncoderModel.from_pretrained(pixart_model, subfolder="text_encoder", load_in_8bit=True, device_map="auto", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 pipe_pixart_sigma_encoder = PixArtSigmaPipeline.from_pretrained(pixart_model, text_encoder=text_encoder, transformer=None, device_map="balanced", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...loading pipeline")
-                pipe_pixart_sigma = PixArtSigmaPipeline.from_pretrained(pixart_model, text_encoder=None, torch_dtype=torch.float16).to("cuda")
+                if pixart_sigma_prefs['use_pag']:
+                    from diffusers import PixArtSigmaPAGPipeline
+                    pipe_pixart_sigma = PixArtSigmaPAGPipeline.from_pretrained(pixart_model, text_encoder=None, torch_dtype=torch.float16, pag_applied_layers=pag_applied_layers, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to("cuda")
+                    status['loaded_pag_layers'] = pag_applied_layers
+                else:
+                    pipe_pixart_sigma = PixArtSigmaPipeline.from_pretrained(pixart_model, text_encoder=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to("cuda")
                 pipe_pixart_sigma = pipeline_scheduler(pipe_pixart_sigma, **scheduler)
             pipe_pixart_sigma.set_progress_bar_config(disable=True)
         except Exception as e:
@@ -43737,10 +43773,16 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
             return
         status['loaded_pixart'] = pixart_model
         status['loaded_pixart_8bit'] = use_8bit
+        status['loaded_pixart_pag'] = pixart_sigma_prefs['use_pag']
     else:
         clear_pipes('pixart_sigma')
+        if pixart_sigma_prefs['use_pag']:
+            if pag_applied_layers != status['loaded_pag_layers']:
+                pipe_pixart_sigma.set_pag_applied_layers(pag_applied_layers)
+                status['loaded_pag_layers'] = pag_applied_layers
         if prefs['scheduler_mode'] != status['loaded_scheduler']:
             pipe_pixart_sigma = pipeline_scheduler(pipe_pixart_sigma, **scheduler)
+    pag_img_arg = {'pag_scale': pixart_sigma_prefs['pag_scale']} if pixart_sigma_prefs['use_pag'] else {}
     clear_last()
     s = "" if len(pixart_sigma_prompts) == 1 else "s"
     prt(f"Generating your PixArt-Σ Image{s}...")
@@ -43770,6 +43812,7 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
                     #mask_feature=pixart_sigma_prefs['mask_feature'],resolution_binning
                     generator=generator,
                     callback=callback_fnc,
+                    **pag_img_arg,
                 ).images
             else:
                 with torch.no_grad():
@@ -43791,6 +43834,7 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
                     use_resolution_binning=pixart_sigma_prefs['resolution_binning'],
                     generator=generator,
                     callback=callback_fnc,
+                    **pag_img_arg,
                 ).images
                 del pipe_pixart_sigma.transformer
                 flush()
@@ -44294,8 +44338,8 @@ def run_lumina(page, from_list=False, with_params=False):
       progress.update()
     def callback_fn(pipe, step, timestep, callback_kwargs):
       callback_fn.has_been_called = True
-      nonlocal progress
-      total_steps = pipe.num_timesteps
+      nonlocal progress, total_steps
+      #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
@@ -44473,6 +44517,7 @@ def run_flux(page, from_list=False, with_params=False):
     autoscroll(True)
     model_id = "black-forest-labs/FLUX.1-dev" if flux_prefs['flux_model'] == "FLUX.1-dev" else "black-forest-labs/FLUX.1-schnell" if flux_prefs['flux_model'] == "FLUX.1-schnell" else flux_prefs['custom_model']
     schnell = flux_prefs['flux_model'] == "FLUX.1-schnell"
+    revision = 'refs/pr/1' if schnell else 'refs/pr/3'
     if 'loaded_flux_model' not in status: status['loaded_flux_model'] = ''
     installer = Installing(f"Installing FLUX.1 Engine & Models... See console log for progress.")
     cpu_offload = flux_prefs['cpu_offload']
@@ -44484,7 +44529,7 @@ def run_flux(page, from_list=False, with_params=False):
     if pipe_flux == None:
         try:
             from diffusers import FluxPipeline
-            pipe_flux = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_flux = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16, revision=revision, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             if prefs['enable_torch_compile']:
                 installer.status(f"...Torch compiling unet")
                 pipe_flux = pipe_flux.to("cuda")
@@ -44717,6 +44762,7 @@ def run_kolors(page, from_list=False, with_params=False):
     prt(f"Generating your Kolors Image{s}...")
     for pr in kolors_prompts:
         prt(progress)
+        nudge(page.imageColumn if from_list else page.Kolors, page=page)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
         random_seed = get_seed(int(pr['seed']))
@@ -44822,6 +44868,7 @@ def run_kolors(page, from_list=False, with_params=False):
                 out_path = new_file
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+            nudge(page.imageColumn if from_list else page.Kolors, page=page)
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
@@ -44888,8 +44935,8 @@ def run_auraflow(page, from_list=False, with_params=False):
       progress.update()
     def callback_fn(pipe, step, timestep, callback_kwargs):
       callback_fn.has_been_called = True
-      nonlocal progress
-      total_steps = pipe.num_timesteps
+      nonlocal progress, total_steps
+      #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
