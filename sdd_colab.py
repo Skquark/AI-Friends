@@ -834,7 +834,7 @@ def buildImageAIs(page):
     diffusersTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
-            Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
+            Tab(text="ControlNet SD", content=page.ControlNet, icon=icons.HUB),
             Tab(text="ControlNet SDXL", content=page.ControlNetXL, icon=icons.PEST_CONTROL),
             Tab(text="ControlNet SD3", content=page.ControlNetSD3, icon=icons.ARCHITECTURE),
             Tab(text="ControlNet-XS", content=page.ControlNetXS, icon=icons.WEBHOOK),
@@ -851,8 +851,8 @@ def buildImageAIs(page):
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="PixArt-Σ", content=page.PixArtSigma, icon=icons.FUNCTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
-            Tab(text="AuraFlow", content=page.AuraFlow, icon=icons.MONOCHROME_PHOTOS),
             Tab(text="Kolors", content=page.Kolors, icon=icons.DIRTY_LENS),
+            Tab(text="AuraFlow", content=page.AuraFlow, icon=icons.MONOCHROME_PHOTOS),
             Tab(text="Layer Diffusion", content=page.LayerDiffusion, icon=icons.WINE_BAR),
             Tab(text="Differential Diffusion", content=page.Differential_Diffusion, icon=icons.SENTIMENT_NEUTRAL),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
@@ -11269,7 +11269,7 @@ flux_prefs = {
     "height": 720,
     "guidance_scale": 4.0,
     "cpu_offload": True,
-    "quantize": False,
+    "quantize": True, # Check if VRAM > 16
     "seed": 0,
     "flux_model": "FLUX.1-dev",
     "custom_model": "",
@@ -11345,7 +11345,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
             guidance, width_slider, height_slider,
             Row([flux_model, flux_custom_model]),
             upscaler,
-            ResponsiveRow([Row([n_images, seed, cpu_offload, quantize], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            ResponsiveRow([Row([n_images, cpu_offload, quantize], col={'md':6}), Row([batch_folder_name, file_prefix, seed], col={'md':6})]),
             parameters_row,
             page.Flux_output
         ],
@@ -11469,6 +11469,7 @@ auraflow_prefs = {
     "steps":50,
     "width": 1024,
     "height":1024,
+    "max_size":1024,
     "guidance_scale":4.0,
     "cpu_offload": True,
     "seed": 0,
@@ -11515,6 +11516,7 @@ def buildAuraFlow(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=auraflow_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=auraflow_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=auraflow_prefs, key='height')
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=16, multiple=64, suffix="px", pref=auraflow_prefs, key='max_size', tooltip="Width & Height are Square Aspect-Ratio, made for 1024x1024")
     auraflow_model = Dropdown(label="AuraFlow Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("fal/AuraFlow")], value=auraflow_prefs['auraflow_model'], on_change=changed_model)
     auraflow_custom_model = TextField(label="Custom AuraFlow Model (URL or Path)", value=auraflow_prefs['custom_model'], expand=True, visible=auraflow_prefs['auraflow_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=auraflow_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
@@ -11529,10 +11531,11 @@ def buildAuraFlow(page):
     page.AuraFlow_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
-            Header("🌗  AuraFlow SD3+", "Open Exploration of Large Rectified Flow Models. Achieves State-of-the-Art Results on GenEval...", actions=[save_default(auraflow_prefs), IconButton(icon=icons.HELP, tooltip="Help with AuraFlow Settings", on_click=auraflow_help)]),
+            Header("🌗  AuraFlow SD3+", "Open Exploration of Large Rectified Flow Models. Achieves State-of-the-Art Results on GenEval, but slow & square only...", actions=[save_default(auraflow_prefs), IconButton(icon=icons.HELP, tooltip="Help with AuraFlow Settings", on_click=auraflow_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             steps,
-            guidance, width_slider, height_slider,
+            guidance, max_row,
+            #width_slider, height_slider,
             Row([auraflow_model, auraflow_custom_model]),
             upscaler,
             ResponsiveRow([Row([n_images, seed, cpu_offload], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
@@ -44179,6 +44182,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
     n = 0
     for pr in hunyuan_dit_prompts:
         prt(f"{f'[{n + 1}/{len(hunyuan_dit_prompts)}]  ' if from_list else ''}{pr['prompt']}")
+        progress.value = None
         prt(progress)
         nudge(page.imageColumn if from_list else page.Hunyuan, page=page)
         autoscroll(False)
@@ -44386,6 +44390,7 @@ def run_lumina(page, from_list=False, with_params=False):
     n = 0
     for pr in lumina_next_prompts:
         prt(f"{f'[{n + 1}/{len(lumina_next_prompts)}]  ' if from_list else ''}{pr['prompt']}")
+        progress.value = None
         prt(progress)
         nudge(page.imageColumn if from_list else page.Lumina, page=page)
         autoscroll(False)
@@ -44922,20 +44927,21 @@ def run_auraflow(page, from_list=False, with_params=False):
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run AuraFlow right now. Either Change runtime type to High-RAM mode and restart.")
       return
     auraflow_prompts = []
+    size = auraflow_prefs['max_size']
     if from_list:
       if len(prompts) < 1:
         alert_msg(page, "You need to add Prompts to your List first... ")
         return
       for p in prompts:
         if with_params:
-            auraflow_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':auraflow_prefs['guidance_scale'], 'steps':auraflow_prefs['steps'], 'width':auraflow_prefs['width'], 'height':auraflow_prefs['height'], 'num_images':auraflow_prefs['num_images'], 'seed':auraflow_prefs['seed']})
+            auraflow_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':auraflow_prefs['guidance_scale'], 'steps':auraflow_prefs['steps'], 'width':size, 'height':size, 'num_images':auraflow_prefs['num_images'], 'seed':auraflow_prefs['seed']})
         else:
-            auraflow_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+            auraflow_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':size, 'height':size, 'num_images':p['batch_size'], 'seed':p['seed']})
     else:
       if not bool(auraflow_prefs['prompt']):
         alert_msg(page, "You must provide a text prompt to process your image generation...")
         return
-      auraflow_prompts.append({'prompt': auraflow_prefs['prompt'], 'negative_prompt':auraflow_prefs['negative_prompt'], 'guidance_scale':auraflow_prefs['guidance_scale'], 'steps':auraflow_prefs['steps'], 'width':auraflow_prefs['width'], 'height':auraflow_prefs['height'], 'num_images':auraflow_prefs['num_images'], 'seed':auraflow_prefs['seed']})
+      auraflow_prompts.append({'prompt': auraflow_prefs['prompt'], 'negative_prompt':auraflow_prefs['negative_prompt'], 'guidance_scale':auraflow_prefs['guidance_scale'], 'steps':auraflow_prefs['steps'], 'width':size, 'height':size, 'num_images':auraflow_prefs['num_images'], 'seed':auraflow_prefs['seed']})
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line, size=17)
@@ -45026,6 +45032,7 @@ def run_auraflow(page, from_list=False, with_params=False):
     n = 0
     for pr in auraflow_prompts:
         prt(f"{f'[{n + 1}/{len(auraflow_prompts)}]  ' if from_list else ''}{pr['prompt']}")
+        progress.value = None
         prt(progress)
         nudge(page.imageColumn if from_list else page.AuraFlow, page=page)
         autoscroll(False)
@@ -45085,6 +45092,7 @@ def run_auraflow(page, from_list=False, with_params=False):
             out_path = new_file
             shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+            nudge(page.imageColumn if from_list else page.AuraFlow, page=page)
         n += 1
     autoscroll(False)
     play_snd(Snd.ALERT, page)
