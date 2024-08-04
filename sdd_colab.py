@@ -826,10 +826,6 @@ def buildImageAIs(page):
     page.KandinskyControlNet = buildKandinskyControlNet(page)
     page.DiT = buildDiT(page)
     page.TaskMatrix = buildTaskMatrix(page)
-    page.DreamFusion = buildDreamFusion(page)
-    page.Point_E = buildPoint_E(page)
-    page.Shap_E = buildShap_E(page)
-    page.InstantNGP = buildInstantNGP(page)
     page.DeepDaze = buildDeepDaze(page)
     diffusersTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
@@ -893,6 +889,7 @@ def buildImageAIs(page):
     return diffusersTabs
 
 def build3DAIs(page):
+    page.StableFast3D = buildStableFast3D(page)
     page.DreamFusion = buildDreamFusion(page)
     page.Point_E = buildPoint_E(page)
     page.Shap_E = buildShap_E(page)
@@ -908,6 +905,7 @@ def build3DAIs(page):
     page.Luma = buildLuma(page)
     diffusersTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
+            Tab(text="Stable Fast 3D", content=page.StableFast3D, icon=icons.FASTFOOD),
             Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
             Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
             Tab(text="Shap-E 3D", content=page.Shap_E, icon=icons.PRECISION_MANUFACTURING),
@@ -5913,6 +5911,72 @@ def buildMusicGen(page):
         ElevatedButton(content=Text("🎷  Run MusicGen", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_music_gen(page)),
         page.music_gen_output,
         clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+stable_fast_3D_prefs = {
+    'init_image': '',
+    'foreground_ratio': 0.85,
+    'remove_background': True,
+    'estimate_illumination': False,
+    'remesh_option': "None",
+    'max_size': 1024,
+    #'guidance_scale': 5.5,
+    'steps': 75,
+    'seed': 0,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'title': '',
+}
+
+def buildStableFast3D(page):
+    global prefs, stable_fast_3D_prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          stable_fast_3D_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def stable_fast_3D_help(e):
+      def close_stable_fast_3D_dlg(e):
+        nonlocal stable_fast_3D_help_dlg
+        stable_fast_3D_help_dlg.open = False
+        page.update()
+      stable_fast_3D_help_dlg = AlertDialog(title=Text("💁   Help with Stable-Fast-3D"), content=Column([
+          Text("We present SF3D, a novel method for rapid and high-quality textured object mesh reconstruction from a single image in just 0.5 seconds. Unlike most existing approaches, SF3D is explicitly trained for mesh generation, incorporating a fast UV unwrapping technique that enables swift texture generation rather than relying on vertex colors. The method also learns to predict material parameters and normal maps to enhance the visual quality of the reconstructed 3D meshes. Furthermore, SF3D integrates a delighting step to effectively remove low-frequency illumination effects, ensuring that the reconstructed meshes can be easily used in novel illumination conditions. Experiments demonstrate the superior performance of SF3D over the existing techniques. Utilizing the Large Reconstruction Model (LRM) as its foundation, SF3D achieves impressive performance, reconstructing detailed, textured meshes in just 0.5 seconds. Unlike traditional approaches, SF3D is explicitly trained for mesh generation, incorporating a fast UV unwrapping technique that enables swift texture generation rather than relying on vertex colors. Additionally, the method learns material parameters and normal maps to enhance the visual quality of the reconstructed models. Furthermore, SF3D integrates a delighting step to effectively remove low-frequency illumination effects, ensuring that the reconstructed meshes can be easily used in novel illumination conditions."),
+          Markdown("[Project Page](https://stable-fast-3d.github.io) | [HuggingFace Space](https://huggingface.co/spaces/stabilityai/stable-fast-3d) | [Model Card](https://huggingface.co/stabilityai/stable-fast-3d) | [GitHub](https://github.com/Stability-AI/stable-fast-3d)| [Stable-Fast-3D Paper](https://arxiv.org/abs/2408.00653)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Mark Boss, Zixuan Huang, Aaryaman Vasishta, Varun Jampani and Stability-AI"),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🏍  Conceivable...", on_click=close_stable_fast_3D_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(stable_fast_3D_help_dlg)
+      stable_fast_3D_help_dlg.open = True
+      page.update()
+    init_image = FileInput(label="Initial Image (clear background square = better results)", pref=stable_fast_3D_prefs, key='init_image', filled=True, page=page)
+    batch_folder_name = TextField(label="3D Model Folder Name", value=stable_fast_3D_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    title = TextField(label="Project Title", value=stable_fast_3D_prefs['title'], expand=True, on_change=lambda e:changed(e,'title'))
+    #batch_size = NumberPicker(label="Batch Size: ", min=1, max=5, value=stable_fast_3D_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    remove_background = Switcher(label="Remove Background", value=stable_fast_3D_prefs['remove_background'], on_change=lambda e:changed(e,'remove_background'), tooltip="You can clear the background yourself cleaner and save transparent png.")
+    foreground_ratio = SliderRow(label="Foreground Ratio", min=0, max=1, divisions=20, round=2, expand=True, pref=stable_fast_3D_prefs, key='foreground_ratio')
+    estimate_illumination = Switcher(label="Estimate Illumination", value=stable_fast_3D_prefs['estimate_illumination'], on_change=lambda e:changed(e,'estimate_illumination'))
+    max_row = SliderRow(label="Texture Size", min=512, max=2048, divisions=6, multiple=256, suffix="px", pref=stable_fast_3D_prefs, key='max_size')
+    steps = SliderRow(label="Inference Steps", min=5, max=75, divisions=14, pref=stable_fast_3D_prefs, key='steps')
+    remesh_option = Dropdown(label="Remesh Option", width=150, options=[dropdown.Option(c) for c in ['None', 'Triangle', 'Quad']], value=stable_fast_3D_prefs['remesh_option'], on_change=lambda e:changed(e,'remesh_option'))
+    model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-fast-3d)", on_tap_link=lambda e: e.page.launch_url(e.data))
+    #guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=stable_fast_3D_prefs, key='guidance_scale')
+    seed = TextField(label="Seed", width=90, value=str(stable_fast_3D_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🐇  Stable Fast 3D Image-to-3D", "Mesh Reconstruction with UV-unwrapping and Illumination Disentanglement, from Stability.ai...", actions=[save_default(stable_fast_3D_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Stable-Fast-3D Settings", on_click=stable_fast_3D_help)]),
+        init_image,
+        Row([remove_background, foreground_ratio]),
+        #steps,
+        #guidance,
+        max_row,
+        Row([remesh_option, estimate_illumination, model_card]),
+        Row([batch_folder_name, title]),
+        ElevatedButton(content=Text("🐆  Run Stable-Fast 3D", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_fast_3D(page)),
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -10983,7 +11047,7 @@ def buildPixArtSigma(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pixart_sigma_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_sigma_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_sigma_prefs, key='height')
-    pixart_model = Dropdown(label="PixArt-Σ Model", width=260, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-Sigma-XL-2-512-MS"), dropdown.Option("PixArt-Sigma-XL-2-1024-MS"), dropdown.Option("PixArt-Sigma-XL-2-2K-MS"), dropdown.Option("SigmaJourney-1024ms")], value=pixart_sigma_prefs['pixart_model'], on_change=changed_model)
+    pixart_model = Dropdown(label="PixArt-Σ Model", width=260, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-Sigma-900M"), dropdown.Option("PixArt-Sigma-XL-2-512-MS"), dropdown.Option("PixArt-Sigma-XL-2-1024-MS"), dropdown.Option("PixArt-Sigma-XL-2-2K-MS"), dropdown.Option("SigmaJourney-1024ms")], value=pixart_sigma_prefs['pixart_model'], on_change=changed_model)
     pixart_custom_model = TextField(label="Custom PixArt-Σ Model (URL or Path)", value=pixart_sigma_prefs['custom_model'], expand=True, visible=pixart_sigma_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     use_pag = Switcher(label="Use PAG: Perturbed-Attention Guidance", value=pixart_sigma_prefs['use_pag'], on_change=toggle_pag, tooltip="Improves sample quality across both unconditional and conditional settings. Progressively enhance the structure of synthesized samples throughout the denoising process by considering the self-attention mechanisms' ability to capture structural information.")
     pag_scale = SliderRow(label="PAG Guidance Scale", min=0, max=50, divisions=50, pref=pixart_sigma_prefs, key='pag_scale', tooltip="Gain more semantically coherent structures and exhibit fewer artifacts. Large guidance scale can lead to smoother textures and slight saturation in the images.")
@@ -11473,7 +11537,7 @@ auraflow_prefs = {
     "guidance_scale":4.0,
     "cpu_offload": True,
     "seed": 0,
-    "auraflow_model": "fal/AuraFlow",
+    "auraflow_model": "AuraFlow-0.2-fp16",
     "custom_model": "",
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
@@ -11517,7 +11581,8 @@ def buildAuraFlow(page):
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=auraflow_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=auraflow_prefs, key='height')
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=16, multiple=64, suffix="px", pref=auraflow_prefs, key='max_size', tooltip="Width & Height are Square Aspect-Ratio, made for 1024x1024")
-    auraflow_model = Dropdown(label="AuraFlow Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("fal/AuraFlow")], value=auraflow_prefs['auraflow_model'], on_change=changed_model)
+    model_id = "fal/AuraFlow" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.1" else "cozy-creator/aura-flow-fp16-version" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.1-fp16" else "fal/AuraFlow-v0.2" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.2" else "Vargol/auraflow0.2-fp16-diffusers" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.2-fp16" else auraflow_prefs['custom_model']
+    auraflow_model = Dropdown(label="AuraFlow Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("AuraFlow-0.1"), dropdown.Option("AuraFlow-0.1-fp16"), dropdown.Option("AuraFlow-0.2"), dropdown.Option("AuraFlow-0.2-fp16")], value=auraflow_prefs['auraflow_model'], on_change=changed_model)
     auraflow_custom_model = TextField(label="Custom AuraFlow Model (URL or Path)", value=auraflow_prefs['custom_model'], expand=True, visible=auraflow_prefs['auraflow_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=auraflow_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     #distilled_model = Switcher(label="Use Distilled Model", value=auraflow_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
@@ -11531,10 +11596,11 @@ def buildAuraFlow(page):
     page.AuraFlow_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
-            Header("🌗  AuraFlow SD3+", "Open Exploration of Large Rectified Flow Models. Achieves State-of-the-Art Results on GenEval, but slow & square only...", actions=[save_default(auraflow_prefs), IconButton(icon=icons.HELP, tooltip="Help with AuraFlow Settings", on_click=auraflow_help)]),
+            Header("🌗  AuraFlow SD3+", "Open Exploration of Large Rectified Flow Models. Achieves State-of-the-Art Results on GenEval, but slow & 1024x1024 only...", actions=[save_default(auraflow_prefs), IconButton(icon=icons.HELP, tooltip="Help with AuraFlow Settings", on_click=auraflow_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             steps,
-            guidance, max_row,
+            guidance,
+            #max_row,
             #width_slider, height_slider,
             Row([auraflow_model, auraflow_custom_model]),
             upscaler,
@@ -22562,6 +22628,8 @@ pipe_marigold_depth = None
 pipe_tripo = None
 pipe_crm = None
 crm_rembg_session=None
+pipe_stable_fast_3D = None
+stable_fast_3D_rembg_session=None
 pipe_instantmesh = None
 instantmesh_model = None
 instantmesh_rembg_session=None
@@ -25084,6 +25152,39 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
             img = os.path.join(result_folder, f)
             out = os.path.join(to, saves[f])
             shutil.move(img, out)
+    elif method=="AuraSR":
+        try:
+            import aura_sr
+        except ModuleNotFoundError:
+            stat("Installing fal-ai/AuraSR")
+            run_sp(f"pip install aura-sr", realtime=False)
+            pass
+        from aura_sr import AuraSR
+        stat(f"Loading AuraSR Pipeline")
+        pipe_aura_sr = AuraSR.from_pretrained("fal-ai/AuraSR")
+        stat(f"Upscaling {method} {scale}X")
+        for i in source:
+            try:
+                img = PILImage.open(i)
+                width, height = img.size
+                max_size = max(width, height)
+                max_size = int(max_size * scale)
+                width, height = scale_dimensions(width, height, max_size, multiple=4)
+                if face_enhance:
+                    upscaled_image = pipe_aura_sr.upscale_4x_overlapped(img)
+                else:
+                    upscaled_image = pipe_aura_sr.upscale_4x(img)
+                w, h = upscaled_image.size
+                upscaled_size = max(w, h)
+                if max_size != upscaled_size:
+                    upscaled_image = upscaled_image.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+                fname_clean = os.path.basename(i)
+                opath = os.path.join(target, fname_clean)
+                upscaled_image.save(opath)
+            except Exception as e:
+                stat(f"Error running {method}")
+                print(f"Error running {method}: {e}")
+                return
     else: #TODO: Add SwinIR, DAT and other Upscale methods
         print(f"Unknown upscale method {method}")
     #https://colab.research.google.com/gist/JingyunLiang/a5e3e54bc9ef8d7bf594f6fee8208533/swinir-demo-on-real-world-image-sr.ipynb
@@ -25880,6 +25981,13 @@ def clear_crm_pipe():
     flush()
     pipe_crm = None
     crm_rembg_session=None
+def clear_stable_fast_3D_pipe():
+  global pipe_stable_fast_3D, stable_fast_3D_rembg_session
+  if pipe_stable_fast_3D is not None:
+    del pipe_stable_fast_3D, stable_fast_3D_rembg_session
+    flush()
+    pipe_stable_fast_3D = None
+    stable_fast_3D_rembg_session=None
 def clear_instantmesh_pipe():
   global pipe_instantmesh, instantmesh_model, instantmesh_rembg_session
   if pipe_instantmesh is not None:
@@ -26037,6 +26145,7 @@ def clear_pipes(allbut=None):
     if not 'instantmesh' in but: clear_instantmesh_pipe()
     if not 'splatter_image' in but: clear_splatter_image_pipe()
     if not 'crm' in but: clear_crm_pipe()
+    if not 'stable_fast_3D' in but: clear_stable_fast_3D_pipe()
     if not 'background_remover' in but: clear_background_remover_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
     if not 'stable_lm' in but: clear_stable_lm_pipe()
@@ -43715,7 +43824,7 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
         pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
     text_encoder = None
     cpu_offload = pixart_sigma_prefs['cpu_offload']
-    pixart_model = "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-1024-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-512-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-512-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-2K-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-2K-MS" else "AlanB/SigmaJourney-1024ms" if pixart_sigma_prefs['pixart_model'] == "SigmaJourney-1024ms" else pixart_sigma_prefs['custom_model']
+    pixart_model = "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-1024-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-512-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-512-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-2K-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-2K-MS" else "dataautogpt3/PixArt-Sigma-900M" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-900M" else "AlanB/SigmaJourney-1024ms" if pixart_sigma_prefs['pixart_model'] == "SigmaJourney-1024ms" else pixart_sigma_prefs['custom_model']
     pixart_vae = "PixArt-alpha/pixart_sigma_sdxlvae_T5_diffusers"
     status.setdefault('loaded_pixart_8bit', use_8bit)
     status.setdefault('loaded_pixart', "")
@@ -44994,7 +45103,8 @@ def run_auraflow(page, from_list=False, with_params=False):
       page.tabs.update()
     clear_list()
     autoscroll(True)
-    model_id = "fal/AuraFlow" if auraflow_prefs['auraflow_model'] == "fal/AuraFlow" else auraflow_prefs['custom_model']
+    model_id = "fal/AuraFlow" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.1" else "cozy-creator/aura-flow-fp16-version" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.1-fp16" else "fal/AuraFlow-v0.2" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.2" else "Vargol/auraflow0.2-fp16-diffusers" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.2-fp16" else auraflow_prefs['custom_model']
+    pipe_extra = {'variant': 'fp16'} if 'fp16' in auraflow_prefs['auraflow_model'] else {}
     if 'loaded_auraflow_model' not in status: status['loaded_auraflow_model'] = ''
     installer = Installing(f"Installing AuraFlow Engine & Models... See console log for progress.")
     cpu_offload = auraflow_prefs['cpu_offload']
@@ -45006,7 +45116,7 @@ def run_auraflow(page, from_list=False, with_params=False):
     if pipe_auraflow == None:
         try:
             from diffusers import AuraFlowPipeline
-            pipe_auraflow = AuraFlowPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_auraflow = AuraFlowPipeline.from_pretrained(model_id, torch_dtype=torch.float16, **pipe_extra, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             if cpu_offload:
                 pipe_auraflow.enable_model_cpu_offload()
             else:
@@ -54725,6 +54835,195 @@ def run_DiT(page, from_list=False):
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
+
+def run_stable_fast_3D(page):
+    global stable_fast_3D_prefs, pipe_stable_fast_3D, stable_fast_3D_rembg_session, status
+    if not check_diffusers(page): return
+    if int(status['cpu_memory']) < 8:
+        alert_msg(page, f"Sorry, you need at least 8GB CPU RAM to run this. {'Change Runtime to High-RAM and try again.' if is_Colab else 'Upgrade your memory if you want to use it.'}")
+        return
+    if not bool(stable_fast_3D_prefs['init_image']):
+        alert_msg(page, f"ERROR: You must provide an init image to prrocess.")
+        return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.StableFast3D.controls.append(line)
+      page.StableFast3D.update()
+    def clear_last(lines=1):
+      clear_line(page.StableFast3D, lines=lines)
+    page.StableFast3D.controls = page.StableFast3D.controls[:1]
+    installer = Installing("Installing Stable-Fast 3D Libraries... See console for progress.")
+    prt(installer)
+    stable_fast_3D_dir = os.path.join(root_dir, "stable-fast-3d")
+    if not os.path.exists(stable_fast_3D_dir):
+        installer.status("...cloning Stability-AI/stable-fast-3d")
+        run_sp("git clone https://github.com/Stability-AI/stable-fast-3d", cwd=root_dir)
+    elif force_update("stable-fast-3d"):
+        installer.status("...updating Stability-AI/stable-fast-3d")
+        run_sp("git pull origin main", cwd=stable_fast_3D_dir)
+    if stable_fast_3D_dir not in sys.path:
+        sys.path.append(stable_fast_3D_dir)
+    try:
+        import pynim
+    except ModuleNotFoundError:
+        installer.status("...installing PyNanoInstantMeshes")
+        run_sp(f"pip install https://github.com/vork/PyNanoInstantMeshes.git", realtime=False)
+        pass
+    pip_install("einops omegaconf jaxtyping slangtorch==1.2.2 open_clip_torch trimesh rembg[gpu]|rembg gpytoolbox", installer=installer)
+    os.chdir(stable_fast_3D_dir)
+    name = stable_fast_3D_prefs['title'] if bool(stable_fast_3D_prefs['title']) else stable_fast_3D_prefs['init_image'].rpartition(slash)[1].rparition('.')[0]
+    fname = format_filename(name)
+    clear_pipes("stable_fast_3D")
+    from functools import lru_cache
+    from typing import Any
+    import rembg
+    #from gradio_litmodel3d import LitModel3D
+    import sf3d.utils as sf3d_utils
+    from sf3d.system import SF3D
+    
+    COND_WIDTH = 512
+    COND_HEIGHT = 512
+    COND_DISTANCE = 1.6
+    COND_FOVY_DEG = 40
+    BACKGROUND_COLOR = [0.5, 0.5, 0.5]
+    model_id = "stabilityai/stable-fast-3d"
+    if pipe_stable_fast_3D == None:
+        try:
+            installer.status(f"...loading Stable-Fast-3D Pipeline")
+            pipe_stable_fast_3D = SF3D.from_pretrained(model_id, config_name="config.yaml", weight_name="model.safetensors",)
+            pipe_stable_fast_3D.eval()
+            pipe_stable_fast_3D = pipe_stable_fast_3D.cuda()
+            if stable_fast_3D_rembg_session == None and stable_fast_3D_prefs["remove_background"]:
+                installer.status(f"...loading Background Remover")
+                stable_fast_3D_rembg_session = rembg.new_session()
+        except Exception as e:
+            #clear_last()
+            alert_msg(page, "Error Installing Stable-Fast-3D Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            os.chdir(root_dir)
+            return
+    
+    def resize_foreground(image: PILImage, ratio: float) -> PILImage:
+        image = np.array(image)
+        assert image.shape[-1] == 4
+        alpha = np.where(image[..., 3] > 0)
+        y1, y2, x1, x2 = (alpha[0].min(), alpha[0].max(), alpha[1].min(), alpha[1].max())
+        fg = image[y1:y2, x1:x2]
+        size = max(fg.shape[0], fg.shape[1])
+        ph0, pw0 = (size - fg.shape[0]) // 2, (size - fg.shape[1]) // 2
+        ph1, pw1 = size - fg.shape[0] - ph0, size - fg.shape[1] - pw0
+        new_image = np.pad(fg, ((ph0, ph1), (pw0, pw1), (0, 0)), mode="constant", constant_values=((0, 0), (0, 0), (0, 0)))
+        new_size = int(new_image.shape[0] / ratio)
+        ph0, pw0 = (new_size - size) // 2, (new_size - size) // 2
+        ph1, pw1 = new_size - size - ph0, new_size - size - pw0
+        new_image = np.pad(new_image, ((ph0, ph1), (pw0, pw1), (0, 0)), mode="constant", constant_values=((0, 0), (0, 0), (0, 0)),)
+        new_image = PILImage.fromarray(new_image, mode="RGBA").resize((COND_WIDTH, COND_HEIGHT))
+        return new_image
+
+    def square_crop(input_image: PILImage) -> PILImage:
+        min_size = min(input_image.size)
+        left = (input_image.size[0] - min_size) // 2
+        top = (input_image.size[1] - min_size) // 2
+        right = (input_image.size[0] + min_size) // 2
+        bottom = (input_image.size[1] + min_size) // 2
+        return input_image.crop((left, top, right, bottom)).resize((COND_WIDTH, COND_HEIGHT))
+
+
+    def show_mask_img(input_image: PILImage) -> PILImage:
+        img_numpy = np.array(input_image)
+        alpha = img_numpy[:, :, 3] / 255.0
+        chkb = checkerboard(32, 512) * 255
+        new_img = img_numpy[..., :3] * alpha[:, :, None] + chkb * (1 - alpha[:, :, None])
+        return PILImage.fromarray(new_img.astype(np.uint8), mode="RGB")
+    
+    clear_last()
+    # TODO: Prompts list
+    progress = Progress(f"Generating your 3D model... See console for progress.")
+    prt(progress)
+    init_img = None
+    if bool(stable_fast_3D_prefs['init_image']):
+        if stable_fast_3D_prefs['init_image'].startswith('http'):
+            progress.status("Downloading Image...")
+            init_img = PILImage.open(requests.get(stable_fast_3D_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(stable_fast_3D_prefs['init_image']):
+                init_img = PILImage.open(stable_fast_3D_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {stable_fast_3D_prefs['init_image']}")
+                return
+        '''if init_img != None:
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, stable_fast_3D_prefs['max_size'])
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")'''
+    if init_img == None:
+        alert_msg(page, f"ERROR: Provide a valid init_image {stable_fast_3D_prefs['init_image']}")
+        return
+    progress.status("getting Conditioning...")
+    c2w_cond = sf3d_utils.default_cond_c2w(COND_DISTANCE)
+    intrinsic, intrinsic_normed_cond = sf3d_utils.create_intrinsic_from_fov_deg(COND_FOVY_DEG, COND_HEIGHT, COND_WIDTH)
+    stable_fast_3D_out = os.path.join(prefs['image_output'], stable_fast_3D_prefs['batch_folder_name'])
+    if not os.path.exists(stable_fast_3D_out):
+        os.makedirs(stable_fast_3D_out)
+    
+    random_seed = get_seed(stable_fast_3D_prefs['seed'], max=1000000)
+    obj_path = available_file(stable_fast_3D_out, fname, ext='obj', no_num=True)
+    glb_path = available_file(stable_fast_3D_out, fname, ext='glb', no_num=True)
+    video_path = available_file(stable_fast_3D_out, fname, ext='mp4', no_num=True)
+    image_path = available_file(stable_fast_3D_out, fname)
+    xyz_path = available_file(stable_fast_3D_out+"-xyz", fname)
+    #model_names = and_list([f"[obj]({filepath_to_url(obj_path)})", f"[glb]({filepath_to_url(glb_path)})"])
+    try:
+        if stable_fast_3D_prefs["remove_background"]:
+            progress.status("Removing Background...")
+            init_img = remove_background(init_img)
+            init_img = rembg.remove(init_img, session=stable_fast_3D_rembg_session)
+            w, h = init_img.size
+            src_base64 = pil_to_base64(init_img)
+            prt(Row([ImageButton(src_base64=src_base64, width=w, height=w, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+        progress.status("Preparing Image...")
+        sqr_crop = square_crop(init_img)
+        init_img = resize_foreground(sqr_crop, stable_fast_3D_prefs["foreground_ratio"])
+        progress.status("Conditioning Batch...")
+        torch.cuda.reset_peak_memory_stats()
+        #seed_everything(random_seed)
+        with torch.no_grad():
+            with torch.autocast(device_type="cuda", dtype=torch.float16):
+                img_cond = (
+                    torch.from_numpy(
+                        np.asarray(init_img.resize((COND_WIDTH, COND_HEIGHT))).astype(np.float32)
+                        / 255.0
+                    ).float().clip(0, 1))
+                mask_cond = img_cond[:, :, -1:]
+                rgb_cond = torch.lerp(torch.tensor(BACKGROUND_COLOR)[None, None, :], img_cond[:, :, :3], mask_cond)
+                batch_elem = {
+                    "rgb_cond": rgb_cond,
+                    "mask_cond": mask_cond,
+                    "c2w_cond": c2w_cond.unsqueeze(0),
+                    "intrinsic_cond": intrinsic.unsqueeze(0),
+                    "intrinsic_normed_cond": intrinsic_normed_cond.unsqueeze(0),
+                }
+                model_batch = {k: v.unsqueeze(0) for k, v in batch_elem.items()}
+                model_batch = {k: v.cuda() for k, v in model_batch.items()}
+                progress.status("Generating 3D Mesh...")
+                trimesh_mesh, _glob_dict = pipe_stable_fast_3D.generate_mesh(model_batch, stable_fast_3D_prefs['max_size'], stable_fast_3D_prefs['remesh_option'].lower(), stable_fast_3D_prefs['estimate_illumination'])
+                trimesh_mesh = trimesh_mesh[0]
+                print("Peak Memory:", torch.cuda.max_memory_allocated() / 1024 / 1024, "MB")
+        progress.status("Exporting Mesh to 3D Files...")
+        trimesh_mesh.export(glb_path, file_type="glb", include_normals=True)
+        #save_metadata(image_path, stable_fast_3D_prefs, f"Stable-Fast-3D", model_id, random_seed)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error running Stable-Fast-3D pipeline.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        os.chdir(root_dir)
+        return
+    clear_last()
+    #prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([Markdown(f"Saved Model as [{glb_path}]({filepath_to_url(glb_path)})", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+    flush()
+    #prt("Finished generating Stable-Fast-3D Mesh... Hope it's good.")
+    play_snd(Snd.ALERT, page)
+    os.chdir(root_dir)
 
 def get_dreamfusion(page):
     os.chdir(root_dir)
