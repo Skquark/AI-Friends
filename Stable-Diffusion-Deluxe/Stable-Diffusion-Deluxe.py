@@ -7944,8 +7944,8 @@ def buildControlNetQR(page):
         changed(e, 'controlnet_version')
         #controlnet_qr_prefs['controlnet_version'] = e.control.value
         sdxl = 'SDXL' in controlnet_qr_prefs['controlnet_version']
-        ip_adapter_model.visible = not sdxl
-        ip_adapter_SDXL_model.visible = sdxl
+        ip_adapter_model.visible = not sdxl and controlnet_qr_prefs['use_ip_adapter']
+        ip_adapter_SDXL_model.visible = sdxl and controlnet_qr_prefs['use_ip_adapter']
         ip_adapter_model.update()
         ip_adapter_SDXL_model.update()
     selected_mode = ft.SegmentedButton(on_change=change_mode, selected={controlnet_qr_prefs['selected_mode']}, allow_multiple_selection=False,
@@ -11308,11 +11308,17 @@ def buildLuminaNext(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+Flux_LoRA_models = [
+    {"name": "LittleTinies", "path": "pzc163/LittleTinies-FLUX-lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
+    {"name": "Sanna-Marin", "path": "mikaelh/flux-sanna-marin-lora-v0.1", "weights": "pytorch_lora_weights.safetensors", "subfolder": "checkpoint-1950", "prefix": "sanna marin"},
+    {"name": "SimpleTuner Test", "path": "markury/FLUX-dev-LoRA-test", "weights": "pytorch_lora_weights.safetensors", "prefix": "a photo of man"},
+]
 flux_prefs = {
     "prompt": '',
     "negative_prompt": '',
     "batch_folder_name": '',
     "file_prefix": "flux-",
+    "batch_size": 1,
     "num_images": 1,
     "steps": 40,
     "lightning_steps": 4,
@@ -11324,6 +11330,12 @@ flux_prefs = {
     "seed": 0,
     "flux_model": "FLUX.1-dev",
     "custom_model": "",
+    'lora_alpha': 0.8,
+    'custom_lora': '',
+    'lora_layer': 'LittleTinies',
+    'lora_layer_alpha': 0.8,
+    'custom_lora_layer': '',
+    'lora_map': [],
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
     "face_enhance": prefs['face_enhance'],
@@ -11364,11 +11376,51 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
         guidance.show = not schnell
         steps.show = not schnell
         lightning_steps.show = schnell
+    def changed_lora_layer(e):
+      flux_prefs['lora_layer'] = e.control.value
+      custom_lora_layer.visible = e.control.value == "Custom"
+      custom_lora_layer.update()
+    def add_lora(e):
+      lora = flux_prefs['lora_layer']
+      lora_scale = flux_prefs['lora_layer_alpha']
+      lora_layer = {}
+      if lora == "Custom":
+        lora_layer = {'name': 'Custom', 'file':'', 'path':flux_prefs['custom_lora_layer'], 'scale': lora_scale}
+      else:
+        for l in Flux_LoRA_models:
+          if l['name'] == lora:
+            lora_layer = l.copy()
+            lora_layer['scale'] = lora_scale
+        for l in flux_prefs['lora_map']:
+          if l['name'] == lora:
+            return
+      flux_prefs['lora_map'].append(lora_layer)
+      title = Markdown(f"**{lora_layer['name']}** - Alpha Scale: [{lora_layer['scale']}] - {lora_layer['path']}")
+      lora_layer_map.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        items=[
+            PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_lora_layer, data=lora_layer),
+            PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_lora_layers, data=lora_layer),
+        ]), data=lora_layer))
+      lora_layer_map.update()
+    def delete_lora_layer(e):
+        for l in flux_prefs['lora_map']:
+          if l['name'] == e.control.data['name']:
+            flux_prefs['lora_map'].remove(l)
+        for c in lora_layer_map.controls:
+          if c.data['name'] == e.control.data['name']:
+             lora_layer_map.controls.remove(c)
+             break
+        lora_layer_map.update()
+    def delete_all_lora_layers(e):
+        flux_prefs['lora_map'].clear()
+        lora_layer_map.controls.clear()
+        lora_layer_map.update()
     prompt = TextField(label="Prompt Text", value=flux_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     #negative_prompt = TextField(label="Negative Prompt Text", value=flux_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=flux_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=flux_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
-    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=flux_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    batch_size = NumberPicker(label="Batch Size", min=1, max=4, step=1, value=flux_prefs['batch_size'], on_change=lambda e:changed(e,'batch_size', ptype="int"), tooltip="Generates multiple images at the same time. Uses more memory, only if your VRAM > 24GB...")
+    n_images = NumberPicker(label="Number of Images", min=1, max=10, step=1, value=flux_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"), tooltip="Iterate multiple images in batch seperately, increments seed.")
     steps = SliderRow(label="Number of Steps", min=0, max=100, divisions=100, pref=flux_prefs, key='steps', visible = flux_prefs['flux_model'] != "FLUX.1-schnell")
     lightning_steps = SliderRow(label="Number of Steps", min=0, max=10, divisions=10, pref=flux_prefs, key='lightning_steps', visible = flux_prefs['flux_model'] == "FLUX.1-schnell")
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=10, pref=flux_prefs, key='guidance_scale', visible = flux_prefs['flux_model'] != "FLUX.1-schnell")
@@ -11376,6 +11428,17 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     height_slider = SliderRow(label="Height", min=256, max=1360, divisions=69, multiple=16, suffix="px", pref=flux_prefs, key='height')
     flux_model = Dropdown(label="FLUX.1 Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("FLUX.1-dev"), dropdown.Option("FLUX.1-schnell")], value=flux_prefs['flux_model'], on_change=changed_model)
     flux_custom_model = TextField(label="Custom Flux Model (URL or Path)", value=flux_prefs['custom_model'], expand=True, visible=flux_prefs['flux_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=flux_prefs['lora_layer'], on_change=changed_lora_layer)
+    custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=flux_prefs['custom_lora_layer'], expand=True, visible=flux_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
+    '''if len(prefs['custom_Flux_LoRA_models']) > 0:
+        for l in prefs['custom_Flux_LoRA_models']:
+            lora_layer.options.append(dropdown.Option(l['name']))'''
+    for m in Flux_LoRA_models:
+        lora_layer.options.append(dropdown.Option(m['name']))
+    lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
+    lora_layer_map = Column([], spacing=0)
     quantize = Switcher(label="Quantize", value=flux_prefs['quantize'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'quantize'), tooltip="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision.")
     cpu_offload = Switcher(label="CPU Offload", value=flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     #distilled_model = Switcher(label="Use Distilled Model", value=flux_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
@@ -11395,8 +11458,12 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
             steps, lightning_steps,
             guidance, width_slider, height_slider,
             Row([flux_model, flux_custom_model]),
+            Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
+            lora_layer_map,
+            Divider(thickness=4, height=4),
             upscaler,
-            ResponsiveRow([Row([n_images, cpu_offload, quantize], col={'md':6}), Row([batch_folder_name, file_prefix, seed], col={'md':6})]),
+            Row([cpu_offload, quantize]),
+            ResponsiveRow([Row([batch_size, n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Flux_output
         ],
@@ -37066,7 +37133,7 @@ def run_stable_audio(page):
         prt(Text("  Generating Stable Audio...", weight=FontWeight.BOLD))
         progress.value = None
         prt(progress)
-        generator = torch.Generator("cuda").manual_seed(random_seed + n)
+        generator = torch.Generator("cuda").manual_seed(random_seed)
         try:
             audios = pipe_stable_audio(
                 stable_audio_prefs['text'],
@@ -37110,7 +37177,7 @@ def run_stable_audio(page):
                 config_json = stable_audio_prefs.copy()
                 del config_json['batch_size']
                 del config_json['file_prefix']
-                config_json['seed'] = random_seed + n
+                config_json['seed'] = random_seed
                 audio_metadata["config"] = config_json
             fname = available_file(audio_out, audio_name, n, ext="wav")
             #torchaudio.save(fname, output, sample_rate)
@@ -44565,14 +44632,14 @@ def run_flux(page, from_list=False, with_params=False):
         return
       for p in prompts:
         if with_params:
-            flux_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':flux_prefs['guidance_scale'], 'steps':flux_prefs['steps'], 'width':flux_prefs['width'], 'height':flux_prefs['height'], 'num_images':flux_prefs['num_images'], 'seed':flux_prefs['seed']})
+            flux_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':flux_prefs['guidance_scale'], 'steps':flux_prefs['steps'], 'width':flux_prefs['width'], 'height':flux_prefs['height'], 'num_images':flux_prefs['num_images'], 'batch_size':flux_prefs['batch_size'], 'seed':flux_prefs['seed']})
         else:
-            flux_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+            flux_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['n_iterations'], 'batch_size':p['batch_size'], 'seed':p['seed']})
     else:
       if not bool(flux_prefs['prompt']):
         alert_msg(page, "You must provide a text prompt to process your image generation...")
         return
-      flux_prompts.append({'prompt': flux_prefs['prompt'], 'negative_prompt':flux_prefs['negative_prompt'], 'guidance_scale':flux_prefs['guidance_scale'], 'steps':flux_prefs['steps'], 'width':flux_prefs['width'], 'height':flux_prefs['height'], 'num_images':flux_prefs['num_images'], 'seed':flux_prefs['seed']})
+      flux_prompts.append({'prompt': flux_prefs['prompt'], 'negative_prompt':flux_prefs['negative_prompt'], 'guidance_scale':flux_prefs['guidance_scale'], 'steps':flux_prefs['steps'], 'width':flux_prefs['width'], 'height':flux_prefs['height'], 'num_images':flux_prefs['num_images'], 'batch_size':flux_prefs['batch_size'], 'seed':flux_prefs['seed']})
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line, size=17)
@@ -44691,74 +44758,91 @@ def run_flux(page, from_list=False, with_params=False):
             clear_last()
             alert_msg(page, f"ERROR Initializing Flux, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
+    if len(flux_prefs['lora_map']) > 0:
+        adapters = []
+        scales = []
+        for l in flux_prefs['lora_map']:
+            adapters.append(l['name'])
+            scales.append(l['scale'])
+            weight_args = {}
+            if 'weights' in l and bool(l['weights']):
+                weight_args['weight_name'] = l['weights']
+            if 'subfolder' in l and bool(l['subfolder']):
+                weight_args['subfolder'] = l['subfolder']
+            pipe_flux.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
+        pipe_flux.fuse_lora(adapter_names=adapters, lora_scale=scales[0])
     clear_last()
     n = 0
     for pr in flux_prompts:
-        prt(f"{f'[{n + 1}/{len(flux_prompts)}]  ' if from_list else ''}{pr['prompt']}")
-        progress.value = None
-        prt(progress)
-        nudge(page.imageColumn if from_list else page.Flux, page=page)
-        autoscroll(False)
-        total_steps = pr['steps'] if not schnell else pr['lightning_steps']
-        random_seed = get_seed(pr['seed'])
-        generator = torch.Generator(device="cpu").manual_seed(random_seed)
-        try:
-            images = pipe_flux(
-                prompt=pr['prompt'],
-                #negative_prompt=pr['negative_prompt'],
-                num_images_per_prompt=pr['num_images'],
-                width=pr['width'],
-                height=pr['height'],
-                num_inference_steps=total_steps,
-                guidance_scale=pr['guidance_scale'] if not schnell else 0.,
-                max_sequence_length=256 if schnell else 512,
-                generator=generator,
-                callback_on_step_end=callback_fn,
-            ).images
-        except Exception as e:
+        for i in range(pr['num_images']):
+            i_num = f"{i+1} of {pr['num_images']} - " if pr['num_images'] > 1 else ""
+            prt(f"{f'[{n + 1}/{len(flux_prompts)}]  ' if from_list else ''}{i_num}{pr['prompt']}")
+            progress.value = None
+            prt(progress)
+            nudge(page.imageColumn if from_list else page.Flux, page=page)
+            autoscroll(False)
+            total_steps = pr['steps'] if not schnell else pr['lightning_steps']
+            random_seed = get_seed(pr['seed']) + i
+            generator = torch.Generator(device="cpu").manual_seed(random_seed)
+            try:
+                images = pipe_flux(
+                    prompt=pr['prompt'],
+                    #negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['batch_size'],
+                    width=pr['width'],
+                    height=pr['height'],
+                    num_inference_steps=total_steps,
+                    guidance_scale=pr['guidance_scale'] if not schnell else 0.,
+                    max_sequence_length=256 if schnell else 512,
+                    generator=generator,
+                    callback_on_step_end=callback_fn,
+                ).images
+            except Exception as e:
+                clear_last(2)
+                alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
             clear_last(2)
-            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-            return
-        clear_last(2)
-        autoscroll(True)
-        txt2img_output = stable_dir
-        batch_output = prefs['image_output']
-        txt2img_output = stable_dir
-        if bool(flux_prefs['batch_folder_name']):
-            txt2img_output = os.path.join(stable_dir, flux_prefs['batch_folder_name'])
-        if not os.path.exists(txt2img_output):
-            os.makedirs(txt2img_output)
-        #print(str(images))
-        if images is None:
-            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
-            return
-        idx = 0
-        for image in images:
-            fname = format_filename(pr['prompt'])
-            fname = f'{flux_prefs["file_prefix"]}{fname}'
-            image_path = available_file(txt2img_output, fname, 1)
-            image.save(image_path)
-            output_file = image_path.rpartition(slash)[2]
-            if not flux_prefs['display_upscaled_image'] or not flux_prefs['apply_ESRGAN_upscale']:
-                save_metadata(image_path, flux_prefs, f"FLUX.1", model_id, random_seed, extra=pr)
-                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            batch_output = os.path.join(prefs['image_output'], flux_prefs['batch_folder_name'])
-            if not os.path.exists(batch_output):
-                os.makedirs(batch_output)
-            out_path = os.path.dirname(image_path)
-            upscaled_path = os.path.join(out_path, output_file)
+            autoscroll(True)
+            txt2img_output = stable_dir
+            batch_output = prefs['image_output']
+            txt2img_output = stable_dir
+            if bool(flux_prefs['batch_folder_name']):
+                txt2img_output = os.path.join(stable_dir, flux_prefs['batch_folder_name'])
+            if not os.path.exists(txt2img_output):
+                os.makedirs(txt2img_output)
+            #print(str(images))
+            if images is None:
+                prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+                return
+            idx = 0
+            for image in images:
+                fname = format_filename(pr['prompt'])
+                fname = f'{flux_prefs["file_prefix"]}{fname}'
+                image_path = available_file(txt2img_output, fname, 1)
+                image.save(image_path)
+                output_file = image_path.rpartition(slash)[2]
+                if not flux_prefs['display_upscaled_image'] or not flux_prefs['apply_ESRGAN_upscale']:
+                    save_metadata(image_path, flux_prefs, f"FLUX.1", model_id, random_seed, extra=pr)
+                    prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                batch_output = os.path.join(prefs['image_output'], flux_prefs['batch_folder_name'])
+                if not os.path.exists(batch_output):
+                    os.makedirs(batch_output)
+                out_path = os.path.dirname(image_path)
+                upscaled_path = os.path.join(out_path, output_file)
 
-            if flux_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=flux_prefs["enlarge_scale"], face_enhance=flux_prefs["face_enhance"])
-                image_path = upscaled_path
-                save_metadata(upscaled_path, flux_prefs, f"FLUX.1", model_id, random_seed, extra=pr)
-                if flux_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(flux_prefs["enlarge_scale"]), height=pr['height'] * float(flux_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            new_file = available_file(os.path.join(prefs['image_output'], flux_prefs['batch_folder_name']), fname, 0)
-            out_path = new_file
-            shutil.copy(image_path, new_file)
-            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+                if flux_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    upscale_image(image_path, upscaled_path, scale=flux_prefs["enlarge_scale"], face_enhance=flux_prefs["face_enhance"])
+                    image_path = upscaled_path
+                    save_metadata(upscaled_path, flux_prefs, f"FLUX.1", model_id, random_seed, extra=pr)
+                    if flux_prefs['display_upscaled_image']:
+                        prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(flux_prefs["enlarge_scale"]), height=pr['height'] * float(flux_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                new_file = available_file(os.path.join(prefs['image_output'], flux_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
         n += 1
+    if len(flux_prefs['lora_map']) > 0:
+        pipe_flux.unfuse_lora()
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
@@ -45119,7 +45203,7 @@ def run_auraflow(page, from_list=False, with_params=False):
                     pipe_auraflow.transformer = torch.compile(pipe_auraflow.transformer, mode="max-autotune", fullgraph=True)
                     pipe_auraflow.vae.decode = torch.compile(pipe_auraflow.vae.decode, mode="max-autotune", fullgraph=True)
                 #pipe_auraflow.transformer.enable_forward_chunking(chunk_size=1, dim=1)
-            #pipe_auraflow.set_progress_bar_config(disable=True)
+            pipe_auraflow.set_progress_bar_config(disable=True)
             status['loaded_auraflow_model'] = model_id
         except Exception as e:
             clear_last()
@@ -52556,7 +52640,8 @@ def run_easyanimate(page, from_list=False, with_params=False):
             prt(progress)
             nudge(page.imageColumn if from_list else page.EasyAnimate, page)
             autoscroll(False)
-            generator = torch.Generator("cuda").manual_seed(random_seed + n)
+            random_seed += n
+            generator = torch.Generator("cuda").manual_seed(random_seed)
             video_length = easyanimate_prefs['video_length']
             if easyanimate_prefs['generate_image']:
                 video_length = 1
@@ -53685,7 +53770,8 @@ def run_latte(page):
         prt("Generating Latte Video from your Prompt...")
         prt(progress)
         autoscroll(False)
-        generator = torch.Generator(device="cpu").manual_seed(random_seed + n)
+        random_seed += n
+        generator = torch.Generator(device="cpu").manual_seed(random_seed)
         #generator = torch.manual_seed(random_seed)
         width = latte_prefs['width']
         height = latte_prefs['height']
@@ -53873,7 +53959,8 @@ def run_open_sora_plan(page):
         autoscroll(False)
         width = open_sora_plan_prefs['width']
         height = open_sora_plan_prefs['height']
-        generator = torch.Generator().manual_seed(random_seed + n)
+        random_seed += n
+        generator = torch.Generator().manual_seed(random_seed)
         #height, width = int(args.version.split('x')[1]), int(args.version.split('x')[2])
         #num_frames = 1 if force_images else int(open_sora_plan_prefs['num_frames'])
         try:
@@ -54851,11 +54938,29 @@ def run_stable_fast_3D(page):
         run_sp("git pull origin main", cwd=stable_fast_3D_dir)
     if stable_fast_3D_dir not in sys.path:
         sys.path.append(stable_fast_3D_dir)
+    import platform
+    if platform.system() == "Windows":
+        pip_install("cmake", installer=installer)
+        try:
+            subprocess.run(["nmake", "/?"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        except subprocess.CalledProcessError:
+            print("nmake is installed but returned an error.")
+            pass
+        except FileNotFoundError:
+            try:
+                import winreg
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\VisualStudio\SxS\VS7")
+                path, _ = winreg.QueryValueEx(key, "15.0")  # 15.0 corresponds to VS 2017
+            except WindowsError:
+                clear_last()
+                prt(Markdown(f"nmake is not installed. To install nmake, you need to install Visual Studio Build Tools. Please follow these steps:\n1. Visit: [https://visualstudio.microsoft.com/visual-cpp-build-tools/](https://visualstudio.microsoft.com/visual-cpp-build-tools/)\n2. Download and run the installer. 3. In the installer, select 'C++ build tools' under Workloads.\n4. Complete the installation.\nAfter installation, you may need to restart your computer. When done, run this again.", on_tap_link=lambda e: e.page.launch_url(e.data)))
+                play_snd(Snd.ERROR, page)
+                return None
     try:
         import pynim
     except ModuleNotFoundError:
         installer.status("...installing PyNanoInstantMeshes")
-        run_sp(f"pip install https://github.com/vork/PyNanoInstantMeshes.git", realtime=False)
+        run_sp(f"pip install git+https://github.com/vork/PyNanoInstantMeshes.git", realtime=True)
         pass
     pip_install("einops omegaconf jaxtyping slangtorch==1.2.2 open_clip_torch trimesh rembg[gpu]|rembg gpytoolbox", installer=installer)
     os.chdir(stable_fast_3D_dir)

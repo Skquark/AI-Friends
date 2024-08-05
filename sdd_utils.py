@@ -509,6 +509,11 @@ SD3_LoRA_models = [
     {"name": "Green-BG", "path": "sergon19/green_bg_LoRa10-SDX3-plus", "weights": "pytorch_lora_weights.safetensors", "prefix": "sgc style"},
     {"name": "sd3-lora-test", "path": "ptx0/sd3-lora-test", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
 ]
+Flux_LoRA_models = [
+    {"name": "LittleTinies", "path": "pzc163/LittleTinies-FLUX-lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
+    {"name": "Sanna-Marin", "path": "mikaelh/flux-sanna-marin-lora-v0.1", "weights": "pytorch_lora_weights.safetensors", "subfolder": "checkpoint-1950", "prefix": "sanna marin"},
+    {"name": "SimpleTuner Test", "path": "markury/FLUX-dev-LoRA-test", "weights": "pytorch_lora_weights.safetensors", "prefix": "a photo of man"},
+]
 ip_adapter_models = [
     {'name': 'SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter_sd15.bin'},
     {'name': 'Plus SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-plus_sd15.bin'},
