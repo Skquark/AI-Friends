@@ -884,6 +884,7 @@ def build3DAIs(page):
     page.MarigoldDepth = buildMarigoldDepth(page)
     page.Tripo = buildTripo(page)
     page.InstantMesh = buildInstantMesh(page)
+    page.MeshAnything = buildMeshAnything(page)
     page.SplatterImage = buildSplatterImage(page)
     page.CRM = buildCRM(page)
     page.LDM3D = buildLDM3D(page)
@@ -900,6 +901,7 @@ def build3DAIs(page):
             Tab(text="MarigoldDepth", content=page.MarigoldDepth, icon=icons.FILTER_VINTAGE),
             Tab(text="Tripo", content=page.Tripo, icon=icons.CONNECTING_AIRPORTS),
             Tab(text="InstantMesh", content=page.InstantMesh, icon=icons.ELECTRIC_BOLT),
+            Tab(text="MeshAnything", content=page.MeshAnything, icon=icons.SELECT_ALL),
             Tab(text="Splatter Image", content=page.SplatterImage, icon=icons.DIRTY_LENS),
             Tab(text="CRM-3D", content=page.CRM, icon=icons.ENGINEERING),
             Tab(text="LDM3D", content=page.LDM3D, icon=icons.ROTATE_90_DEGREES_CW),
@@ -1336,7 +1338,7 @@ def initState(page):
       #start_polling(prefs['stats_update'], update_stats(page))
     #time.sleep(8)
     #page.update()
-    #print_tabs(page, False)
+    #print_tabs(page, True)
     #show_upscalers(page)
 
 def buildSettings(page):
@@ -6439,6 +6441,58 @@ def buildInstantMesh(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+mesh_anything_prefs = {
+    'input_3d': '',
+    'guidance_scale': 3.0,
+    'do_marching_cubes': False,
+    'do_sampling': False,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'title': '',
+    'seed': 0,
+}
+
+def buildMeshAnything(page):
+    global prefs, mesh_anything_prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          mesh_anything_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def df_help(e):
+      def close_df_dlg(e):
+        nonlocal df_help_dlg
+        df_help_dlg.open = False
+        page.update()
+      df_help_dlg = AlertDialog(title=Text("💁   Help with MeshAnything v2"), content=Column([
+          Text("Equipped with the newly proposed Adjacent Mesh Tokenization (AMT), MeshAnything V2 significantly surpasses MeshAnything in both performance and efficiency. MeshAnything V2 generates Artist-Created Meshes (AM) up to 1600 faces aligned with given shapes. Combined with various 3D asset production pipelines, it efficiently achieves high-quality, highly controllable AM generation. Unlike previous methods that use three vertices to represent a face, AMT uses a single vertex whenever possible. When this is impossible, AMT adds a special token & and restarts. Our experiments demonstrate that AMT reduces the token sequence length by half on average. Its compact, and well-structured sequence representation enhances sequence learning, thereby significantly improving both the efficiency and performance of mesh generation."),
+          Text("We introduce MeshAnything V2, an autoregressive transformer that generates Artist-Created Meshes (AM) aligned to given shapes. It can be integrated with various 3D asset production pipelines to achieve high-quality, highly controllable AM generation. MeshAnything V2 surpasses previous methods in both efficiency and performance using models of the same size. These improvements are due to our newly proposed mesh tokenization method: Adjacent Mesh Tokenization (AMT). Different from previous methods that represent each face with three vertices, AMT uses a single vertex whenever possible. Compared to previous methods, AMT requires about half the token sequence length to represent the same mesh in average. Furthermore, the token sequences from AMT are more compact and well-structured, fundamentally benefiting mesh generation. Our extensive experiments show that AMT significantly improves the efficiency and performance of mesh generation."),
+          Markdown("[Project Page](https://buaacyw.github.io/meshanything-v2/) | [Paper](https://arxiv.org/abs/2408.02555) | [GitHub](https://github.com/buaacyw/MeshAnythingV2) | [Model](https://huggingface.co/Yiwen-ntu/MeshAnythingV2/tree/main) | [HF Space](https://huggingface.co/spaces/Yiwen-ntu/MeshAnythingV2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Yiwen Chen, Yikai Wang, Yihao Luo, Zhengyi Wang, Zilong Chen, Jun Zhu, Chi Zhang, Guosheng Lin, Nanyang Technological University, Tsinghua University, Imperial College London, and Westlake University"),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("⌚️  Saves Days... ", on_click=close_df_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(df_help_dlg)
+      df_help_dlg.open = True
+      page.update()
+    input_3d = FileInput(label="Input 3D Mesh (obj, ply or npy)", pref=mesh_anything_prefs, key='input_3d', ftype="mesh", page=page)
+    batch_folder_name = TextField(label="3D Model Folder Name", value=mesh_anything_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    title = TextField(label="Project Title", value=mesh_anything_prefs['title'], expand=True, on_change=lambda e:changed(e,'title'))
+    do_marching_cubes = Switcher(label="Preprocess with Marching Cubes", value=mesh_anything_prefs['do_marching_cubes'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'do_marching_cubes'))
+    do_sampling = Switcher(label="Random Sampling", value=mesh_anything_prefs['do_sampling'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'do_sampling'))
+    seed = TextField(label="Seed", value=mesh_anything_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🥅  MeshAnything v2 3D Optimizer", "Artist-Created Mesh (AMs) Generation With Adjacent Mesh Tokenization. Converts any 3D representation into meshes created by human artists...", actions=[save_default(mesh_anything_prefs, exclude=['input_3d']), IconButton(icon=icons.HELP, tooltip="Help with MeshAnything Settings", on_click=df_help)]),
+        input_3d,
+        Row([do_marching_cubes, do_sampling]),
+        Row([seed, batch_folder_name, title]),
+        ElevatedButton(content=Text("🏸  Run MeshAnything", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_mesh_anything(page)),
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 splatter_image_prefs = {
     'init_image': '',
     'foreground_ratio': 0.70,
@@ -11423,13 +11477,13 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     n_images = NumberPicker(label="Number of Images", min=1, max=10, step=1, value=flux_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"), tooltip="Iterate multiple images in batch seperately, increments seed.")
     steps = SliderRow(label="Number of Steps", min=0, max=100, divisions=100, pref=flux_prefs, key='steps', visible = flux_prefs['flux_model'] != "FLUX.1-schnell")
     lightning_steps = SliderRow(label="Number of Steps", min=0, max=10, divisions=10, pref=flux_prefs, key='lightning_steps', visible = flux_prefs['flux_model'] == "FLUX.1-schnell")
-    guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=10, pref=flux_prefs, key='guidance_scale', visible = flux_prefs['flux_model'] != "FLUX.1-schnell")
-    width_slider = SliderRow(label="Width", min=256, max=1360, divisions=69, multiple=16, suffix="px", pref=flux_prefs, key='width')
-    height_slider = SliderRow(label="Height", min=256, max=1360, divisions=69, multiple=16, suffix="px", pref=flux_prefs, key='height')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=flux_prefs, key='guidance_scale', visible = flux_prefs['flux_model'] != "FLUX.1-schnell")
+    width_slider = SliderRow(label="Width", min=256, max=1440, divisions=74, multiple=16, suffix="px", pref=flux_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1440, divisions=74, multiple=16, suffix="px", pref=flux_prefs, key='height')
     flux_model = Dropdown(label="FLUX.1 Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("FLUX.1-dev"), dropdown.Option("FLUX.1-schnell")], value=flux_prefs['flux_model'], on_change=changed_model)
     flux_custom_model = TextField(label="Custom Flux Model (URL or Path)", value=flux_prefs['custom_model'], expand=True, visible=flux_prefs['flux_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
-    lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=flux_prefs['lora_layer'], on_change=changed_lora_layer)
+    lora_layer = Dropdown(label="LoRA Layer Map", width=256, options=[dropdown.Option("Custom")], value=flux_prefs['lora_layer'], on_change=changed_lora_layer)
     custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=flux_prefs['custom_lora_layer'], expand=True, visible=flux_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
     '''if len(prefs['custom_Flux_LoRA_models']) > 0:
         for l in prefs['custom_Flux_LoRA_models']:
@@ -22680,6 +22734,7 @@ pipe_shap_e = None
 pipe_zoe_depth = None
 pipe_marigold_depth = None
 pipe_tripo = None
+pipe_mesh_anything = None
 pipe_crm = None
 crm_rembg_session=None
 pipe_stable_fast_3D = None
@@ -26022,6 +26077,12 @@ def clear_marigold_depth_pipe():
     del pipe_marigold_depth
     flush()
     pipe_marigold_depth = None
+def clear_mesh_anything_pipe():
+  global pipe_mesh_anything
+  if pipe_mesh_anything is not None:
+    del pipe_mesh_anything
+    flush()
+    pipe_mesh_anything = None
 def clear_tripo_pipe():
   global pipe_tripo
   if pipe_tripo is not None:
@@ -26196,6 +26257,7 @@ def clear_pipes(allbut=None):
     if not 'zoe_depth' in but: clear_zoe_depth_pipe()
     if not 'marigold_depth' in but: clear_marigold_depth_pipe()
     if not 'tripo' in but: clear_tripo_pipe()
+    if not 'mesh_anything' in but: clear_mesh_anything_pipe()
     if not 'instantmesh' in but: clear_instantmesh_pipe()
     if not 'splatter_image' in but: clear_splatter_image_pipe()
     if not 'crm' in but: clear_crm_pipe()
@@ -44762,6 +44824,7 @@ def run_flux(page, from_list=False, with_params=False):
         adapters = []
         scales = []
         for l in flux_prefs['lora_map']:
+            installer.status(f"...loading {l['name']} LoRA")
             adapters.append(l['name'])
             scales.append(l['scale'])
             weight_args = {}
@@ -44770,6 +44833,7 @@ def run_flux(page, from_list=False, with_params=False):
             if 'subfolder' in l and bool(l['subfolder']):
                 weight_args['subfolder'] = l['subfolder']
             pipe_flux.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
+        installer.status(f"...fusing LoRAs")
         pipe_flux.fuse_lora(adapter_names=adapters, lora_scale=scales[0])
     clear_last()
     n = 0
@@ -54953,7 +55017,7 @@ def run_stable_fast_3D(page):
                 path, _ = winreg.QueryValueEx(key, "15.0")  # 15.0 corresponds to VS 2017
             except WindowsError:
                 clear_last()
-                prt(Markdown(f"nmake is not installed. To install nmake, you need to install Visual Studio Build Tools. Please follow these steps:\n1. Visit: [https://visualstudio.microsoft.com/visual-cpp-build-tools/](https://visualstudio.microsoft.com/visual-cpp-build-tools/)\n2. Download and run the installer. 3. In the installer, select 'C++ build tools' under Workloads.\n4. Complete the installation.\nAfter installation, you may need to restart your computer. When done, run this again.", on_tap_link=lambda e: e.page.launch_url(e.data)))
+                prt(Markdown(f"nmake is required for Windows. To install nmake, you need to install Visual Studio Build Tools. Please follow these steps:\n1. Visit: [https://visualstudio.microsoft.com/visual-cpp-build-tools/](https://visualstudio.microsoft.com/visual-cpp-build-tools/)\n2. Download and run the installer. 3. In the installer, select 'C++ Build Tools' under Workloads and Modify.\n4. Complete the installation.\nAfter installation, you may need to restart your computer. When done, run this again.", on_tap_link=lambda e: e.page.launch_url(e.data)))
                 play_snd(Snd.ERROR, page)
                 return None
     try:
@@ -56312,6 +56376,211 @@ def run_instantmesh(page):
     flush()
     #prt(ImageButton(src=gif_file, width=instantmesh_prefs['size'], height=instantmesh_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
     #prt("Finished generating InstantMesh Mesh... Hope it's good.")
+    play_snd(Snd.ALERT, page)
+    os.chdir(root_dir)
+
+def run_mesh_anything(page):
+    global mesh_anything_prefs, status, pipe_mesh_anything
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.MeshAnything.controls.append(line)
+      page.MeshAnything.update()
+    def clear_last(lines=1):
+      clear_line(page.MeshAnything, lines=lines)
+    page.MeshAnything.controls = page.MeshAnything.controls[:1]
+    installer = Installing("Installing MeshAnything v2 3D Libraries... See console for progress.")
+    prt(installer)
+    mesh_anything_dir = os.path.join(root_dir, "MeshAnythingV2")
+    if not os.path.exists(mesh_anything_dir):
+        add_to_mesh_anything_output(Installing("Installing MeshAnything v2 Library..."))
+        try:
+            run_sp("git clone https://github.com/buaacyw/MeshAnythingV2.git", cwd=root_dir)
+            #run_sp("pip install .", cwd=mesh_anything_dir)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing MeshAnything Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        force_update("mesh_anything")
+        clear_last()
+    elif force_update("mesh_anything"):
+        installer.status("...updating MeshAnything v2")
+        run_sp("git pull origin main", cwd=mesh_anything_dir)
+    try:
+        import flash_attn
+    except ModuleNotFoundError:
+        installer.status("...installing flash-attn")
+        run_sp(f"pip install flash-attn --no-build-isolation", realtime=False)
+        pass
+    pip_install("trimesh mesh2sdf==1.1.0 einops einx==0.1.3 optimum omegaconf huggingface_hub matplotlib gradio spaces", installer=installer)
+    if mesh_anything_dir not in sys.path:
+        sys.path.append(mesh_anything_dir)
+    os.chdir(mesh_anything_dir)
+    clear_pipes("mesh_anything")
+    import trimesh
+    from accelerate.utils import set_seed
+    from accelerate import Accelerator
+    from main import load_v2
+    from mesh_to_pc import process_mesh_to_pc
+    import time
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+    from PIL import PILImage
+    import io
+
+    if pipe_mesh_anything == None:
+        installer.status("...initializing pipeline")
+        pipe_mesh_anything = load_v2()
+        device = torch.device('cuda')
+        accelerator = Accelerator(mixed_precision="fp16")
+        pipe_mesh_anything = accelerator.prepare(pipe_mesh_anything)
+        pipe_mesh_anything.eval()
+
+    if bool(mesh_anything_prefs['batch_folder_name']):
+        batch_output = os.path.join(prefs['image_output'], mesh_anything_prefs['batch_folder_name'])
+    else:
+        batch_output = prefs['image_output']
+    makedir(batch_output)
+    fname = format_filename(mesh_anything_prefs['title'] if bool(mesh_anything_prefs['title']) else os.path.basename(mesh_anything_prefs['input_3d']).rpartition('.')[0], force_underscore=True)
+    input_3d = mesh_anything_prefs['input_3d']
+    if instantmesh_prefs['input_3d'].startswith('http'):
+        input_3d = download_file(input_3d, uploads_dir, raw=True)
+    if not os.path.isfile(input_3d):
+        alert_msg(page, f"ERROR: Couldn't find your Input 3D file {instantmesh_prefs['init_image']}")
+        return
+    def wireframe_render(mesh):
+        nonlocal batch_output, fname
+        views = [(90, 20), (270, 20)]
+        mesh.vertices = mesh.vertices[:, [0, 2, 1]]
+        bounding_box = mesh.bounds
+        center = mesh.centroid
+        scale = np.ptp(bounding_box, axis=0).max()
+        fig = plt.figure(figsize=(10, 10))
+        # Function to render and return each view as an image
+        def render_view(mesh, azimuth, elevation):
+            ax = fig.add_subplot(111, projection='3d')
+            ax.set_axis_off()
+            # Extract vertices and faces for plotting
+            vertices = mesh.vertices
+            faces = mesh.faces
+            # Plot faces
+            ax.add_collection3d(Poly3DCollection(
+                vertices[faces],
+                facecolors=(0.8, 0.5, 0.2, 1.0),  # Brownish yellow
+                edgecolors='k',
+                linewidths=0.5,
+            ))
+            # Set limits and center the view on the object
+            ax.set_xlim(center[0] - scale / 2, center[0] + scale / 2)
+            ax.set_ylim(center[1] - scale / 2, center[1] + scale / 2)
+            ax.set_zlim(center[2] - scale / 2, center[2] + scale / 2)
+            # Set view angle
+            ax.view_init(elev=elevation, azim=azimuth)
+            # Save the figure to a buffer
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0, dpi=300)
+            plt.clf()
+            buf.seek(0)
+            return PILImage.open(buf)
+        # Render each view and store in a list
+        images = [render_view(mesh, az, el) for az, el in views]
+        # Combine images horizontally
+        widths, heights = zip(*(i.size for i in images))
+        total_width = sum(widths)
+        max_height = max(heights)
+        combined_image = PILImage.new('RGBA', (total_width, max_height))
+        x_offset = 0
+        for img in images:
+            combined_image.paste(img, (x_offset, 0))
+            x_offset += img.width
+        # Save the combined image
+        #save_path = f"combined_mesh_view_{int(time.time())}.png"
+        save_path = available_file(batch_output, fname+"-combined", 0, ext="png", no_num=True)
+        combined_image.save(save_path)
+        plt.close(fig)
+        return save_path
+    
+    progress = Progress("Generating your 3D Mesh...")
+    prt(progress)
+    random_seed = get_seed(mesh_anything_prefs['seed'], max=1000000)
+    try:
+        with torch.no_grad():
+            set_seed(random_seed)
+            progress.status("Loading Trimesh")
+            input_mesh = trimesh.load(mesh_anything_prefs['input_3d'])
+            pc_list, mesh_list = process_mesh_to_pc([input_mesh], marching_cubes = mesh_anything_prefs['do_marching_cubes'])
+            pc_normal = pc_list[0] # 4096, 6
+            mesh = mesh_list[0]
+            vertices = mesh.vertices
+            pc_coor = pc_normal[:, :3]
+            normals = pc_normal[:, 3:]
+            bounds = np.array([vertices.min(axis=0), vertices.max(axis=0)])
+            progress.status("Scale Mesh and Pc")
+            vertices = vertices - (bounds[0] + bounds[1])[None, :] / 2
+            vertices = vertices / (bounds[1] - bounds[0]).max()
+            mesh.vertices = vertices
+            pc_coor = pc_coor - (bounds[0] + bounds[1])[None, :] / 2
+            pc_coor = pc_coor / (bounds[1] - bounds[0]).max()
+            progress.status("Updating Vertices & Faces")
+            mesh.merge_vertices()
+            mesh.update_faces(mesh.nondegenerate_faces())
+            mesh.update_faces(mesh.unique_faces())
+            mesh.remove_unreferenced_vertices()
+            mesh.fix_normals()
+            if mesh.visual.vertex_colors is not None:
+                orange_color = np.array([255, 165, 0, 255], dtype=np.uint8)
+                mesh.visual.vertex_colors = np.tile(orange_color, (mesh.vertices.shape[0], 1))
+            else:
+                orange_color = np.array([255, 165, 0, 255], dtype=np.uint8)
+                mesh.visual.vertex_colors = np.tile(orange_color, (mesh.vertices.shape[0], 1))
+            input_save = available_file(batch_output, fname+"-processed", 0, ext="obj", no_num=True)
+            #input_save_name = f"processed_input_{int(time.time())}.obj"
+            progress.status("Processing Mesh")
+            mesh.export(input_save)
+            input_render_res = wireframe_render(mesh)
+            prt(Row([ImageButton(src=input_render_res, width=pr['width'], height=pr['height'], data=input_render_res, page=page)], alignment=MainAxisAlignment.CENTER))
+            pc_coor = pc_coor / np.abs(pc_coor).max() * 0.99 # input should be from -1 to 1
+            assert (np.linalg.norm(normals, axis=-1) > 0.99).all(), "normals should be unit vectors, something wrong"
+            normalized_pc_normal = np.concatenate([pc_coor, normals], axis=-1, dtype=np.float16)
+            input = torch.tensor(normalized_pc_normal, dtype=torch.float16, device=device)[None]
+            progress.status("Data loaded")
+            with accelerator.autocast():
+                outputs = model(input, mesh_anything_prefs['do_sampling'])
+            progress.status("Model inference")
+            recon_mesh = outputs[0]
+            valid_mask = torch.all(~torch.isnan(recon_mesh.reshape((-1, 9))), dim=1)
+            recon_mesh = recon_mesh[valid_mask]  # nvalid_face x 3 x 3
+            vertices = recon_mesh.reshape(-1, 3).cpu()
+            vertices_index = np.arange(len(vertices))  # 0, 1, ..., 3 x face
+            triangles = vertices_index.reshape(-1, 3)
+            artist_mesh = trimesh.Trimesh(vertices=vertices, faces=triangles, force="mesh", merge_primitives=True)
+            artist_mesh.merge_vertices()
+            artist_mesh.update_faces(artist_mesh.nondegenerate_faces())
+            artist_mesh.update_faces(artist_mesh.unique_faces())
+            artist_mesh.remove_unreferenced_vertices()
+            artist_mesh.fix_normals()
+            if artist_mesh.visual.vertex_colors is not None:
+                orange_color = np.array([255, 165, 0, 255], dtype=np.uint8)
+                artist_mesh.visual.vertex_colors = np.tile(orange_color, (artist_mesh.vertices.shape[0], 1))
+            else:
+                orange_color = np.array([255, 165, 0, 255], dtype=np.uint8)
+                artist_mesh.visual.vertex_colors = np.tile(orange_color, (artist_mesh.vertices.shape[0], 1))
+            num_faces = len(artist_mesh.faces)
+            brown_color = np.array([165, 42, 42, 255], dtype=np.uint8)
+            face_colors = np.tile(brown_color, (num_faces, 1))
+            artist_mesh.visual.face_colors = face_colors
+            progress.status("Exporting Artist Mesh")
+            #save_name = f"output_{int(time.time())}.obj"
+            save_name = available_file(batch_output, fname, 0, ext="obj", no_num=True)
+            artist_mesh.export(save_name)
+            output_render = wireframe_render(artist_mesh)
+            #return input_save, input_render_res, save_name, output_render
+    except Exception as e:
+      clear_last()
+      alert_msg(page, "Error running MeshAnything.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+      return
+    clear_last()
+    prt(Markdown(f"Meshes saved to [{save_name}]({filepath_to_url(save_name)}) and [{os.path.basename(input_save)}]({filepath_to_url(input_save)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     play_snd(Snd.ALERT, page)
     os.chdir(root_dir)
 
@@ -59170,7 +59439,8 @@ class FileInput(Stack):
             midi_ext = ["mid", "midi", "MID", "MIDI"]
             font_ext = ["ttf", "TTF"]
             model_ext = ["fbx", "obj", "stl", "gltf", "glb"]
-            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else model_ext if self.ftype == "model" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else midi_ext if self.ftype == "midi" else vid_ext+aud_ext if self.ftype == "media" else img_ext+gif_ext+vid_ext if self.ftype == "picture" else img_ext
+            mesh_ext = ["ply", "obj", "npy"]
+            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else model_ext if self.ftype == "model" else mesh_ext if self.ftype == "mesh" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else midi_ext if self.ftype == "midi" else vid_ext+aud_ext if self.ftype == "media" else img_ext+gif_ext+vid_ext if self.ftype == "picture" else img_ext
             name = self.key.replace("_", " ").title()
             if self.ftype == "folder":
                 if is_Colab:
@@ -59398,6 +59668,8 @@ class SliderRow(Stack):
             self.slider_value.update()
             self.slider_edit.value = f"{v}"
             self.slider_edit.update()
+            self.slider.label = f"{v}{self.suffix}"
+            self.slider.update()
             if self.on_change is not None:
               e.control = self
               self.on_change(e)
