@@ -337,6 +337,9 @@ def load_settings_file():
       'SD3_custom_models': [],
       'SD3_cpu_offload': True,
       'SD3_bitsandbytes_8bit': False,
+      'SD3_use_pag': False,
+      'SD3_pag_scale': 4.0,
+      'SD3_applied_layers': ['8'],
       'use_composable': False,
       'use_safe': False,
       'use_versatile': False,
@@ -583,6 +586,8 @@ status = {
     'loaded_SDXL_model': '',
     'loaded_SD3': '',
     'loaded_SD3_model': '',
+    'loaded_SD3_pag': False,
+    'loaded_SD3_pag_layers': [],
     'loaded_ip_adapter_mode': '',
     'loaded_ip_adapter': '',
     'changed_prefs': False,
@@ -938,6 +943,7 @@ def buildVideoAIs(page):
     page.InfiniteZoom = buildInfiniteZoom(page)
     page.Potat1 = buildPotat1(page)
     page.Latte = buildLatte(page)
+    page.CogVideoX = buildCogVideoX(page)
     page.StableAnimation = buildStableAnimation(page)
     page.SVD = buildSVD(page)
     page.AnimateDiffImage2Video = buildAnimateDiffImage2Video(page)
@@ -980,6 +986,7 @@ def buildVideoAIs(page):
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Latte", content=page.Latte, icon=icons.COFFEE),
+            Tab(text="CogVideoX", content=page.CogVideoX, icon=icons.ENGINEERING),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
             Tab(text="Hallo", content=page.Hallo, icon=icons.WAVING_HAND),
@@ -1261,6 +1268,10 @@ prefs.setdefault('ip_adapter_image', "")
 prefs.setdefault('ip_adapter_model', "SD v1.5")
 prefs.setdefault('ip_adapter_SDXL_model', "SDXL")
 prefs.setdefault('ip_adapter_strength', 0.8)
+prefs.setdefault('SD3_use_pag', False)
+prefs.setdefault('SD3_pag_scale', 4.0)
+prefs.setdefault('SD3_applied_layers', ['8'])
+
 try:
     int(prefs['seed'])
 except ValueError:
@@ -1802,6 +1813,18 @@ def buildInstallers(page):
       changed(e, 'install_SD3')
       SD3_params.height = None if e.control.value else 0
       SD3_params.update()
+  def toggle_SD3_pag(e):
+      prefs['SD3_use_pag'] = e.control.value
+      SD3_pag_container.height = None if e.control.value else 0
+      SD3_pag_container.update()
+  def toggle_SD3_pag_layer(e):
+        l = e.control.label
+        if e.control.data:
+            if l not in prefs['SD3_applied_layers']:
+                prefs['SD3_applied_layers'].append(l)
+        else:
+            if l in prefs['SD3_applied_layers']:
+                prefs['SD3_applied_layers'].remove(l)
   model = get_model(prefs['model_ckpt'])
   model_SDXL = get_SDXL_model(prefs['SDXL_model'])
   model_path = model['path']
@@ -1909,6 +1932,15 @@ def buildInstallers(page):
   SD3_cpu_offload = Checkbox(label="CPU Offload Model", tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.", value=prefs['SD3_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_cpu_offload'))
   SD3_bitsandbytes_8bit = Checkbox(label="BitsAndBytes 8-bit", tooltip="Load and quantize the T5-XXL text encoder to 8-bit precision. This allows you to keep using all three text encoders while only slightly impacting performance.", value=prefs['SD3_bitsandbytes_8bit'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_bitsandbytes_8bit'))
   SD3_options = Row([SD3_cpu_offload, SD3_bitsandbytes_8bit])#SD3_compel, 
+  SD3_use_pag = Switcher(label="Use PAG: Perturbed-Attention Guidance (Text-to-Image only)", value=prefs['SD3_use_pag'], on_change=toggle_SD3_pag, tooltip="Improves sample quality across both unconditional and conditional settings. Progressively enhance the structure of synthesized samples throughout the denoising process by considering the self-attention mechanisms' ability to capture structural information.")
+  SD3_pag_scale = SliderRow(label="PAG Guidance Scale", min=0, max=10, divisions=20, round=1, pref=prefs, key='SD3_pag_scale', tooltip="Gain more semantically coherent structures and exhibit fewer artifacts. Large guidance scale can lead to smoother textures and slight saturation in the images.")
+  SD3_applied_layers = [Text("PAG Applied Layer Blocks:")]
+  pag_layers = ["0", "0.attn", "1", "(0|1)", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"]
+  for l in pag_layers:
+      SD3_applied_layers.append(Checkbox(label=l, value=l in prefs['SD3_applied_layers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_SD3_pag_layer))
+  SD3_pag_applied_layers = Container(Row(SD3_applied_layers), tooltip="Specify which layers PAG is applied to. Changing this setting will significantly impact the output, so experiment.")
+  SD3_pag_container = Container(Column([SD3_pag_scale, SD3_pag_applied_layers], spacing=0), padding=padding.only(left=32), height=None if prefs['SD3_use_pag'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+
   SD3_model = Dropdown(label="SD3 Model Checkpoint", hint_text="", width=280, options=[dropdown.Option("Custom Model")], value=prefs['SD3_model'], autofocus=False, on_change=changed_SD3_model, col={'xs':9, 'md':4})
   for model in SD3_models:
       SD3_model.options.append(dropdown.Option(model["name"]))
@@ -1917,7 +1949,7 @@ def buildInstallers(page):
   model_card_SD3 = Markdown(f"  [**Accept Model Card**](https://huggingface.co/{model_SD3['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   SD3_model_row = Row([SD3_model, SD3_custom_model, model_card_SD3], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
   #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
-  SD3_params = Container(Column([SD3_options]), padding=padding.only(top=0, left=32), height=None if prefs['install_SD3'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  SD3_params = Container(Column([SD3_options, SD3_use_pag, SD3_pag_container]), padding=padding.only(top=0, left=32), height=None if prefs['install_SD3'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
 
   install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
   #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
@@ -17366,6 +17398,91 @@ def buildLatte(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+cogvideo_x_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'num_inference_steps': 50,
+    'guidance_scale': 6.0,
+    'fps': 8,
+    'target_fps': 24,
+    'num_frames': 48,
+    'export_to_video': True,
+    'seed': 0,
+    'width': 720,
+    'height': 480,
+    'use_dynamic_cfg': False,
+    'cpu_offload': True,
+    'num_videos': 1,
+    'batch_folder_name': '',
+}
+
+def buildCogVideoX(page):
+    global cogvideo_x_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          cogvideo_x_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      play_snd(Snd.DELETE, page)
+      page.cogvideo_x_output.controls = []
+      page.cogvideo_x_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def cogvideo_x_help(e):
+      def close_cogvideo_x_dlg(e):
+        nonlocal cogvideo_x_help_dlg
+        cogvideo_x_help_dlg.open = False
+        page.update()
+      cogvideo_x_help_dlg = AlertDialog(title=Text("💁   Help with CogVideoX Text-To-Video"), content=Column([
+          Text("We introduce CogVideoX, a large-scale diffusion transformer model designed for generating videos based on text prompts. To efficently model video data, we propose to levearge a 3D Variational Autoencoder (VAE) to compresses videos along both spatial and temporal dimensions. To improve the text-video alignment, we propose an expert transformer with the expert adaptive LayerNorm to facilitate the deep fusion between the two modalities. By employing a progressive training technique, CogVideoX is adept at producing coherent, long-duration videos characterized by significant motion. In addition, we develop an effectively text-video data processing pipeline that includes various data preprocessing strategies and a video captioning method. It significantly helps enhance the performance of CogVideoX, improving both generation quality and semantic alignment. Results show that CogVideoX demonstrates state-of-the-art performance across both multiple machine metrics and human evaluations."),
+          Markdown("[Project Page](https://github.com/THUDM/CogVideo) | [Paper](https://github.com/THUDM/CogVideo/blob/main/resources/CogVideoX.pdf) | [Model](https://github.com/THUDM/CogVideo)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("Credit goes to Tsinghua University, ZhipuAI and [zRzRzRzRzRzRzR](https://github.com/zRzRzRzRzRzRzR)..", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("⚙️  The Cogs are Turning... ", on_click=close_cogvideo_x_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(cogvideo_x_help_dlg)
+      cogvideo_x_help_dlg.open = True
+      page.update()
+    prompt = TextField(label="Animation Prompt Text", value=cogvideo_x_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=cogvideo_x_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    num_frames = SliderRow(label="Number of Frames", min=1, max=48, divisions=47, pref=cogvideo_x_prefs, key='num_frames', tooltip="The number of frames must be divisible by fps and less than 48 frames (for now).")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=cogvideo_x_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=cogvideo_x_prefs, key='guidance_scale')
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=cogvideo_x_prefs, key='fps', col={'sm': 6}, tooltip="The fps must be a multiple of the number of frames (max 48).")
+    target_fps = SliderRow(label="Target FPS", min=0, max=60, suffix="fps", divisions=60, expand=1, pref=cogvideo_x_prefs, key='target_fps', col={'sm': 6})
+    use_dynamic_cfg = Switcher(label="Use Dynamic CFG", value=cogvideo_x_prefs['use_dynamic_cfg'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_dynamic_cfg'), tooltip="All I can say is 1 + guidance_scale * ((1 - math.cos(math.pi * ((num_inference_steps - t.item()) / num_inference_steps) ** 5.0)) / 2")
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=cogvideo_x_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=cogvideo_x_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=cogvideo_x_prefs, key='height')
+    num_videos = NumberPicker(label="Number of Animations: ", min=1, max=12, value=cogvideo_x_prefs['num_videos'], on_change=lambda e: changed(e, 'num_videos'))
+    cpu_offload = Switcher(label="CPU Offload", value=cogvideo_x_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    batch_folder_name = TextField(label="Video Folder Name", value=cogvideo_x_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(cogvideo_x_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    page.cogvideo_x_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.cogvideo_x_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🪖  CogVideo-X Text-To-Video Synthesis", "Text-to-Video Diffusion Models with An Expert Transformer...", actions=[save_default(cogvideo_x_prefs), IconButton(icon=icons.HELP, tooltip="Help with CogVideoX Settings", on_click=cogvideo_x_help)]),
+        ResponsiveRow([prompt, negative_prompt]),
+        num_frames,
+        ResponsiveRow([fps, target_fps]),
+        num_inference_row,
+        guidance,
+        width_slider, height_slider,
+        Row([use_dynamic_cfg, cpu_offload]),
+        Row([num_videos, seed, batch_folder_name]),
+        Row([
+            ElevatedButton(content=Text("🎽  Run CogVideoX", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_cogvideo_x(page)),
+        ]),
+        page.cogvideo_x_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 open_sora_plan_prefs = {
     'prompt': '',
     'negative_prompt': '',
@@ -22716,6 +22833,7 @@ pipe_text_to_video_zero = None
 pipe_video_to_video = None
 pipe_fresco_v2v = None
 pipe_latte = None
+pipe_cogvideo_x = None
 pipe_open_sora_plan = None
 pipe_cinemo = None
 pipe_cinemo_vae = None
@@ -24271,18 +24389,29 @@ def get_SD3_pipe(task="text2image"):
   SD3_model = get_SD3_model(prefs['SD3_model'])
   model_id = SD3_model['path']#"stabilityai/stable-diffusion-xl-base-1.0"
   safetensors = SD3_model['use_safetensors'] if 'use_safetensors' in SD3_model else False
-  if SD3_model['path'] != status['loaded_SD3_model'] or task != status['loaded_SD3']:
+  applied_layers = []
+  if prefs['SD3_use_pag']:
+      for l in prefs['SD3_applied_layers']:
+          applied_layers.append(f"blocks.{l}")
+      SD3_options = {'enable_pag': True, 'pag_applied_layers': applied_layers}
+  else:
+      SD3_options = {}
+  if SD3_model['path'] != status['loaded_SD3_model'] or task != status['loaded_SD3'] or (task == "text2image" and prefs['SD3_use_pag'] != status['loaded_SD3_pag']):
       clear_pipes()
   if pipe_SD3 is not None:
       if task != status['loaded_SD3']:
           if task == "text2image":
-              pipe_SD3 = AutoPipelineForText2Image.from_pipe(pipe_SD3)
+              pipe_SD3 = AutoPipelineForText2Image.from_pipe(pipe_SD3, **SD3_options)
+              status['loaded_SD3_pag'] = prefs['SD3_use_pag']
           elif task == "image2image":
               pipe_SD3 = AutoPipelineForImage2Image.from_pipe(pipe_SD3)
           elif task == "inpainting":
               pipe_SD3 = AutoPipelineForInpainting.from_pipe(pipe_SD3)
           status['loaded_SD3'] = task
       pipe_SD3 = apply_LoRA(pipe_SD3, SD3=True)
+      if task == "text2image" and sorted(prefs['SD3_pag_layers']) != sorted(status['loaded_SD3_pag_layers']):
+          pipe_SD3.set_applied_layers(applied_layers)
+          status['loaded_SD3_pag_layers'] = prefs['SD3_applied_layers']
       #if prefs['scheduler_mode'] != status['loaded_scheduler']:
       #    pipe_SD3 = pipeline_scheduler(pipe_SD3)
       return pipe_SD3
@@ -24310,7 +24439,7 @@ def get_SD3_pipe(task="text2image"):
               #use_safetensors=safetensors,
               #add_watermarker=watermark,
               cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-              **variant, **safety,
+              **variant, **safety, **SD3_options,
           )
       else:
           from transformers import T5EncoderModel, BitsAndBytesConfig
@@ -24326,7 +24455,7 @@ def get_SD3_pipe(task="text2image"):
               device_map="balanced",
               torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
               cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-              **variant, **safety,
+              **variant, **safety, **SD3_options,
           )
       if prefs['enable_torch_compile']:
           pipe_SD3.to("cuda")
@@ -24341,6 +24470,7 @@ def get_SD3_pipe(task="text2image"):
               pipe_SD3.to("cuda")
       if prefs['vae_tiling']:
           pipe_SD3.vae.enable_tiling()
+      status['loaded_SD3_pag'] = prefs['SD3_use_pag']
       #pipe_SD3 = optimize_SDXL(pipe_SDXL, vae_slicing=True)
   elif task == "image2image":
       status['loaded_SD3'] = task
@@ -25875,6 +26005,12 @@ def clear_latte_pipe():
     del pipe_latte
     flush()
     pipe_latte = None
+def clear_cogvideo_x_pipe():
+  global pipe_cogvideo_x
+  if pipe_cogvideo_x is not None:
+    del pipe_cogvideo_x
+    flush()
+    pipe_cogvideo_x = None
 def clear_open_sora_plan_pipe():
   global pipe_open_sora_plan
   if pipe_open_sora_plan is not None:
@@ -26240,6 +26376,7 @@ def clear_pipes(allbut=None):
     if not 'video_to_video' in but: clear_video_to_video_pipe()
     if not 'fresco' in but: clear_fresco_pipe()
     if not 'latte' in but: clear_latte_pipe()
+    if not 'cogvideo_x' in but: clear_cogvideo_x_pipe()
     if not 'open_sora_plan' in but: clear_open_sora_plan_pipe()
     if not 'cinemo' in but: clear_cinemo_pipe()
     if not 'video_infinity' in but: clear_video_infinity_pipe()
@@ -27569,8 +27706,8 @@ def start_diffusion(page):
                   clear_pipes("SD3")
                 else:
                   clear_pipes()
-                if pipe_SD3 is None or status['loaded_SD3'] != "text2image":
-                  prt(Installing("Initializing Stable Diffusion 3 Text2Image Pipeline..."))
+                if pipe_SD3 is None or status['loaded_SD3'] != "text2image" or prefs['SD3_use_pag']:
+                  prt(Installing(f"Initializing Stable Diffusion 3 {'PAG ' if prefs['SD3_use_pag'] else ''}Text2Image Pipeline..."))
                   get_SD3_pipe("text2image")
                   clear_last()
                 #elif prefs['scheduler_mode'] != status['loaded_scheduler']:
@@ -27683,15 +27820,16 @@ def start_diffusion(page):
               elif prefs['use_SD3'] and status['installed_SD3']:
                 pipe_used = "Stable Diffusion 3 Text-to-Image"
                 total_steps = int(arg['steps'])
+                pag_args = {'pag_scale': prefs['SD3_pag_scale']} if prefs['SD3_use_pag'] else {}  
                 if prefs['SD3_compel']:
                   #print(f"pr:{pr} - neg: {arg['negative_prompt']}")
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly")
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step, **pag_args).images#[0]
                   del pooled, negative_pooled
                 else:
-                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step, **pag_args).images#[0]
                 flush()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Text-to-Image"
@@ -53850,20 +53988,108 @@ def run_latte(page):
         clear_last()
         autoscroll(True)
         fname = f"{format_filename(latte_prefs['prompt'])}"
-        gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
-        video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
-        export_to_gif(videos, gif_file, fps=latte_prefs['fps'])
-        prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
-        #filename = filename[:int(prefs['file_max_length'])]
-        #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
-        autoscroll(True)
-        export_to_video(videos, video_file, fps=latte_prefs['fps'])
-        #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
-        prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        for video in videos:
+            gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+            video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+            export_to_gif(video, gif_file, fps=latte_prefs['fps'])
+            prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+            #filename = filename[:int(prefs['file_max_length'])]
+            #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+            autoscroll(True)
+            export_to_video(video, video_file, fps=latte_prefs['fps'])
+            #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
+            prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     #prt(f"Done creating video... Check {batch_output}")
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+def run_cogvideo_x(page):
+    global cogvideo_x_prefs, prefs, status, pipe_cogvideo_x
+    if not check_diffusers(page): return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.CogVideoX.controls.append(line)
+      page.CogVideoX.update()
+    def clear_last(lines=1):
+      clear_line(page.CogVideoX, lines=lines)
+    def clear_list():
+      page.CogVideoX.controls = page.CogVideoX.controls[:1]
+    def autoscroll(scroll=True):
+      page.CogVideoX.auto_scroll = scroll
+      page.CogVideoX.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = cogvideo_x_prefs['num_inference_steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing CogVideoX Text-To-Video Pipeline...")
+    prt(installer)
+    model_id = "THUDM/CogVideoX-2b"
+    from diffusers import CogVideoXPipeline
+    from diffusers.utils import export_to_gif, export_to_video
+    clear_pipes('cogvideo_x')
+    if pipe_cogvideo_x == None:
+        installer.status(f"...initialize Pipeline")
+        try:
+            pipe_cogvideo_x = CogVideoXPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to("cuda")
+            if cogvideo_x_prefs['cpu_offload']:
+                pipe_cogvideo_x.enable_model_cpu_offload()
+            else:
+                pipe_cogvideo_x = pipe_cogvideo_x.to(torch_device)
+                if prefs['enable_torch_compile']:
+                    installer.status(f"...Torch compiling unet")
+                    pipe_cogvideo_x.transformer.to(memory_format=torch.channels_last)
+                    pipe_cogvideo_x.vae.to(memory_format=torch.channels_last)
+                    pipe_cogvideo_x.transformer = torch.compile(pipe_cogvideo_x.transformer)
+                    pipe_cogvideo_x.vae.decode = torch.compile(pipe_cogvideo_x.vae.decode)
+            #pipe_cogvideo_x.scheduler = DDIMScheduler.from_config(pipe_cogvideo_x.scheduler.config)
+            pipe_cogvideo_x.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Personalized Image Animator...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_last()
+    batch_output = os.path.join(prefs['image_output'], cogvideo_x_prefs['batch_folder_name'])
+    makedir(batch_output)
+    random_seed = get_seed(cogvideo_x_prefs['seed'])
+    for n in range(cogvideo_x_prefs['num_videos']):
+        prt("Generating CogVideoX Video from your Prompt...")
+        prt(progress)
+        autoscroll(False)
+        random_seed += n
+        generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        width = cogvideo_x_prefs['width']
+        height = cogvideo_x_prefs['height']
+        try:
+            videos = pipe_cogvideo_x(cogvideo_x_prefs['prompt'], negative_prompt=cogvideo_x_prefs['negative_prompt'], video_length=cogvideo_x_prefs['num_frames'], num_inference_steps=cogvideo_x_prefs['num_inference_steps'], guidance_scale=cogvideo_x_prefs['guidance_scale'], use_dynamic_cfg=cogvideo_x_prefs['use_dynamic_cfg'], width=width, height=height, generator=generator, callback_on_step_end=callback_fnc).frames
+        except Exception as e:
+          clear_last()
+          clear_last()
+          alert_msg(page, f"ERROR: CogVideoX failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+          return
+        clear_last()
+        clear_last()
+        autoscroll(True)
+        fname = f"{format_filename(cogvideo_x_prefs['prompt'])}"
+        for video in videos:
+            gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+            video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+            export_to_gif(video, gif_file, fps=cogvideo_x_prefs['fps'])
+            prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+            autoscroll(True)
+            export_to_video(video, video_file, fps=cogvideo_x_prefs['fps'])
+            #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
+            prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
 
 def run_open_sora_plan(page):
     global open_sora_plan_prefs, prefs, status, pipe_open_sora_plan
