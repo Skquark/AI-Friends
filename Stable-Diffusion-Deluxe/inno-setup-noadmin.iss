@@ -48,6 +48,7 @@ Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\run-sdd.bat";
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\sdd-local.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\sdd-noupdate.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\sdd-linux.sh"; DestDir: "{app}"; Flags: ignoreversion
+Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\libomp140.x86_64.dll"; DestDir: "{sys}"; Flags: onlyifdoesntexist
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
