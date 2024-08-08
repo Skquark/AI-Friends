@@ -1349,7 +1349,7 @@ def initState(page):
       #start_polling(prefs['stats_update'], update_stats(page))
     #time.sleep(8)
     #page.update()
-    #print_tabs(page, True)
+    #print_tabs(page, False)
     #show_upscalers(page)
 
 def buildSettings(page):
@@ -11413,6 +11413,7 @@ flux_prefs = {
     "guidance_scale": 4.0,
     "cpu_offload": True,
     "quantize": True, # Check if VRAM > 16
+    "merge": False,
     "seed": 0,
     "flux_model": "FLUX.1-dev",
     "custom_model": "",
@@ -11458,6 +11459,8 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
         flux_prefs['flux_model'] = e.control.value
         flux_custom_model.visible = e.control.value == "Custom"
         flux_custom_model.update()
+        merge.visible = e.control.value != "Custom"
+        merge.update()
         schnell = flux_prefs['flux_model'] == "FLUX.1-schnell"
         guidance.show = not schnell
         steps.show = not schnell
@@ -11525,6 +11528,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
     lora_layer_map = Column([], spacing=0)
+    merge = Switcher(label="Merge Dev & Schnell", value=flux_prefs['merge'], visible=flux_prefs['flux_model']!="Custom", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'merge'), tooltip="Combines the two models together with the Transformer for better results with less steps.")
     quantize = Switcher(label="Quantize", value=flux_prefs['quantize'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'quantize'), tooltip="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision.")
     cpu_offload = Switcher(label="CPU Offload", value=flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     #distilled_model = Switcher(label="Use Distilled Model", value=flux_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
@@ -11543,7 +11547,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
             prompt,
             steps, lightning_steps,
             guidance, width_slider, height_slider,
-            Row([flux_model, flux_custom_model]),
+            Row([flux_model, merge, flux_custom_model]),
             Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
             lora_layer_map,
             Divider(thickness=4, height=4),
@@ -44885,9 +44889,11 @@ def run_flux(page, from_list=False, with_params=False):
       page.tabs.update()
     clear_list()
     autoscroll(True)
-    model_id = "black-forest-labs/FLUX.1-dev" if flux_prefs['flux_model'] == "FLUX.1-dev" else "black-forest-labs/FLUX.1-schnell" if flux_prefs['flux_model'] == "FLUX.1-schnell" else flux_prefs['custom_model']
-    schnell = flux_prefs['flux_model'] == "FLUX.1-schnell"
-    revision = 'refs/pr/1' if schnell else 'refs/pr/3'
+    merge = flux_prefs['merge'] and flux_prefs['flux_model'] != "Custom"
+    model_id = "black-forest-labs/FLUX.1-dev" if flux_prefs['flux_model'] == "FLUX.1-dev" or flux_prefs['merge'] else "black-forest-labs/FLUX.1-schnell" if flux_prefs['flux_model'] == "FLUX.1-schnell" else flux_prefs['custom_model']
+    schnell = flux_prefs['flux_model'] == "FLUX.1-schnell" and not merge
+    merged = "sayakpaul/FLUX.1-merged"
+    #revision = 'refs/pr/1' if schnell else 'refs/pr/3'
     if 'loaded_flux_model' not in status: status['loaded_flux_model'] = ''
     installer = Installing(f"Installing FLUX.1 Engine & Models... See console log for progress.")
     cpu_offload = flux_prefs['cpu_offload']
@@ -44907,19 +44913,19 @@ def run_flux(page, from_list=False, with_params=False):
                 from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
                 from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel
                 from transformers import CLIPTextModel, CLIPTokenizer,T5EncoderModel, T5TokenizerFast
-                scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(model_id, subfolder="scheduler", revision=revision, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(model_id, subfolder="scheduler", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize text_encoder")
                 text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize CLIPTokenizer")
                 tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize text_encoder_2")
-                text_encoder_2 = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder_2", torch_dtype=dtype, revision=revision, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                text_encoder_2 = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder_2", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize tokenizer_2")
-                tokenizer_2 = T5TokenizerFast.from_pretrained(model_id, subfolder="tokenizer_2", torch_dtype=dtype, revision=revision, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                tokenizer_2 = T5TokenizerFast.from_pretrained(model_id, subfolder="tokenizer_2", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize vae")
-                vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", torch_dtype=dtype, revision=revision, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize transformer")
-                transformer = FluxTransformer2DModel.from_pretrained(model_id, subfolder="transformer", torch_dtype=dtype, revision=revision, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                transformer = FluxTransformer2DModel.from_pretrained(model_id if not merge else merged, subfolder="transformer" if not flux_prefs['merge'] else None, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize qfloat8")
                 quantize(transformer, weights=qfloat8)
                 freeze(transformer)
@@ -44938,8 +44944,21 @@ def run_flux(page, from_list=False, with_params=False):
                 pipe_flux.text_encoder_2 = text_encoder_2
                 pipe_flux.transformer = transformer
                 pipe_flux.enable_model_cpu_offload()
+                if prefs['vae_slicing']:
+                    pipe_flux.vae.enable_slicing()
+                if prefs['vae_tiling']:
+                    pipe_flux.vae.enable_tiling()
             else:
-                pipe_flux = FluxPipeline.from_pretrained(model_id, torch_dtype=dtype, revision=revision, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                if merge:
+                    from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel
+                    transformer = FluxTransformer2DModel.from_pretrained(merged, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_flux = FluxPipeline.from_pretrained(model_id, transformer=transformer, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                else:
+                    pipe_flux = FluxPipeline.from_pretrained(model_id, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                if prefs['vae_slicing']:
+                    pipe_flux.vae.enable_slicing()
+                if prefs['vae_tiling']:
+                    pipe_flux.vae.enable_tiling()
                 if prefs['enable_torch_compile']:
                     installer.status(f"...Torch compiling unet")
                     pipe_flux = pipe_flux.to("cuda")
@@ -44950,7 +44969,7 @@ def run_flux(page, from_list=False, with_params=False):
                 elif cpu_offload:
                     pipe_flux.enable_model_cpu_offload()
                 else:
-                    pipe_flux = pipe_flux.to("cuda")
+                    pipe_flux = pipe_flux.to("cuda")#(torch.float16)
                     #pipe_flux.transformer.enable_forward_chunking(chunk_size=1, dim=1)
             pipe_flux.set_progress_bar_config(disable=True)
             status['loaded_flux_model'] = model_id
