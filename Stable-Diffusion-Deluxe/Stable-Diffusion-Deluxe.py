@@ -23567,7 +23567,7 @@ if not is_Colab:
         pass
     try:
         subprocess.check_call(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except subprocess.CalledProcessError:
+    except Exception as e:#(subprocess.CalledProcessError, FileNotFoundError):
         import platform
         #os_name, _, _ = os.uname()
         #os_name = os_name.lower()
@@ -23581,7 +23581,7 @@ if not is_Colab:
         elif os_name == "darwin":
             install_command = ["brew", "install", "git"]
         elif os_name == "windows":
-            url = "https://github.com/git-for-windows/git/releases/download/v2.40.0.windows.1/MinGit-2.40.0-64-bit.zip"
+            url = "https://github.com/git-for-windows/git/releases/download/v2.46.0.windows.1/MinGit-2.46.0-64-bit.zip"
             install_command = ["powershell", "-Command", f"Invoke-WebRequest -Uri {url} -OutFile git.zip; Expand-Archive git.zip -DestinationPath C:\\Git"]
         else:
             print(f"Unsupported OS for Git: {os_name}. Install git manually from https://git-scm.com/downloads")
@@ -60922,10 +60922,19 @@ def install_ffmpeg(installer=None):
         url = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip'
         zip_file = 'ffmpeg-release-essentials.zip'
         ffmpeg_zip = os.path.join(dist_dir, zip_file)
-        download_cmd = f"curl -Lo {ffmpeg_zip} {url}"
-        subprocess.run(download_cmd, shell=True, check=True)
-        extract_cmd = f"unzip {ffmpeg_zip}"
-        subprocess.run(extract_cmd, shell=True, check=True)
+        try:
+            from urllib.request import urlretrieve
+            urlretrieve(url, ffmpeg_zip)
+        except Exception as e:
+            print(f"Error downloading file: {e}")
+            raise
+        #download_cmd = f"curl -Lo {ffmpeg_zip} {url}"
+        #subprocess.run(download_cmd, shell=True, check=True)
+        import zipfile
+        with zipfile.ZipFile(ffmpeg_zip, 'r') as zip_ref:
+            zip_ref.extractall(dist_dir)
+        #extract_cmd = f"unzip {ffmpeg_zip}"
+        #subprocess.run(extract_cmd, shell=True, check=True)
         ffmpeg_path = os.path.join(os.path.dirname(ffmpeg_zip), "ffmpeg", "bin")
         os.environ["FFMPEG_BINARY"] = ffmpeg_path
     elif system == "Linux":
