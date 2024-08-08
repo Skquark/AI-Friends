@@ -23509,11 +23509,16 @@ except ModuleNotFoundError:
       import torch
       pass
     pass
-finally:
+try:
+    import torch
     torch_device = "cuda" if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else "cpu"
     if torch_device == "cpu":
         print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API, AIHorde & OpenAI, Gemini, but not Diffusers...")
-
+except Exception as e:
+    print(f"Error installing Torch: {e}")
+    print("May need to install Visual C++ Redistributable or manually get libomp140.x86_64.dll from https://www.dllme.com/dll/files/libomp140_x86_64/00637fe34a6043031c9ae4c6cf0a891d/download and place in \\Windows\\System32 folder. Sorry we can't automatically do that for you...")
+    torch_device = "cpu"
+    pass
 if torch_device == "cuda":
     try:
         import accelerate
