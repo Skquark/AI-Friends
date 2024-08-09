@@ -11504,6 +11504,14 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
         flux_prefs['lora_map'].clear()
         lora_layer_map.controls.clear()
         lora_layer_map.update()
+    def switch_version(e):
+        page.Flux = buildFluxPro(page)
+        for t in page.ImageAIs.tabs:
+          if t.text == "FLUX.1":
+            t.content = page.Flux
+            break
+        page.ImageAIs.update()
+        page.update()
     prompt = TextField(label="Prompt Text", value=flux_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     #negative_prompt = TextField(label="Negative Prompt Text", value=flux_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=flux_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -11542,7 +11550,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     page.Flux_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
-            Header("🌀  FLUX.1 by Black Forest Labs", "12B param rectified flow transformer distilled from FLUX.1 [pro]...", actions=[save_default(flux_prefs), IconButton(icon=icons.HELP, tooltip="Help with Flux Settings", on_click=flux_help)]),
+            Header("🌀  FLUX.1 by Black Forest Labs", "12B param rectified flow transformer distilled from FLUX.1 [pro]...", actions=[ft.OutlinedButton(content=Text("Switch to FLUX.1-pro", size=18), on_click=switch_version), save_default(flux_prefs), IconButton(icon=icons.HELP, tooltip="Help with Flux Settings", on_click=flux_help)]),
             #ResponsiveRow([prompt, negative_prompt]),
             prompt,
             steps, lightning_steps,
@@ -11558,6 +11566,90 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
             page.Flux_output
         ],
     ))], scroll=ScrollMode.AUTO)
+    return c
+
+flux_pro_prefs = {
+    "prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "fluxpro-",
+    "num_images": 1,
+    "steps":50,
+    "interval":2,
+    "aspect_ratio": "1:1",
+    "guidance_scale":3.0,
+    "safety_tolerance": 2,
+    "seed":0,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    #"face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildFluxPro(page):
+    global prefs, flux_pro_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          flux_pro_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def changed_pref(e, pref=None):
+      if pref is not None:
+        prefs[pref] = e.control.value
+        status['changed_prefs'] = True
+    def flux_pro_help(e):
+      alert_msg(page, "💁   Help with FLUX.1 Pro", content=[
+          Text("Flux is a series of text-to-image generation models based on diffusion transformers, created by Black Forest Labs. Flux can be quite expensive to run on consumer hardware devices. However, you can perform a suite of optimizations to run it faster and in a more memory-friendly manner."),
+          Markdown("""We release the FLUX.1 suite of text-to-image models that define a new state-of-the-art in image detail, prompt adherence, style diversity and scene complexity for text-to-image synthesis. 
+To strike a balance between accessibility and model capabilities, FLUX.1 comes in three variants: FLUX.1 [pro], FLUX.1 [dev] and FLUX.1 [schnell]: 
+* FLUX.1 [pro]: The best of FLUX.1, offering state-of-the-art performance image generation with top of the line prompt following, visual quality, image detail and output diversity. Sign up for FLUX.1 [pro] access via our [API](https://docs.bfl.ml/) here. FLUX.1 [pro] is also available via [Replicate](https://replicate.com/black-forest-labs/flux-pro) and [fal.ai](https://fal.ai/models/fal-ai/flux-pro). Moreover we offer dedicated and customized enterprise solutions – reach out via flux@blackforestlabs.ai to get in touch.
+* FLUX.1 [dev]: FLUX.1 [dev] is an open-weight, guidance-distilled model for non-commercial applications. Directly distilled from FLUX.1 [pro], FLUX.1 [dev] obtains similar quality and prompt adherence capabilities, while being more efficient than a standard model of the same size. FLUX.1 [dev] weights are available on HuggingFace and can be directly tried out on Replicate or Fal.ai. For applications in commercial contexts, get in touch out via flux@blackforestlabs.ai. 
+* FLUX.1 [schnell]: our fastest model is tailored for local development and personal use. FLUX.1 [schnell] is openly available under an Apache2.0 license. Similar, FLUX.1 [dev], weights are available on Hugging Face and inference code can be found on GitHub and in HuggingFace’s Diffusers.""", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Project Page](https://blackforestlabs.ai) | [Github](https://github.com/black-forest-labs/flux) | [Blog](https://blackforestlabs.ai/announcing-black-forest-labs/) | [Model Checkpoint](https://huggingface.co/black-forest-labs/FLUX.1-schnell) | [HF Space](https://huggingface.co/spaces/ChristianHappy/FLUX.1-schnell) | [FLUX.1 Pro](https://fal.ai/models/fal-ai/flux-pro)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], okay="😖  Get Tiling... ", sound=False)
+    def switch_version(e):
+        page.Flux = buildFlux(page)
+        for t in page.ImageAIs.tabs:
+          if t.text == "FLUX.1":
+            t.content = page.Flux
+            break
+        page.ImageAIs.update()
+        page.update()
+    prompt = TextField(label="Prompt", value=flux_pro_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=flux_pro_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=flux_pro_prefs['file_prefix'], width=150, on_change=lambda e:changed(e,'file_prefix'))
+    steps = SliderRow(label="Inference Steps", min=0, max=100, divisions=100, pref=flux_pro_prefs, key='steps')
+    interval = SliderRow(label="Interval", min=1, max=4, divisions=3, pref=flux_pro_prefs, key='interval', tooltip="Increases the variance in possible outputs letting the model be a tad more dynamic in what outputs it may produce in terms of composition, color, detail, and prompt interpretation. Setting this value low will ensure strong prompt following with more consistent outputs, setting it higher will produce more dynamic or varied outputs.", col={'sm':6})
+    seed = TextField(label="Seed", value=flux_pro_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width=120, on_change=lambda e:changed(e,'seed', ptype="int"))
+    batch_row = Row([batch_folder_name, file_prefix], col={'xs':12, 'lg':6})
+    number_row = Row([NumberPicker(label="Output Images", min=1, max=4, step=1, value=flux_pro_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int")), seed], col={'xs':12, 'md':6})
+    param_rows = ResponsiveRow([number_row, batch_row], vertical_alignment=CrossAxisAlignment.START)
+    guidance = SliderRow(label="Guidance Scale", min=2, max=5, divisions=3, round=0, pref=flux_pro_prefs, key='guidance_scale')
+    safety_tolerance = SliderRow(label="Safety Tolerance", min=1, max=5, divisions=4, pref=flux_pro_prefs, key='safety_tolerance', tooltip="1 is most strict and 5 is most permissive.", on_change=lambda e:changed(e,'safety_tolerance'), col={'sm':6})
+    aspect_ratio = Dropdown(label="Aspect Ratio", width=120, options=[dropdown.Option(s) for s in ["1:1", "16:9", "2:3", "3:2", "4:5", "5:4", "9:16"]], value=flux_pro_prefs['aspect_ratio'], on_change=lambda e: changed(e, 'aspect_ratio'))
+    api_instructions = Markdown("Get **Replicate API Token** from [https://replicate.com/account](https://replicate.com/account)", on_tap_link=lambda e: e.page.launch_url(e.data))
+    Replicate_api = TextField(label="Replicate API Key", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed_pref(e, 'Replicate_api_key'))
+    upscaler = UpscaleBlock(flux_pro_prefs)
+    page.upscalers.append(upscaler)
+    parameters_button = ElevatedButton(content=Text(value="💨   Run FLUX.1 Pro", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_flux_pro(page))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_flux_pro(page, from_list=True))
+    parameters_row = Row([parameters_button, from_list_with_params_button])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🌀  Replicate FLUX.1 Pro ($0.055 / image)", "State-of-the-art image generation with top of the line prompt following, visual quality, image detail and output diversity.", actions=[ft.OutlinedButton(content=Text("Switch to FLUX.1-dev", size=18), on_click=switch_version), save_default(flux_pro_prefs), IconButton(icon=icons.HELP, tooltip="Help with FLUX.1 Pro Settings", on_click=flux_pro_help)]),
+            prompt,
+            steps,
+            guidance,
+            ResponsiveRow([interval, safety_tolerance]),
+            Row([aspect_ratio]),
+            upscaler,
+            api_instructions,
+            Replicate_api,
+            param_rows,
+            parameters_row,
+        ],
+    ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, eta, seed,
     return c
 
 
@@ -45079,6 +45171,150 @@ def run_flux(page, from_list=False, with_params=False):
         n += 1
     if len(flux_prefs['lora_map']) > 0:
         pipe_flux.unfuse_lora()
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+def run_flux_pro(page, from_list=False):
+    global flux_pro_prefs, prefs
+    flux_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        flux_prompts.append({'prompt': p.prompt, 'guidance_scale':flux_pro_prefs['guidance_scale'], 'steps':flux_pro_prefs['steps'], 'num_images':flux_pro_prefs['num_images'], 'seed':flux_pro_prefs['seed']})
+    else:
+        if not bool(flux_pro_prefs['prompt']):
+          alert_msg(page, "You must provide a text prompt to process your material...")
+          return
+        flux_prompts.append({'prompt': flux_pro_prefs['prompt'], 'guidance_scale':flux_pro_prefs['guidance_scale'], 'steps':flux_pro_prefs['steps'], 'num_images':flux_pro_prefs['num_images'], 'seed':flux_pro_prefs['seed']})
+    if not bool(prefs['Replicate_api_key']):
+      alert_msg(page, "You must provide your Replicate API Token in Settings to process your material...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.Flux.controls.append(line)
+      page.Flux.update()
+    def clear_last(lines=1):
+      clear_line(page.Flux, lines=lines)
+    def clear_list():
+      page.Flux.controls = page.Flux.controls[:1]
+    def autoscroll(scroll=True):
+      page.Flux.auto_scroll = scroll
+      page.Flux.update()
+    progress = ProgressBar(bar_height=8)
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress
+      total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    clear_list()
+    autoscroll(True)
+    prt(Installing("Installing Replicate.com API..."))
+    try:
+        import replicate
+    except ModuleNotFoundError as e:
+        run_process("pip install --upgrade git+https://github.com/replicate/replicate-python.git", realtime=False)
+        #run_process("pip install replicate -qq", realtime=False)
+        import replicate
+        pass
+    os.environ["REPLICATE_API_TOKEN"] = prefs['Replicate_api_key']
+    #export REPLICATE_API_TOKEN=
+    '''try:
+        
+    except Exception as e:
+        alert_msg(page, f"Seems like your Replicate API Token is Invalid. Check it again...", content=Text(str(e)))
+        return'''
+    import requests
+    from io import BytesIO
+    clear_last()
+    #prt("Generating your FLUX.1 Pro Image...")
+    n = 0
+    for pr in flux_prompts:
+        for i in range(pr['num_images']):
+            i_num = f"{i+1} of {flux_pro_prefs['num_images']} - " if flux_pro_prefs['num_images'] > 1 else ""
+            prt(f"{f'[{n + 1}/{len(flux_prompts)}]  ' if from_list else ''}{i_num}{pr['prompt']}")
+            prt(progress)
+            autoscroll(False)
+            random_seed = get_seed(flux_pro_prefs['seed']) + i
+            #input = {'prompt':flux_pro_prefs['prompt'], 'width':flux_pro_prefs['width'], 'height':flux_pro_prefs['height'], 'init_image':init_img, 'mask':mask_img, 'prompt_strength':flux_pro_prefs['prompt_strength'], 'num_images':flux_pro_prefs['num_images'], 'num_inference_steps':flux_pro_prefs['steps'], 'guidance_scale':flux_pro_prefs['guidance_scale'], 'seed':random_seed}
+            try:
+                image = replicate.run("black-forest-labs/flux-pro",
+                    input={
+                        "seed": random_seed,
+                        "steps": int(flux_pro_prefs["steps"]),
+                        "prompt": pr["prompt"],
+                        "guidance": int(flux_pro_prefs["guidance_scale"]),
+                        "aspect_ratio": flux_pro_prefs["aspect_ratio"],
+                        "interval": int(flux_pro_prefs["interval"]),
+                        "safety_tolerance": int(flux_pro_prefs["safety_tolerance"]),
+                    }
+                )
+                #print(image)
+                #images = output['output']
+                #rep_version.predict(prompt=flux_pro_prefs['prompt'], width=flux_pro_prefs['width'], height=flux_pro_prefs['height'], prompt_strength=flux_pro_prefs['prompt_strength'], num_images=flux_pro_prefs['num_images'], num_inference_steps=flux_pro_prefs['steps'], guidance_scale=flux_pro_prefs['guidance_scale'], seed=random_seed)
+            except Exception as e:
+                clear_last(2)
+                alert_msg(page, f"ERROR: Couldn't create your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e), selectable=True))
+                return
+            autoscroll(True)
+            clear_last(2)
+            txt2img_output = stable_dir
+            batch_output = prefs['image_output']
+            if image is None:
+                prt(f"ERROR: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
+                return
+            idx = 0
+            #for image in images:
+            random_seed += idx
+            fname = format_filename(pr['prompt'])
+            seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{flux_pro_prefs["file_prefix"]}{fname}{seed_suffix}'
+            txt2img_output = stable_dir
+            if bool(flux_pro_prefs['batch_folder_name']):
+                txt2img_output = os.path.join(stable_dir, flux_pro_prefs['batch_folder_name'])
+            if not os.path.exists(txt2img_output):
+                os.makedirs(txt2img_output)
+            image_path = available_file(txt2img_output, fname, 1)
+            #image.save(image_path)
+            response = requests.get(image, stream=True)
+            response.raise_for_status()
+            img = PILImage.open(BytesIO(response.content))
+            w, h = img.size
+            img.save(image_path)
+            #with open(image_path, "wb") as f:
+            #    f.write(response.content)
+            new_file = image_path.rpartition(slash)[2]
+            if not flux_pro_prefs['display_upscaled_image'] or not flux_pro_prefs['apply_ESRGAN_upscale']:
+                #prt(Row([Img(src=image_path, width=flux_pro_prefs['width'], height=flux_pro_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                save_metadata(image_path, flux_pro_prefs, "FLUX.1 Pro", seed=random_seed)
+                prt(Row([ImageButton(src=image_path, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], flux_pro_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': flux_pro_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = batch_output# if save_to_GDrive else txt2img_output
+            new_path = os.path.join(out_path, new_file)
+            if flux_pro_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscaled_path = os.path.join(out_path, new_file)
+                upscale_image(image_path, upscaled_path, scale=flux_pro_prefs["enlarge_scale"])
+                image_path = upscaled_path
+                save_metadata(image_path, flux_pro_prefs, "FLUX.1 Pro", seed=random_seed)
+                if flux_pro_prefs['display_upscaled_image']:
+                    prt(Row([Img(src=asset_dir(upscaled_path), width=int(w * flux_pro_prefs["enlarge_scale"]), height=int(h * flux_pro_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            else:
+                new_path
+                try:
+                    shutil.copy(image_path, new_path)
+                except shutil.SameFileError: pass
+            prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
