@@ -22,8 +22,8 @@ DefaultDirName={autopf}\StableDiffusionDeluxe
 OutputDir=D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\
 DisableProgramGroupPage=yes
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
-PrivilegesRequired=lowest
-;PrivilegesRequired=admin
+;PrivilegesRequired=lowest
+PrivilegesRequired=admin
 OutputBaseFilename=SDD-setup-noadmin
 SetupIconFile=D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\favicon.ico
 WizardSmallImageFile=D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\logo-image-55x58.bmp
