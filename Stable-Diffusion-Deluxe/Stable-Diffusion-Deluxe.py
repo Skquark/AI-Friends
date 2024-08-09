@@ -542,7 +542,7 @@ except ModuleNotFoundError:
 try:
     import cv2
 except ModuleNotFoundError:
-    run_sp("pip install opencv-python", realtime=False)
+    run_sp("pip install --update opencv-python", realtime=False)
     import cv2
     pass
 
@@ -11406,7 +11406,7 @@ flux_prefs = {
     "file_prefix": "flux-",
     "batch_size": 1,
     "num_images": 1,
-    "steps": 40,
+    "steps": 50,
     "lightning_steps": 4,
     "width": 1024,
     "height": 720,
@@ -44908,6 +44908,7 @@ def run_flux(page, from_list=False, with_params=False):
     else:
         clear_pipes('flux')
     if pipe_flux == None:
+        from urllib.error import HTTPError
         dtype = torch.bfloat16
         try:
             from diffusers import FluxPipeline
