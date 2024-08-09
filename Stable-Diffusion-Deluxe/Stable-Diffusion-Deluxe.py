@@ -23163,7 +23163,7 @@ def get_diffusers(page):
         try:
           login(token=prefs['HuggingFace_api_key'], add_to_git_credential=True)
         except Exception:
-          alert_msg(page, "ERROR Logging into HuggingFace... Check your API Key or Internet conenction.")
+          alert_msg(page, "ERROR Logging into HuggingFace... Check your API Key or Internet connection.")
           return
     # TODO: Get Username to prefs
     HFapi = HfApi()
@@ -42690,7 +42690,7 @@ def run_deepfloyd(page, from_list=False):
         try:
           login(token=prefs['HuggingFace_api_key'], add_to_git_credential=True)
         except Exception:
-          alert_msg(page, "ERROR Logging into HuggingFace... Check your API Key or Internet conenction.")
+          alert_msg(page, "ERROR Logging into HuggingFace... Check your API Key or Internet connection.")
           return
 
     import requests, random
@@ -44930,7 +44930,10 @@ def run_flux(page, from_list=False, with_params=False):
                 installer.status(f"...quantize vae")
                 vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize transformer")
-                transformer = FluxTransformer2DModel.from_pretrained(model_id if not merge else merged, subfolder="transformer" if not flux_prefs['merge'] else None, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                if merge:
+                    transformer = FluxTransformer2DModel.from_pretrained(merged, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                else:
+                    transformer = FluxTransformer2DModel.from_pretrained(model_id, subfolder="transformer", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize qfloat8")
                 quantize(transformer, weights=qfloat8)
                 freeze(transformer)
@@ -44978,6 +44981,12 @@ def run_flux(page, from_list=False, with_params=False):
                     #pipe_flux.transformer.enable_forward_chunking(chunk_size=1, dim=1)
             pipe_flux.set_progress_bar_config(disable=True)
             status['loaded_flux_model'] = model_id
+        except HTTPError as e:
+            clear_last()
+            model_url = f"https://huggingface.co/{model_id}"
+            alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace {model_id} Model Cards to use Checkpoint',
+                      content=Column([Markdown(f'[{model_url}]({model_url})', selectable=True, on_tap_link=open_url), Text(str(e), selectable=True)]))
+            return
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing Flux, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -45007,7 +45016,7 @@ def run_flux(page, from_list=False, with_params=False):
             prt(progress)
             nudge(page.imageColumn if from_list else page.Flux, page=page)
             autoscroll(False)
-            total_steps = pr['steps'] if not schnell else pr['lightning_steps']
+            total_steps = pr['steps'] if not schnell else flux_prefs['lightning_steps']
             random_seed = get_seed(pr['seed']) + i
             generator = torch.Generator(device="cpu").manual_seed(random_seed)
             try:
