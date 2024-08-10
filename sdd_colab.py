@@ -11587,7 +11587,7 @@ flux_pro_prefs = {
     "file_prefix": "fluxpro-",
     "num_images": 1,
     "steps":50,
-    "interval":2,
+    "interval":2.0,
     "aspect_ratio": "1:1",
     "guidance_scale":3.0,
     "safety_tolerance": 2,
@@ -11620,7 +11620,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
 * FLUX.1 [dev]: FLUX.1 [dev] is an open-weight, guidance-distilled model for non-commercial applications. Directly distilled from FLUX.1 [pro], FLUX.1 [dev] obtains similar quality and prompt adherence capabilities, while being more efficient than a standard model of the same size. FLUX.1 [dev] weights are available on HuggingFace and can be directly tried out on Replicate or Fal.ai. For applications in commercial contexts, get in touch out via flux@blackforestlabs.ai. 
 * FLUX.1 [schnell]: our fastest model is tailored for local development and personal use. FLUX.1 [schnell] is openly available under an Apache2.0 license. Similar, FLUX.1 [dev], weights are available on Hugging Face and inference code can be found on GitHub and in HuggingFace’s Diffusers.""", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("[Project Page](https://blackforestlabs.ai) | [Github](https://github.com/black-forest-labs/flux) | [Blog](https://blackforestlabs.ai/announcing-black-forest-labs/) | [Model Checkpoint](https://huggingface.co/black-forest-labs/FLUX.1-schnell) | [HF Space](https://huggingface.co/spaces/ChristianHappy/FLUX.1-schnell) | [FLUX.1 Pro](https://fal.ai/models/fal-ai/flux-pro)", on_tap_link=lambda e: e.page.launch_url(e.data)),
-        ], okay="😖  Get Tiling... ", sound=False)
+        ], okay="😖  Think it's worth it... ", sound=False)
     def switch_version(e):
         page.Flux = buildFlux(page)
         for t in page.ImageAIs.tabs:
@@ -11633,14 +11633,14 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     batch_folder_name = TextField(label="Batch Folder Name", value=flux_pro_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=flux_pro_prefs['file_prefix'], width=150, on_change=lambda e:changed(e,'file_prefix'))
     steps = SliderRow(label="Inference Steps", min=0, max=100, divisions=100, pref=flux_pro_prefs, key='steps')
-    interval = SliderRow(label="Interval", min=1, max=4, divisions=3, pref=flux_pro_prefs, key='interval', tooltip="Increases the variance in possible outputs letting the model be a tad more dynamic in what outputs it may produce in terms of composition, color, detail, and prompt interpretation. Setting this value low will ensure strong prompt following with more consistent outputs, setting it higher will produce more dynamic or varied outputs.", col={'sm':6})
+    interval = SliderRow(label="Interval", min=1, max=4, divisions=6, round=1, pref=flux_pro_prefs, key='interval', tooltip="Increases the variance in possible outputs letting the model be a tad more dynamic in what outputs it may produce in terms of composition, color, detail, and prompt interpretation. Setting this value low will ensure strong prompt following with more consistent outputs, setting it higher will produce more dynamic or varied outputs.", col={'sm':6})
     seed = TextField(label="Seed", value=flux_pro_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width=120, on_change=lambda e:changed(e,'seed', ptype="int"))
     batch_row = Row([batch_folder_name, file_prefix], col={'xs':12, 'lg':6})
     number_row = Row([NumberPicker(label="Output Images", min=1, max=4, step=1, value=flux_pro_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int")), seed], col={'xs':12, 'md':6})
     param_rows = ResponsiveRow([number_row, batch_row], vertical_alignment=CrossAxisAlignment.START)
-    guidance = SliderRow(label="Guidance Scale", min=2, max=5, divisions=3, round=0, pref=flux_pro_prefs, key='guidance_scale')
+    guidance = SliderRow(label="Guidance Scale", min=2, max=5, divisions=6, round=1, pref=flux_pro_prefs, key='guidance_scale')
     safety_tolerance = SliderRow(label="Safety Tolerance", min=1, max=5, divisions=4, pref=flux_pro_prefs, key='safety_tolerance', tooltip="1 is most strict and 5 is most permissive.", on_change=lambda e:changed(e,'safety_tolerance'), col={'sm':6})
-    aspect_ratio = Dropdown(label="Aspect Ratio", width=120, options=[dropdown.Option(s) for s in ["1:1", "16:9", "2:3", "3:2", "4:5", "5:4", "9:16"]], value=flux_pro_prefs['aspect_ratio'], on_change=lambda e: changed(e, 'aspect_ratio'))
+    aspect_ratio = Dropdown(label="Aspect Ratio", width=130, options=[dropdown.Option(s) for s in ["1:1", "16:9", "2:3", "3:2", "4:5", "5:4", "9:16"]], value=flux_pro_prefs['aspect_ratio'], on_change=lambda e: changed(e, 'aspect_ratio'))
     api_instructions = Markdown("Get **Replicate API Token** from [https://replicate.com/account](https://replicate.com/account)", on_tap_link=lambda e: e.page.launch_url(e.data))
     Replicate_api = TextField(label="Replicate API Key", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed_pref(e, 'Replicate_api_key'))
     upscaler = UpscaleBlock(flux_pro_prefs)
@@ -11650,7 +11650,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     parameters_row = Row([parameters_button, from_list_with_params_button])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🌀  Replicate FLUX.1 Pro ($0.055 / image)", "State-of-the-art image generation with top of the line prompt following, visual quality, image detail and output diversity.", actions=[ft.OutlinedButton(content=Text("Switch to FLUX.1-dev", size=18), on_click=switch_version), save_default(flux_pro_prefs), IconButton(icon=icons.HELP, tooltip="Help with FLUX.1 Pro Settings", on_click=flux_pro_help)]),
+            Header("🌀  Replicate FLUX.1 Pro ($0.055 / image)", "State-of-the-art Image Generation with top of the line Prompt Following, Visual Quality, Image Detail and Output Diversity...", actions=[ft.OutlinedButton(content=Text("Switch to FLUX.1-dev", size=18), on_click=switch_version), save_default(flux_pro_prefs), IconButton(icon=icons.HELP, tooltip="Help with FLUX.1 Pro Settings", on_click=flux_pro_help)]),
             prompt,
             steps,
             guidance,
@@ -25424,6 +25424,12 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
     saves = {}
     if model == None: model = prefs['upscale_model']
     if method=="Real-ESRGAN": #TODO: Add more ESRGAN model options
+        try:
+            import cv2
+        except ModuleNotFoundError:
+            run_sp("pip install --update opencv-python", realtime=False)
+            import cv2
+            pass
         ESRGAN_folder = os.path.join(dist_dir, 'Real-ESRGAN')
         if not status['installed_ESRGAN']:
             stat(f"Installing {method}")
@@ -45037,7 +45043,7 @@ def run_flux(page, from_list=False, with_params=False):
                 vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize transformer")
                 if merge:
-                    transformer = FluxTransformer2DModel.from_pretrained(merged, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    transformer = FluxTransformer2DModel.from_pretrained(merged, torch_dtype=dtype)
                 else:
                     transformer = FluxTransformer2DModel.from_pretrained(model_id, subfolder="transformer", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...quantize qfloat8")
@@ -45065,7 +45071,7 @@ def run_flux(page, from_list=False, with_params=False):
             else:
                 if merge:
                     from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel
-                    transformer = FluxTransformer2DModel.from_pretrained(merged, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    transformer = FluxTransformer2DModel.from_pretrained(merged, torch_dtype=dtype)
                     pipe_flux = FluxPipeline.from_pretrained(model_id, transformer=transformer, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 else:
                     pipe_flux = FluxPipeline.from_pretrained(model_id, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
@@ -45261,7 +45267,7 @@ def run_flux_pro(page, from_list=False):
                         "seed": random_seed,
                         "steps": int(flux_pro_prefs["steps"]),
                         "prompt": pr["prompt"],
-                        "guidance": int(flux_pro_prefs["guidance_scale"]),
+                        "guidance": float(flux_pro_prefs["guidance_scale"]),
                         "aspect_ratio": flux_pro_prefs["aspect_ratio"],
                         "interval": int(flux_pro_prefs["interval"]),
                         "safety_tolerance": int(flux_pro_prefs["safety_tolerance"]),
@@ -60400,7 +60406,7 @@ class Progress(Stack):
         self.progress.tooltip = f"{int(percent * 100)}% [{step +1} / {self.steps}]{itsec}"
         self.progress.update()
 
-class UpscaleBlock(Stack):
+class UpscaleBlock(Stack): # TODO: Add Method dropdown to support AuraSR, PIL Enlarge, Swin, etc.
     def __init__(self, pref):
         super().__init__()
         self.pref = pref
@@ -60412,7 +60418,7 @@ class UpscaleBlock(Stack):
         if face_enhance:
             use_face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=self.pref['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(face_enhance=e.control.value))
         display_upscaled_image = Checkbox(label="Display Upscaled Image", value=self.pref['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(display_upscaled_image=float(e.control.value)))
-        self.ESRGAN_settings = Container(Column([enlarge_scale_slider, use_face_enhance if face_enhance else Container(content=None), display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if self.pref['apply_ESRGAN_upscale'] else 0)
+        self.ESRGAN_settings = Container(Column([enlarge_scale_slider, Row([use_face_enhance if face_enhance else Container(content=None), display_upscaled_image])], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if self.pref['apply_ESRGAN_upscale'] else 0)
         self.ESRGAN_block = Container(Column([apply_ESRGAN_upscale, self.ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if status['installed_ESRGAN'] else 0)
         return self.ESRGAN_block
     def show(self, visible=True):
