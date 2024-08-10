@@ -11426,6 +11426,7 @@ flux_prefs = {
     "guidance_scale": 4.0,
     "cpu_offload": True,
     "quantize": True, # Check if VRAM > 16
+    "fp16": False,
     "merge": False,
     "seed": 0,
     "flux_model": "FLUX.1-dev",
@@ -11472,8 +11473,8 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
         flux_prefs['flux_model'] = e.control.value
         flux_custom_model.visible = e.control.value == "Custom"
         flux_custom_model.update()
-        merge.visible = e.control.value != "Custom"
-        merge.update()
+        #merge.visible = e.control.value != "Custom"
+        #merge.update()
         schnell = flux_prefs['flux_model'] == "FLUX.1-schnell"
         guidance.show = not schnell
         steps.show = not schnell
@@ -11536,7 +11537,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=flux_prefs, key='guidance_scale', visible = flux_prefs['flux_model'] != "FLUX.1-schnell")
     width_slider = SliderRow(label="Width", min=256, max=1440, divisions=74, multiple=16, suffix="px", pref=flux_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1440, divisions=74, multiple=16, suffix="px", pref=flux_prefs, key='height')
-    flux_model = Dropdown(label="FLUX.1 Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("FLUX.1-dev"), dropdown.Option("FLUX.1-schnell")], value=flux_prefs['flux_model'], on_change=changed_model)
+    flux_model = Dropdown(label="FLUX.1 Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("FLUX.1-dev"), dropdown.Option("FLUX.1-schnell"), dropdown.Option("FLUX.1-merged")], value=flux_prefs['flux_model'], on_change=changed_model)
     flux_custom_model = TextField(label="Custom Flux Model (URL or Path)", value=flux_prefs['custom_model'], expand=True, visible=flux_prefs['flux_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     lora_layer = Dropdown(label="LoRA Layer Map", width=256, options=[dropdown.Option("Custom")], value=flux_prefs['lora_layer'], on_change=changed_lora_layer)
@@ -11549,9 +11550,10 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
     lora_layer_map = Column([], spacing=0)
-    merge = Switcher(label="Merge Dev & Schnell", value=flux_prefs['merge'], visible=flux_prefs['flux_model']!="Custom", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'merge'), tooltip="Combines the two models together with the Transformer for better results with less steps.")
+    #merge = Switcher(label="Merge Dev & Schnell", value=flux_prefs['merge'], visible=flux_prefs['flux_model']!="Custom", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'merge'), tooltip="Combines the two models together with the Transformer for better results with less steps.")
     quantize = Switcher(label="Quantize", value=flux_prefs['quantize'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'quantize'), tooltip="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision.")
     cpu_offload = Switcher(label="CPU Offload", value=flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
+    fp16 = Switcher(label="FP16 Mode", value=flux_prefs['fp16'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'fp16'), tooltip="Load model in 16-bit Floating Point to reduce memory but produces slightly different outputs compared to FP32/BF16.")
     #distilled_model = Switcher(label="Use Distilled Model", value=flux_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
     seed = TextField(label="Seed", width=90, value=str(flux_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     upscaler = UpscaleBlock(flux_prefs)
@@ -11568,12 +11570,12 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
             prompt,
             steps, lightning_steps,
             guidance, width_slider, height_slider,
-            Row([flux_model, merge, flux_custom_model]),
+            Row([flux_model, flux_custom_model]),
             Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
             lora_layer_map,
             Divider(thickness=4, height=4),
             upscaler,
-            Row([cpu_offload, quantize]),
+            Row([cpu_offload, quantize, fp16]),
             ResponsiveRow([Row([batch_size, n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Flux_output
@@ -21878,7 +21880,7 @@ stable_audio_prefs = {
     'model_name': 'stabilityai/stable-audio-open-1.0',
     'custom_model': '',
     'sampler': 'dpmpp-3m-sde',
-    'duration': 30.0,
+    'duration': 30,
     'steps': 200,
     'guidance_scale': 7.0,
     'seed': 0,
@@ -21946,7 +21948,7 @@ def buildStableAudio(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🫢   Stable Audio Diffusers (under construction)", "Generate Variable-Length Stereo Audio at 44.1kHz from Text Prompts using StabilityAI Open Model...", actions=[ft.OutlinedButton(content=Text("Switch to Stable Audio Open", size=18), on_click=switch_version), save_default(stable_audio_prefs), IconButton(icon=icons.HELP, tooltip="Help with StableAudio Settings", on_click=stable_audio_help)]),
+        Header("🫢   Stable Audio Diffusers", "Generate Variable-Length Stereo Audio at 44.1kHz from Text Prompts using StabilityAI Open Model...", actions=[ft.OutlinedButton(content=Text("Switch to Stable Audio Open", size=18), on_click=switch_version), save_default(stable_audio_prefs), IconButton(icon=icons.HELP, tooltip="Help with StableAudio Settings", on_click=stable_audio_help)]),
         ResponsiveRow([text, negative_prompt]),
         audio_file,
         duration_row,
@@ -37470,7 +37472,7 @@ def run_stable_audio(page):
             ).audios
         except Exception as e:
             clear_last()
-            alert_msg(page, "Error generating StableAudio waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            alert_msg(page, "Error generating StableAudio waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]), debug_pref=stable_audio_prefs)
             return
         
         audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
@@ -37480,7 +37482,7 @@ def run_stable_audio(page):
         fname = format_filename(stable_audio_prefs['text'])
         if fname[-1] == '.': fname = fname[:-1]
         file_prefix = stable_audio_prefs['file_prefix']
-        audio_name = f'{file_prefix}-{fname}'
+        audio_name = f'{file_prefix}{fname}'
         audio_name = audio_name[:int(prefs['file_max_length'])]
         clear_last(2)
         for audio in audios:
@@ -45006,15 +45008,17 @@ def run_flux(page, from_list=False, with_params=False):
     clear_list()
     autoscroll(True)
     merge = flux_prefs['merge'] and flux_prefs['flux_model'] != "Custom"
-    model_id = "black-forest-labs/FLUX.1-dev" if flux_prefs['flux_model'] == "FLUX.1-dev" or flux_prefs['merge'] else "black-forest-labs/FLUX.1-schnell" if flux_prefs['flux_model'] == "FLUX.1-schnell" else flux_prefs['custom_model']
+    model_id = "black-forest-labs/FLUX.1-dev" if flux_prefs['flux_model'] == "FLUX.1-dev" or flux_prefs['merge'] else "black-forest-labs/FLUX.1-schnell" if flux_prefs['flux_model'] == "FLUX.1-schnell" else "sayakpaul/FLUX.1-merged" if flux_prefs['flux_model'] == "FLUX.1-merged" else flux_prefs['custom_model']
     schnell = flux_prefs['flux_model'] == "FLUX.1-schnell" and not merge
     merged = "sayakpaul/FLUX.1-merged"
     #revision = 'refs/pr/1' if schnell else 'refs/pr/3'
-    if 'loaded_flux_model' not in status: status['loaded_flux_model'] = ''
+    status.setdefault('loaded_flux_model', '')
+    status.setdefault('loaded_flux_mode', [])
     installer = Installing(f"Installing FLUX.1 Engine & Models... See console log for progress.")
     cpu_offload = flux_prefs['cpu_offload']
+    fp16 = flux_prefs['fp16']
     prt(installer)
-    if status['loaded_flux_model'] != model_id:
+    if status['loaded_flux_model'] != model_id or status['loaded_flux_mode'] != [flux_prefs['quantize'], cpu_offload, fp16]:
         clear_pipes()
     else:
         clear_pipes('flux')
@@ -45063,7 +45067,10 @@ def run_flux(page, from_list=False, with_params=False):
                 )
                 pipe_flux.text_encoder_2 = text_encoder_2
                 pipe_flux.transformer = transformer
-                pipe_flux.enable_model_cpu_offload()
+                if fp16:
+                    pipe_flux.enable_sequential_cpu_offload()
+                else:
+                    pipe_flux.enable_model_cpu_offload()
                 if prefs['vae_slicing']:
                     pipe_flux.vae.enable_slicing()
                 if prefs['vae_tiling']:
@@ -45086,13 +45093,17 @@ def run_flux(page, from_list=False, with_params=False):
                     pipe_flux.vae.to(memory_format=torch.channels_last)
                     pipe_flux.transformer = torch.compile(pipe_flux.transformer, mode="max-autotune", fullgraph=True)
                     pipe_flux.vae.decode = torch.compile(pipe_flux.vae.decode, mode="max-autotune", fullgraph=True)
-                elif cpu_offload:
+                if cpu_offload and not fp16:
                     pipe_flux.enable_model_cpu_offload()
+                elif fp16:
+                    pipe_flux.enable_sequential_cpu_offload()
+                    pipe_flux = pipe_flux.to(torch.float16)
                 else:
                     pipe_flux = pipe_flux.to("cuda")#(torch.float16)
                     #pipe_flux.transformer.enable_forward_chunking(chunk_size=1, dim=1)
             pipe_flux.set_progress_bar_config(disable=True)
             status['loaded_flux_model'] = model_id
+            status['loaded_flux_mode'] = [flux_prefs['quantize'], cpu_offload, fp16]
         except HTTPError as e:
             clear_last()
             model_url = f"https://huggingface.co/{model_id}"
