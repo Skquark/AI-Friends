@@ -11408,12 +11408,12 @@ def buildLuminaNext(page):
     return c
 
 Flux_LoRA_models = [
-    {"name": "Anime", "path": "XLabs-AI/flux-lora-collection", "weights": "anime_lora.safetensors", "prefix": ""},
-    {"name": "Art", "path": "XLabs-AI/flux-lora-collection", "weights": "art_lora.safetensors", "prefix": ""},
-    {"name": "Disney", "path": "XLabs-AI/flux-lora-collection", "weights": "disney_lora.safetensors", "prefix": ""},
-    {"name": "MJ v6", "path": "XLabs-AI/flux-lora-collection", "weights": "mjv6_lora.safetensors", "prefix": ""},
-    {"name": "Realism", "path": "XLabs-AI/flux-lora-collection", "weights": "realism_lora.safetensors", "prefix": ""},
-    {"name": "Scenery", "path": "XLabs-AI/flux-lora-collection", "weights": "scenery_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Anime", "path": "XLabs-AI/flux-lora-collection", "weights": "anime_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Art", "path": "XLabs-AI/flux-lora-collection", "weights": "art_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Disney", "path": "XLabs-AI/flux-lora-collection", "weights": "disney_lora.safetensors", "prefix": ""},
+    {"name": "XLabs MJ v6", "path": "XLabs-AI/flux-lora-collection", "weights": "mjv6_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Realism", "path": "XLabs-AI/flux-lora-collection", "weights": "realism_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Scenery", "path": "XLabs-AI/flux-lora-collection", "weights": "scenery_lora.safetensors", "prefix": ""},
     {"name": "Aesthetic 10k", "path": "advokat/aesthetic-flux-lora-10k", "weights": "aesthetic10k.safetensors", "prefix": ""},
     {"name": "Gegants", "path": "xaviviro/Flux-Gegants-Lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     {"name": "LittleTinies", "path": "pzc163/LittleTinies-FLUX-lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
@@ -11441,7 +11441,7 @@ flux_prefs = {
     "custom_model": "",
     'lora_alpha': 0.8,
     'custom_lora': '',
-    'lora_layer': 'Anime',
+    'lora_layer': 'XLabs Anime',
     'lora_layer_alpha': 0.8,
     'custom_lora_layer': '',
     'lora_map': [],
@@ -11486,7 +11486,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
         schnell = flux_prefs['flux_model'] == "FLUX.1-schnell"
         merged = flux_prefs['flux_model'] == "FLUX.1-merged"
         guidance.show = not schnell
-        steps.show = not schnell or not merged
+        steps.show = not schnell and not merged
         lightning_steps.show = schnell or merged
     def changed_lora_layer(e):
       flux_prefs['lora_layer'] = e.control.value
@@ -25378,10 +25378,10 @@ def get_ESRGAN(page, model=None, installer=None):
         stat(f"Installing Real-ESRGAN")
         run_sp(f"git clone https://github.com/xinntao/Real-ESRGAN.git -q", cwd=dist_dir)
         os.chdir(ESRGAN_folder)
-        pip_install("basicsr facexlib gfpgan tqdm", q=True, cwd=ESRGAN_folder, installer=installer)
+        pip_install("basicsr facexlib gfpgan tqdm opencv-python|cv2", q=True, cwd=ESRGAN_folder, installer=installer)
         stat(f"Setup Real-ESRGAN")
-        run_sp(f"pip install -r requirements.txt --quiet", realtime=False, cwd=ESRGAN_folder)
-        run_sp(f"python setup.py develop --quiet", realtime=False, cwd=ESRGAN_folder)
+        #run_sp(f"pip install -r requirements.txt", realtime=False, cwd=ESRGAN_folder)
+        run_sp(f"python setup.py develop", realtime=False, cwd=ESRGAN_folder)
     if 'BSRGAN' in model:
         run_sp(f"git clone https://github.com/cszn/BSRGAN.git -q", cwd=ESRGAN_folder)
         run_sp(f"rm -r BSRGAN/testsets/RealSRSet", cwd=ESRGAN_folder)
@@ -45024,11 +45024,12 @@ def run_flux(page, from_list=False, with_params=False):
     #revision = 'refs/pr/1' if schnell else 'refs/pr/3'
     status.setdefault('loaded_flux_model', '')
     status.setdefault('loaded_flux_mode', [])
-    installer = Installing(f"Installing FLUX.1 Engine & Models... See console log for progress.")
     cpu_offload = flux_prefs['cpu_offload']
     fp16 = flux_prefs['fp16']
+    installer = Installing(f"Installing FLUX.1 Engine & Models... See console log for progress.")
     prt(installer)
     if status['loaded_flux_model'] != model_id or status['loaded_flux_mode'] != [flux_prefs['quantize'], cpu_offload, fp16]:
+        installer.status(f"...clearing pipes")
         clear_pipes()
     else:
         clear_pipes('flux')
@@ -45127,18 +45128,22 @@ def run_flux(page, from_list=False, with_params=False):
     if len(flux_prefs['lora_map']) > 0:
         adapters = []
         scales = []
-        for l in flux_prefs['lora_map']:
-            installer.status(f"...loading {l['name']} LoRA")
-            adapters.append(l['name'])
-            scales.append(l['scale'])
-            weight_args = {}
-            if 'weights' in l and bool(l['weights']):
-                weight_args['weight_name'] = l['weights']
-            if 'subfolder' in l and bool(l['subfolder']):
-                weight_args['subfolder'] = l['subfolder']
-            pipe_flux.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
-        installer.status(f"...fusing LoRAs")
-        pipe_flux.fuse_lora(adapter_names=adapters, lora_scale=scales[0])
+        try:
+            for l in flux_prefs['lora_map']:
+                installer.status(f"...loading {l['name']} LoRA")
+                adapters.append(l['name'])
+                scales.append(l['scale'])
+                weight_args = {}
+                if 'weights' in l and bool(l['weights']):
+                    weight_args['weight_name'] = l['weights']
+                if 'subfolder' in l and bool(l['subfolder']):
+                    weight_args['subfolder'] = l['subfolder']
+                pipe_flux.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
+            installer.status(f"...fusing LoRAs")
+            pipe_flux.fuse_lora(adapter_names=adapters, lora_scale=scales[0])
+        except Exception as e:
+            print(f"Error loading LoRAs: {e}")
+            pass
     clear_last()
     n = 0
     for pr in flux_prompts:
@@ -60376,7 +60381,7 @@ class Progress(Stack):
         self.progress = ProgressBar(bar_height=8)
         self.abort_btn = IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=self.abort_diffusion)
         self.preview = Container(content=None) if not self.show_preview else ft.Image()
-        return Container(content=Column([Row([self.message_txt, Container(content=None, expand=True), self.details, self.abort_btn if self.abort else Container(content=None)]), self.progress]), padding=padding.only(left=9, bottom=10))
+        return Container(content=Column([Row([self.message_txt, Container(content=None, expand=True), self.details, self.abort_btn if self.abort else Container(content=None)], vertical_alignment=ft.CrossAxisAlignment.END), self.progress]), padding=padding.only(left=9, bottom=10))
     def set_message(self, msg=""):
         self.message_txt.value = msg
         self.message_txt.update()

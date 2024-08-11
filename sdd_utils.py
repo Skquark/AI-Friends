@@ -510,12 +510,12 @@ SD3_LoRA_models = [
     {"name": "sd3-lora-test", "path": "ptx0/sd3-lora-test", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
 ]
 Flux_LoRA_models = [
-    {"name": "Anime", "path": "XLabs-AI/flux-lora-collection", "weights": "anime_lora.safetensors", "prefix": ""},
-    {"name": "Art", "path": "XLabs-AI/flux-lora-collection", "weights": "art_lora.safetensors", "prefix": ""},
-    {"name": "Disney", "path": "XLabs-AI/flux-lora-collection", "weights": "disney_lora.safetensors", "prefix": ""},
-    {"name": "MJ v6", "path": "XLabs-AI/flux-lora-collection", "weights": "mjv6_lora.safetensors", "prefix": ""},
-    {"name": "Realism", "path": "XLabs-AI/flux-lora-collection", "weights": "realism_lora.safetensors", "prefix": ""},
-    {"name": "Scenery", "path": "XLabs-AI/flux-lora-collection", "weights": "scenery_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Anime", "path": "XLabs-AI/flux-lora-collection", "weights": "anime_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Art", "path": "XLabs-AI/flux-lora-collection", "weights": "art_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Disney", "path": "XLabs-AI/flux-lora-collection", "weights": "disney_lora.safetensors", "prefix": ""},
+    {"name": "XLabs MJ v6", "path": "XLabs-AI/flux-lora-collection", "weights": "mjv6_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Realism", "path": "XLabs-AI/flux-lora-collection", "weights": "realism_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Scenery", "path": "XLabs-AI/flux-lora-collection", "weights": "scenery_lora.safetensors", "prefix": ""},
     {"name": "Aesthetic 10k", "path": "advokat/aesthetic-flux-lora-10k", "weights": "aesthetic10k.safetensors", "prefix": ""},
     {"name": "Gegants", "path": "xaviviro/Flux-Gegants-Lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     {"name": "LittleTinies", "path": "pzc163/LittleTinies-FLUX-lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
