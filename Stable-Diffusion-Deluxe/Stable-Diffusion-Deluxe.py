@@ -11395,6 +11395,14 @@ def buildLuminaNext(page):
     return c
 
 Flux_LoRA_models = [
+    {"name": "Anime", "path": "XLabs-AI/flux-lora-collection", "weights": "anime_lora.safetensors", "prefix": ""},
+    {"name": "Art", "path": "XLabs-AI/flux-lora-collection", "weights": "art_lora.safetensors", "prefix": ""},
+    {"name": "Disney", "path": "XLabs-AI/flux-lora-collection", "weights": "disney_lora.safetensors", "prefix": ""},
+    {"name": "MJ v6", "path": "XLabs-AI/flux-lora-collection", "weights": "mjv6_lora.safetensors", "prefix": ""},
+    {"name": "Realism", "path": "XLabs-AI/flux-lora-collection", "weights": "realism_lora.safetensors", "prefix": ""},
+    {"name": "Scenery", "path": "XLabs-AI/flux-lora-collection", "weights": "scenery_lora.safetensors", "prefix": ""},
+    {"name": "Aesthetic 10k", "path": "advokat/aesthetic-flux-lora-10k", "weights": "aesthetic10k.safetensors", "prefix": ""},
+    {"name": "Gegants", "path": "xaviviro/Flux-Gegants-Lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     {"name": "LittleTinies", "path": "pzc163/LittleTinies-FLUX-lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     {"name": "Sanna-Marin", "path": "mikaelh/flux-sanna-marin-lora-v0.1", "weights": "pytorch_lora_weights.safetensors", "subfolder": "checkpoint-1950", "prefix": "sanna marin"},
     {"name": "SimpleTuner Test", "path": "markury/FLUX-dev-LoRA-test", "weights": "pytorch_lora_weights.safetensors", "prefix": "a photo of man"},
@@ -11420,7 +11428,7 @@ flux_prefs = {
     "custom_model": "",
     'lora_alpha': 0.8,
     'custom_lora': '',
-    'lora_layer': 'LittleTinies',
+    'lora_layer': 'Anime',
     'lora_layer_alpha': 0.8,
     'custom_lora_layer': '',
     'lora_map': [],
@@ -11463,9 +11471,10 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
         #merge.visible = e.control.value != "Custom"
         #merge.update()
         schnell = flux_prefs['flux_model'] == "FLUX.1-schnell"
+        merged = flux_prefs['flux_model'] == "FLUX.1-merged"
         guidance.show = not schnell
-        steps.show = not schnell
-        lightning_steps.show = schnell
+        steps.show = not schnell or not merged
+        lightning_steps.show = schnell or merged
     def changed_lora_layer(e):
       flux_prefs['lora_layer'] = e.control.value
       custom_lora_layer.visible = e.control.value == "Custom"
@@ -11540,7 +11549,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     #merge = Switcher(label="Merge Dev & Schnell", value=flux_prefs['merge'], visible=flux_prefs['flux_model']!="Custom", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'merge'), tooltip="Combines the two models together with the Transformer for better results with less steps.")
     quantize = Switcher(label="Quantize", value=flux_prefs['quantize'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'quantize'), tooltip="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision.")
     cpu_offload = Switcher(label="CPU Offload", value=flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
-    fp16 = Switcher(label="FP16 Mode", value=flux_prefs['fp16'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'fp16'), tooltip="Load model in 16-bit Floating Point to reduce memory but produces slightly different outputs compared to FP32/BF16.")
+    fp16 = Switcher(label="FP16 Mode", value=flux_prefs['fp16'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'fp16'), tooltip="(under construction) Load model in 16-bit Floating Point to reduce memory but produces slightly different outputs compared to FP32/BF16.")
     #distilled_model = Switcher(label="Use Distilled Model", value=flux_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
     seed = TextField(label="Seed", width=90, value=str(flux_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     upscaler = UpscaleBlock(flux_prefs)
@@ -11552,7 +11561,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     page.Flux_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
-            Header("🌀  FLUX.1 by Black Forest Labs", "12B param rectified flow transformer distilled from FLUX.1 [pro]...", actions=[ft.OutlinedButton(content=Text("Switch to FLUX.1-pro", size=18), on_click=switch_version), save_default(flux_prefs), IconButton(icon=icons.HELP, tooltip="Help with Flux Settings", on_click=flux_help)]),
+            Header("🌀  FLUX.1 by Black Forest Labs", "12B param Rectified Flow Transformer Distilled from FLUX.1 Pro...", actions=[ft.OutlinedButton(content=Text("Switch to FLUX.1-pro", size=18), on_click=switch_version), save_default(flux_prefs), IconButton(icon=icons.HELP, tooltip="Help with Flux Settings", on_click=flux_help)]),
             #ResponsiveRow([prompt, negative_prompt]),
             prompt,
             steps, lightning_steps,
@@ -44929,7 +44938,7 @@ def run_lumina(page, from_list=False, with_params=False):
 
 
 def run_flux(page, from_list=False, with_params=False):
-    global flux_prefs, pipe_flux, prefs
+    global flux_prefs, pipe_flux, prefs, abort_run
     if not check_diffusers(page): return
     if int(status['cpu_memory']) <= 8:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Flux DiT right now. Either Change runtime type to High-RAM mode and restart.")
@@ -44980,6 +44989,7 @@ def run_flux(page, from_list=False, with_params=False):
       else:
         page.Flux.controls = page.Flux.controls[:1]
     progress = ProgressBar(bar_height=8)
+    
     total_steps = flux_prefs['steps']
     def callback_fn(pipe, step, timestep, callback_kwargs):
       #callback_fn.has_been_called = True
@@ -44995,7 +45005,7 @@ def run_flux(page, from_list=False, with_params=False):
     clear_list()
     autoscroll(True)
     merge = flux_prefs['merge'] and flux_prefs['flux_model'] != "Custom"
-    model_id = "black-forest-labs/FLUX.1-dev" if flux_prefs['flux_model'] == "FLUX.1-dev" or flux_prefs['merge'] else "black-forest-labs/FLUX.1-schnell" if flux_prefs['flux_model'] == "FLUX.1-schnell" else "sayakpaul/FLUX.1-merged" if flux_prefs['flux_model'] == "FLUX.1-merged" else flux_prefs['custom_model']
+    model_id = "black-forest-labs/FLUX.1-dev" if flux_prefs['flux_model'] == "FLUX.1-dev" else "black-forest-labs/FLUX.1-schnell" if flux_prefs['flux_model'] == "FLUX.1-schnell" else "sayakpaul/FLUX.1-merged" if flux_prefs['flux_model'] == "FLUX.1-merged" else flux_prefs['custom_model']
     schnell = flux_prefs['flux_model'] == "FLUX.1-schnell" and not merge
     merged = "sayakpaul/FLUX.1-merged"
     #revision = 'refs/pr/1' if schnell else 'refs/pr/3'
@@ -45054,10 +45064,10 @@ def run_flux(page, from_list=False, with_params=False):
                 )
                 pipe_flux.text_encoder_2 = text_encoder_2
                 pipe_flux.transformer = transformer
-                if fp16:
+                '''if fp16:
                     pipe_flux.enable_sequential_cpu_offload()
-                else:
-                    pipe_flux.enable_model_cpu_offload()
+                else:'''
+                pipe_flux.enable_model_cpu_offload()
                 if prefs['vae_slicing']:
                     pipe_flux.vae.enable_slicing()
                 if prefs['vae_tiling']:
@@ -45099,7 +45109,7 @@ def run_flux(page, from_list=False, with_params=False):
             return
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR Initializing Flux, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR Initializing Flux, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=flux_prefs)
             return
     if len(flux_prefs['lora_map']) > 0:
         adapters = []
@@ -45121,12 +45131,14 @@ def run_flux(page, from_list=False, with_params=False):
     for pr in flux_prompts:
         for i in range(pr['num_images']):
             i_num = f"{i+1} of {pr['num_images']} - " if pr['num_images'] > 1 else ""
-            prt(f"{f'[{n + 1}/{len(flux_prompts)}]  ' if from_list else ''}{i_num}{pr['prompt']}")
-            progress.value = None
-            prt(progress)
+            total_steps = pr['steps'] if not schnell and not flux_prefs['flux_model'] == "FLUX.1-merged" else flux_prefs['lightning_steps']
+            #prt(f"{f'[{n + 1}/{len(flux_prompts)}]  ' if from_list else ''}{i_num}{pr['prompt']}")
+            pb = Progress(f"{f'[{n + 1}/{len(flux_prompts)}]  ' if from_list else ''}{i_num}{pr['prompt']}", total_steps, abort=True, page=page)
+            prt(pb)
+            #progress.value = None
+            #prt(progress)
             nudge(page.imageColumn if from_list else page.Flux, page=page)
             autoscroll(False)
-            total_steps = pr['steps'] if not schnell else flux_prefs['lightning_steps']
             random_seed = get_seed(pr['seed']) + i
             generator = torch.Generator(device="cpu").manual_seed(random_seed)
             try:
@@ -45140,13 +45152,17 @@ def run_flux(page, from_list=False, with_params=False):
                     guidance_scale=pr['guidance_scale'] if not schnell else 0.,
                     max_sequence_length=256 if schnell else 512,
                     generator=generator,
-                    callback_on_step_end=callback_fn,
+                    callback_on_step_end=pb.callback_step,#callback_fn,
                 ).images
             except Exception as e:
-                clear_last(2)
-                alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                clear_last()
+                alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=flux_prefs)
                 return
-            clear_last(2)
+            clear_last()
+            if abort_run:
+                prt(Text("🛑   Aborting Current Diffusion Run..."))
+                abort_run = False
+                return
             autoscroll(True)
             txt2img_output = stable_dir
             batch_output = prefs['image_output']
@@ -60331,20 +60347,23 @@ class Installing(Stack):
         self.progress.update()
 
 class Progress(Stack):
-    def __init__(self, message="", steps=50, show_preview=False):
+    def __init__(self, message="", steps=50, show_preview=False, abort=False, page=None):
         super().__init__()
         self.message = message
         self.steps = steps
         self.start_step = 0
         self.start_callback = 0
         self.show_preview = show_preview
+        self.abort = abort
+        self.page = page
         self.build()
     def build(self):
         self.message_txt = Text(self.message, theme_style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)
         self.details = Text("")
         self.progress = ProgressBar(bar_height=8)
+        self.abort_btn = IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=self.abort_diffusion)
         self.preview = Container(content=None) if not self.show_preview else ft.Image()
-        return Container(content=Column([Row([self.message_txt, Container(content=None, expand=True), self.details]), self.progress]), padding=padding.only(left=9, bottom=10))
+        return Container(content=Column([Row([self.message_txt, Container(content=None, expand=True), self.details, self.abort_btn if self.abort else Container(content=None)]), self.progress]), padding=padding.only(left=9, bottom=10))
     def set_message(self, msg=""):
         self.message_txt.value = msg
         self.message_txt.update()
@@ -60361,6 +60380,7 @@ class Progress(Stack):
     def total_steps(self, value):
         self.steps = value
     def callback_step(self, pipe, step, timestep, callback_kwargs):
+        global abort_run
         now = time.time()
         itsec = ""
         try:
@@ -60376,8 +60396,9 @@ class Progress(Stack):
         self.progress.progress.value = percent
         self.progress.progress.tooltip = f"{int(percent * 100)}% [{step +1} / {self.steps}] (Timestep: {timestep:.1f}){itsec}"
         self.progress.progress.update()
-        #if abort_run:
-        #    pipe._interrupt = True
+        if abort_run:
+            pipe._interrupt = True
+        return callback_kwargs
     def callback_alt(self, step: int, timestep: int, callback_kwargs) -> None:
         now = time.time()
         itsec = ""
@@ -60403,7 +60424,9 @@ class Progress(Stack):
         self.progress.value = percent
         self.progress.tooltip = f"{int(percent * 100)}% [{step +1} / {self.steps}]{itsec}"
         self.progress.update()
-
+    def abort_diffusion(self, e):
+        abort(self.page)
+    
 class UpscaleBlock(Stack): # TODO: Add Method dropdown to support AuraSR, PIL Enlarge, Swin, etc.
     def __init__(self, pref):
         super().__init__()
