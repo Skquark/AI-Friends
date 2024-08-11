@@ -60406,9 +60406,9 @@ class Progress(Stack):
             itsec = f" - {its(now - self.start_step)} - Elapsed: {elapsed(self.start_callback, now)}"
         self.start_step = now
         percent = (step +1)/ self.steps
-        self.progress.progress.value = percent
-        self.progress.progress.tooltip = f"{int(percent * 100)}% [{step +1} / {self.steps}] (Timestep: {timestep:.1f}){itsec}"
-        self.progress.progress.update()
+        self.progress.value = percent
+        self.progress.tooltip = f"{int(percent * 100)}% [{step +1} / {self.steps}] (Timestep: {timestep:.1f}){itsec}"
+        self.progress.update()
         if abort_run:
             pipe._interrupt = True
         return callback_kwargs
