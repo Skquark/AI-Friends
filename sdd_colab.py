@@ -334,6 +334,8 @@ def load_settings_file():
       'install_upscale': False,
       'upscale_method': 'Real-ESRGAN',
       'upscale_model': 'realesr-general-x4v3',
+      'AuraSR_overlapped': False,
+      'AuraSR_keep_loaded': False,
       'safety_config': 'Strong',
       'use_imagic': False,
       'SD_compel': False,
@@ -825,7 +827,7 @@ def buildImageAIs(page):
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE = buildDallE3(page)
     page.DallE2 = buildDallE2(page)
-    page.DallE3 = buildDallE3(page)
+    #page.DallE3 = buildDallE3(page)
     page.Kandinsky = buildKandinsky3(page) if status['kandinsky_version'] == "Kandinsky 3.0" else buildKandinsky(page)
     page.KandinskyFuse = buildKandinskyFuse(page) if status['kandinsky_fuse_2_2'] else buildKandinsky21Fuse(page)
     page.KandinskyControlNet = buildKandinskyControlNet(page)
@@ -1151,6 +1153,8 @@ prefs.setdefault('stats_used', True)
 prefs.setdefault('stats_update', 5)
 prefs.setdefault('upscale_method', 'Real-ESRGAN')
 prefs.setdefault('upscale_model', 'realesr-general-x4v3')
+prefs.setdefault('AuraSR_overlapped', False)
+prefs.setdefault('AuraSR_keep_loaded', False)
 prefs.setdefault('use_inpaint_model', False)
 prefs.setdefault('cache_dir', '')
 prefs.setdefault('Replicate_api_key', '')
@@ -1315,6 +1319,8 @@ def initState(page):
     global status, current_tab
     if os.path.isdir(os.path.join(root_dir, 'Real-ESRGAN')):
       status['installed_ESRGAN'] = True
+      show_upscalers(page)
+    elif prefs['upscale_method'] != "Real-ESRGAN" and prefs['install_ESRGAN']:
       show_upscalers(page)
     page.load_prompts()
     # TODO: Try to load from assets folder
@@ -2171,15 +2177,26 @@ def buildInstallers(page):
         if u['name'] == prefs['upscale_model']:
           model_info.value = f"  [**Model Card**]({u['info']})"
           model_info.update()
-  install_ESRGAN = Switcher(label="Install Real-ESRGAN AI Upscaler", value=prefs['install_ESRGAN'], disabled=status['installed_ESRGAN'], on_change=toggle_upscale, tooltip="Recommended to enlarge & sharpen all images as they're made.")
+  def change_upscale_method(e):
+      prefs['upscale_method'] = e.control.value
+      upscale_settings.content = Row([upscale_model, model_info]) if "Real-ESRGAN" in prefs['upscale_method'] else Row([AuraSR_overlapped, AuraSR_keep_loaded]) if prefs['upscale_method']=="Aura-SR" else Row([])
+      upscale_settings.height=None if "Real-ESRGAN" in prefs['upscale_method'] or prefs['upscale_method']=="Aura-SR" else 0
+      upscale_settings.update()
+      #if status['installed_ESRGAN']:
+      change_upscalers_method(page, prefs['upscale_method'])
+  install_ESRGAN = Switcher(label="Install Image Upscaler Resolution Enlarging", value=prefs['install_ESRGAN'], disabled=status['installed_ESRGAN'], on_change=toggle_upscale, tooltip="Recommended to enlarge & sharpen all images as they're made.")
+  upscale_method = Dropdown(label="Upscale Method", hint_text="", width=300, options=[dropdown.Option(method) for method in ["Real-ESRGAN", "Aura-SR", "SRFormer", "Pillow LANCZOS"]], value=prefs['upscale_method'], autofocus=False, on_change=change_upscale_method)
   upscale_model = Dropdown(label="ESRGAN Upscale Model", hint_text="", width=300, options=[], value=prefs['upscale_model'], autofocus=False, on_change=change_upscale_model)
   for u in Real_ESRGAN_models:
     upscale_model.options.append(dropdown.Option(u['name']))
     if u['name'] == prefs['upscale_model']:
       current_model = u
   model_info = Markdown(f"  [**Model Info**]({current_model['info']})", on_tap_link=lambda e: e.page.launch_url(e.data))
-  upscale_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=6), content=Row([upscale_model, model_info]))
-  upscale_settings.height = None if prefs['install_ESRGAN'] else 0
+  AuraSR_overlapped = Checkbox(label="Overlapped Tiling", tooltip="Reduce seams, but doubles the time upscaling by taking an additional pass and averaging the results.", value=prefs['AuraSR_overlapped'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AuraSR_overlapped'))
+  AuraSR_keep_loaded = Checkbox(label="Keep Pipeline Loaded", tooltip="Aura-SR is stay loaded in memory for faster batch upscales, but reserves more VRAM usage", value=prefs['AuraSR_keep_loaded'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AuraSR_keep_loaded'))
+  
+  upscale_settings = Container(content=Row([upscale_model, model_info]) if "Real-ESRGAN" in prefs['upscale_method'] else Row([AuraSR_overlapped, AuraSR_keep_loaded]) if prefs['upscale_method']=="Aura-SR" else Row([]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=6))
+  upscale_settings.height = None if prefs['install_ESRGAN'] and "Real-ESRGAN" in prefs['upscale_method'] or prefs['upscale_method']=="Aura-SR" else 0
   
   install_OpenAI = Switcher(label="Install OpenAI GPT Text & DALL-E Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], on_change=lambda e:changed(e, 'install_OpenAI'), tooltip="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.")
   install_TextSynth = Switcher(label="Install TextSynth GPT-J Text Engine", value=prefs['install_TextSynth'], disabled=status['installed_TextSynth'], on_change=lambda e:changed(e, 'install_TextSynth'), tooltip="Alternative Text AI for brainstorming & rewriting your prompts. Pretty smart..")
@@ -2397,10 +2414,11 @@ def buildInstallers(page):
         console_msg("Installing Stable Horde AIHorde.net Pipeline...")
         get_AIHorde(page)
       if prefs['install_ESRGAN'] and not status['installed_ESRGAN']:
-        if not os.path.isdir(os.path.join(dist_dir, 'Real-ESRGAN')):
-          get_ESRGAN(page)
-          console_msg("Installing Real-ESRGAN Upscaler...")
-        status['installed_ESRGAN'] = True
+        if prefs['upscale_method'] == "Real-ESRGAN":
+          if not os.path.isdir(os.path.join(dist_dir, 'Real-ESRGAN')):
+            get_ESRGAN(page)
+            console_msg("Installing Real-ESRGAN Upscaler...")
+          status['installed_ESRGAN'] = True
       if prefs['install_ESRGAN']:
         '''ESRGAN_blocks = [
           #page.ESRGAN_block,
@@ -2533,7 +2551,8 @@ def buildInstallers(page):
         AIHorde_settings,
         #install_CLIP_guided,
         #clip_settings,
-        install_ESRGAN, upscale_settings,
+        Row([install_ESRGAN, upscale_method]),
+        upscale_settings,
         #install_OpenAI,
         #install_TextSynth,
         #install_button,
@@ -11411,6 +11430,7 @@ Flux_LoRA_models = [
     {"name": "XLabs Anime", "path": "XLabs-AI/flux-lora-collection", "weights": "anime_lora.safetensors", "prefix": ""},
     {"name": "XLabs Art", "path": "XLabs-AI/flux-lora-collection", "weights": "art_lora.safetensors", "prefix": ""},
     {"name": "XLabs Disney", "path": "XLabs-AI/flux-lora-collection", "weights": "disney_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Furry", "path": "XLabs-AI/flux-lora-collection", "weights": "furry_lora.safetensors", "prefix": ""},
     {"name": "XLabs MJ v6", "path": "XLabs-AI/flux-lora-collection", "weights": "mjv6_lora.safetensors", "prefix": ""},
     {"name": "XLabs Realism", "path": "XLabs-AI/flux-lora-collection", "weights": "realism_lora.safetensors", "prefix": ""},
     {"name": "XLabs Scenery", "path": "XLabs-AI/flux-lora-collection", "weights": "scenery_lora.safetensors", "prefix": ""},
@@ -11428,7 +11448,7 @@ flux_prefs = {
     "batch_size": 1,
     "num_images": 1,
     "steps": 50,
-    "lightning_steps": 4,
+    "lightning_steps": 6,
     "width": 1024,
     "height": 720,
     "guidance_scale": 4.0,
@@ -18371,7 +18391,7 @@ def buildDallE2(page):
     #strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
     img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     upscaler = UpscaleBlock(dall_e_2_prefs)
-    page.upscalers.append(upscaler)
+    #page.upscalers.append(upscaler)
     list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page, from_list=True))
     parameters_button = ElevatedButton(content=Text(value="🖼️   Run DALL•E 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page))
     parameters_row = Row([parameters_button, list_button], spacing=22)#, alignment=MainAxisAlignment.SPACE_BETWEEN)
@@ -25427,9 +25447,18 @@ def get_ESRGAN(page, model=None, installer=None):
     os.chdir(root_dir)
     status['installed_ESRGAN'] = True
 
-def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=False, model=None, installer=None):
+pipe_aura_sr = None
+def upscale_image(source, target, method=None, scale=4, face_enhance=False, model=None, installer=None, column=None):
+    global pipe_aura_sr
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
+        if column is not None: installing.status(f"...{msg}")
+    if method == None:
+        method = prefs['upscale_method']
+    if column != None:
+        installing = Installing(f"Running {method} Upscaler...")
+        column.controls.append(installing)
+        column.update()
     if not isinstance(source, list): source = [source]
     if not os.path.isdir(target): target = os.path.dirname(target)
     saves = {}
@@ -25522,17 +25551,19 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
             img = os.path.join(result_folder, f)
             out = os.path.join(to, saves[f])
             shutil.move(img, out)
-    elif method=="AuraSR":
+    elif method=="Aura-SR":
         try:
             import aura_sr
         except ModuleNotFoundError:
-            stat("Installing fal-ai/AuraSR")
-            run_sp(f"pip install aura-sr", realtime=False)
+            stat("Installing fal-ai/AuraSR-v2")
+            run_sp(f"pip install --upgrade git+https://github.com/Skquark/aura-sr.git", realtime=False)
             pass
-        from aura_sr import AuraSR
-        stat(f"Loading AuraSR Pipeline")
-        pipe_aura_sr = AuraSR.from_pretrained("fal-ai/AuraSR")
+        if pipe_aura_sr == None:
+            from aura_sr import AuraSR
+            stat(f"Loading Aura-SR Pipeline")
+            pipe_aura_sr = AuraSR.from_pretrained("fal-ai/AuraSR-v2", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         stat(f"Upscaling {method} {scale}X")
+        x2 = scale <= 2
         for i in source:
             try:
                 img = PILImage.open(i)
@@ -25540,10 +25571,16 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
                 max_size = max(width, height)
                 max_size = int(max_size * scale)
                 width, height = scale_dimensions(width, height, max_size, multiple=4)
-                if face_enhance:
-                    upscaled_image = pipe_aura_sr.upscale_4x_overlapped(img)
+                if prefs['AuraSR_overlapped']:
+                    if x2:
+                        upscaled_image = pipe_aura_sr.upscale_2x_overlapped(img)
+                    else:
+                        upscaled_image = pipe_aura_sr.upscale_4x_overlapped(img)
                 else:
-                    upscaled_image = pipe_aura_sr.upscale_4x(img)
+                    if x2:
+                        upscaled_image = pipe_aura_sr.upscale_2x(img)
+                    else:
+                        upscaled_image = pipe_aura_sr.upscale_4x(img)
                 w, h = upscaled_image.size
                 upscaled_size = max(w, h)
                 if max_size != upscaled_size:
@@ -25555,10 +25592,34 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
                 stat(f"Error running {method}")
                 print(f"Error running {method}: {e}")
                 return
+        if not prefs['AuraSR_keep_loaded']:
+            del pipe_aura_sr
+            flush()
+            pipe_aura_sr = None
+        else:
+            flush()
+    elif method=="Pillow LANCZOS":
+        for i in source:
+            try:
+                img = PILImage.open(i)
+                width, height = img.size
+                max_size = max(width, height)
+                max_size = int(max_size * scale)
+                width, height = scale_dimensions(width, height, max_size, multiple=4)
+                img = img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+                fname_clean = os.path.basename(i)
+                opath = os.path.join(target, fname_clean)
+                img.save(opath)
+            except Exception as e:
+                stat(f"Error running {method}")
+                print(f"Error running {method}: {e}")
+                return
     else: #TODO: Add SwinIR, DAT and other Upscale methods
         print(f"Unknown upscale method {method}")
     #https://colab.research.google.com/gist/JingyunLiang/a5e3e54bc9ef8d7bf594f6fee8208533/swinir-demo-on-real-world-image-sr.ipynb
-    
+    if column is not None:
+        del column.controls[-1]
+        column.update()
 
 def get_concept(name):
   for con in concepts:
@@ -60343,6 +60404,13 @@ class Switcher(Row):
             return Tooltip(message=self.tooltip, content=self.switch)
         else:
             return self.switch
+    def set_label(self, text):
+        self.label = text
+        self.switch.label = f"  {self.label}"
+        try:
+            self.switch.update()
+        except Exception as e:
+            pass
 
 class Installing(Stack):
     def __init__(self, message=""):
@@ -60451,31 +60519,57 @@ class UpscaleBlock(Stack): # TODO: Add Method dropdown to support AuraSR, PIL En
         self.pref = pref
         self.build()
     def build(self):
-        apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=self.pref['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=self.toggle_ESRGAN)
-        enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=self.pref, key='enlarge_scale')
-        face_enhance = 'face_enhance' in self.pref
-        if face_enhance:
-            use_face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=self.pref['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(face_enhance=e.control.value))
-        display_upscaled_image = Checkbox(label="Display Upscaled Image", value=self.pref['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(display_upscaled_image=float(e.control.value)))
-        self.ESRGAN_settings = Container(Column([enlarge_scale_slider, Row([use_face_enhance if face_enhance else Container(content=None), display_upscaled_image])], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if self.pref['apply_ESRGAN_upscale'] else 0)
-        self.ESRGAN_block = Container(Column([apply_ESRGAN_upscale, self.ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if status['installed_ESRGAN'] else 0)
+        self.apply_ESRGAN_upscale = Switcher(label=f"Apply {prefs['upscale_method']} Upscale", value=self.pref['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=self.toggle_ESRGAN)
+        self.enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=self.pref, key='enlarge_scale')
+        self.face_enhance = 'face_enhance' in self.pref
+        self.face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=self.pref['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(face_enhance=e.control.value), visible = 'ESRGAN' in prefs['upscale_method']) if self.face_enhance else Container(content=None)
+        #self.aurasr_overlaping = Checkbox(label="Use Tile Overlaping", value=self.pref['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(face_enhance=e.control.value)) if self.face_enhance else Container(content=None)
+        self.display_upscaled_image = Checkbox(label="Display Upscaled Image", value=self.pref['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(display_upscaled_image=float(e.control.value)))
+        self.ESRGAN_settings = Container(Column([self.enlarge_scale_slider, Row([self.face_enhance, self.display_upscaled_image])], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if self.pref['apply_ESRGAN_upscale'] else 0)
+        self.ESRGAN_block = Container(Column([self.apply_ESRGAN_upscale, self.ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if status['installed_ESRGAN'] else 0)
         return self.ESRGAN_block
     def show(self, visible=True):
         self.ESRGAN_block.height = None if visible else 0
         try:
             self.ESRGAN_block.update()
         except Exception as e:
-            #print(f"Upscaler {self.pref}: {e}")
+            print(f"Upscaler {self.pref}: {e}")
             pass
+        self.change_method(prefs['upscale_method'])
     def toggle_ESRGAN(self, e):
         self.ESRGAN_settings.height = None if e.control.value else 0
         self.pref['apply_ESRGAN_upscale'] = e.control.value
         self.ESRGAN_settings.update()
+    def change_method(self, method):
+        self.apply_ESRGAN_upscale.set_label(f"Apply {method} Upscale")
+        self.face_enhance.visible = 'ESRGAN' in prefs['upscale_method']# = Checkbox(label="Use Face Enhance GPFGAN", value=self.pref['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(face_enhance=e.control.value)) if self.face_enhance else Container(content=None)
+        '''if 'ESRGAN' in method:
+        elif method == "Aura-SR":
+            self.aurasr_overlaping = Checkbox(label="Use Tile Overlaping", value=self.pref['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(face_enhance=e.control.value), tooltip="Takes a little longer, but reduces visible seams when upscaling.") if self.face_enhance else Container(content=None)
+        else:
+            self.extra_option = Container(content=None)'''
+        try:
+            #self.apply_ESRGAN_upscale.update()
+            #self.ESRGAN_settings.update()
+            self.face_enhance.update()
+            #self.build()
+            #print("Update ESRGAN")
+            #self.ESRGAN_block.update()
+            self.update()
+        except Exception as e:
+            print(f"Upscaler update {self.pref}: {e}")
+            pass
+
 
 def show_upscalers(page, show=True):
     for u in page.upscalers:
         u.show(show)
 
+def change_upscalers_method(page, method):
+    #print("change_upscalers_method")
+    for u in page.upscalers:
+        u.change_method(method)
+        
 def pip_install(packages, installer=None, print=False, prt=None, cwd=None, upgrade=False, q=False, reinstall=False):
     arg = ""
     if upgrade: arg += "--upgrade "
