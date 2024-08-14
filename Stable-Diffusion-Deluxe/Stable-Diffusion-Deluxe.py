@@ -808,6 +808,7 @@ def buildImageAIs(page):
     page.PixArtSigma = buildPixArtSigma(page)
     page.Hunyuan = buildHunyuanDiT(page)
     page.Flux = buildFlux(page)
+    page.ControlNetFlux = buildControlNetFLUX(page)
     page.Lumina = buildLuminaNext(page)
     page.Kolors = buildKolors(page)
     page.AuraFlow = buildAuraFlow(page)
@@ -835,12 +836,13 @@ def buildImageAIs(page):
             Tab(text="ControlNet SDXL", content=page.ControlNetXL, icon=icons.PEST_CONTROL),
             Tab(text="ControlNet SD3", content=page.ControlNetSD3, icon=icons.ARCHITECTURE),
             Tab(text="ControlNet-XS", content=page.ControlNetXS, icon=icons.WEBHOOK),
+            Tab(text="ControlNet FLUX.1", content=page.ControlNetFlux, icon=icons.PEST_CONTROL_RODENT),
+            Tab(text="FLUX.1", content=page.Flux, icon=icons.TRACK_CHANGES),
             Tab(text="Kandinsky", content=page.Kandinsky, icon=icons.TOLL),
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
             Tab(text="DALL•E", content=page.DallE, icon=icons.BLUR_ON),
-            Tab(text="FLUX.1", content=page.Flux, icon=icons.TRACK_CHANGES),
             Tab(text="Lumina-Next", content=page.Lumina, icon=icons.SYNAGOGUE),
             Tab(text="Hunyuan-DiT", content=page.Hunyuan, icon=icons.TEMPLE_BUDDHIST),
             Tab(text="Stable Cascade", content=page.StableCascade, icon=icons.SPA),
@@ -11598,7 +11600,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
             lora_layer_map,
             Divider(thickness=4, height=4),
             upscaler,
-            Row([cpu_offload, quantize, fp16]),
+            Row([cpu_offload, quantize]),
             ResponsiveRow([Row([batch_size, n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Flux_output
@@ -11688,6 +11690,266 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
             parameters_row,
         ],
     ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, eta, seed,
+    return c
+
+controlnet_flux_prefs = {
+    'original_image': '',
+    'prompt': '',
+    'negative_prompt': 'lowres, text, watermark, cropped, low quality',
+    'control_task': 'Canny Map Edge',
+    'conditioning_scale': 1.0,
+    'control_guidance_start': 0.0,
+    'control_guidance_end': 1.0,
+    'multi_controlnets': [],
+    'batch_size': 1,
+    'max_size': 1024,
+    'low_threshold': 100, #1-255
+    'high_threshold': 200, #1-255
+    'steps': 28, #100
+    'guidance_scale': 4.5,
+    'seed': 0,
+    'eta': 0,
+    'show_processed_image': False,
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_FLUX_model': 'FLUX',
+    'ip_adapter_strength': 0.8,
+    'use_init_video': False,
+    'init_video': '',
+    'fps': 12,
+    'start_time': 0,
+    'end_time': 0,
+    'use_image2image': False,
+    'init_image': '',
+    'mask_image': '',
+    'alpha_mask': False,
+    'invert_mask': False,
+    'file_prefix': 'controlnet-FLUX-',
+    'cpu_offload': True,
+    'quantize': False,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+controlnet_flux_control_modes = ["Canny Map Edge", "Tile", "Depth", "Blur", "Pose", "Grey", "LQ"]
+def buildControlNetFLUX(page):
+    global controlnet_flux_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          controlnet_flux_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def controlnet_flux_help(e):
+      def close_controlnet_flux_dlg(e):
+        nonlocal controlnet_flux_help_dlg
+        controlnet_flux_help_dlg.open = False
+        page.update()
+      controlnet_flux_help_dlg = AlertDialog(title=Text("💁   Help with ControlNet FLUX"), content=Column([
+          Text('ControlNet-FLUX is a neural network structure to control FLUX.1-Dev model by adding extra conditions, using the latest models from Black Forest Labs and InstantX. It copys the weights of neural network blocks into a "locked" copy and a "trainable" copy. The "trainable" one learns your condition. The "locked" one preserves your model. Thanks to this, training with small dataset of image pairs will not destroy the production-ready diffusion models. The "zero convolution" is 1×1 convolution with both weight and bias initialized as zeros. Before training, all zero convolutions output zeros, and ControlNetFLUX will not cause any distortion.  No layer is trained from scratch. You are still fine-tuning. Your original model is safe.  This allows training on small-scale or even personal devices. This is also friendly to merge/replacement/offsetting of models/weights/blocks/layers.'),
+          Markdown("This is an interface for running the [official codebase](https://github.com/lllyasviel/ControlNet#readme) for models described in [Adding Conditional Control to Text-to-Image Diffusion Models](https://arxiv.org/abs/2302.05543).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          #Text("Scribble - A hand-drawn monochrome image with white outlines on a black background."),
+          Text("Canny Map Edge - A monochrome image with white edges on a black background."),
+          Text("Pose - A Pose bone image."),
+          Text("Tile - Adds more detail, makes image sharper and apply new styles."),
+          Text("Depth - A grayscale image with black representing deep areas and white representing shallow areas."),
+          #Text("Softedge - A monochrome image with white soft edges on a black background."),
+          #Text("M-LSD - A monochrome image composed only of white straight lines on a black background."),
+          #Text("Normal Map - A normal mapped image."),
+          #Text("Segmented - An ADE20K's semantic segmentation protocol image."),
+          #Text("LineArt - An image with line art, usually black lines on a white background."),
+          #Text("Shuffle - An image with shuffled patches or regions."),
+          #Text("Brightness - An image based on brightness of init."),
+          #Text("Instruct Pix2Pix - Trained with pixel to pixel instruction."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Some Control... ", on_click=close_controlnet_flux_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(controlnet_flux_help_dlg)
+      controlnet_flux_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        save_file(e.file_name)
+    def save_file(file_name):
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          controlnet_flux_prefs['file_name'] = file_name.rpartition('.')[0]
+        else:
+          fname = file_name
+          controlnet_flux_prefs['file_name'] = file_name.rpartition(slash)[2].rpartition('.')[0]
+        if pick_type == "image":
+          original_image.value = fname
+          original_image.update()
+          controlnet_flux_prefs['original_image'] = fname
+        elif pick_type == "video":
+          init_video.value = fname
+          init_video.update()
+          controlnet_flux_prefs['init_video'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
+              else:
+                save_file(f.path)
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    def pick_original(e):
+        nonlocal pick_type
+        pick_type = "image"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
+    def pick_video(e):
+        nonlocal pick_type
+        pick_type = "video"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi"], dialog_title="Pick Initial Video File")
+    def change_task(e):
+        task = e.control.value
+        show = task.startswith("Video")# or task == "Video Pose"
+        update = controlnet_flux_prefs['use_init_video'] != show
+        changed(e,'control_task')
+        threshold.height = None if "Canny" in controlnet_flux_prefs['control_task'] else 0
+        threshold.update()
+        if update:
+            original_image.visible = not show
+            original_image.update()
+            init_video.visible = show
+            init_video.update()
+            vid_params.height = None if show else 0
+            vid_params.update()
+            conditioning_scale.visible = not show
+            conditioning_scale.update()
+            add_layer_btn.visible = not show
+            add_layer_btn.update()
+            multi_layers.visible = not show
+            multi_layers.update()
+            run_prompt_list.visible = not show
+            run_prompt_list.update()
+            controlnet_flux_prefs['use_init_video'] = show
+    def add_layer(e):
+        layer = {'control_task': controlnet_flux_prefs['control_task'], 'original_image': controlnet_flux_prefs['original_image'], 'conditioning_scale': controlnet_flux_prefs['conditioning_scale'], 'control_guidance_start': controlnet_flux_prefs['control_guidance_start'], 'control_guidance_end': controlnet_flux_prefs['control_guidance_end'], 'use_init_video': False}
+        if controlnet_flux_prefs['control_task'] == "Video Canny Edge" or controlnet_flux_prefs['control_task'] == "Video Pose":
+          layer['use_init_video'] = True
+          layer['init_video'] = controlnet_flux_prefs['init_video']
+          layer['fps'] = controlnet_flux_prefs['fps']
+          layer['start_time'] = controlnet_flux_prefs['start_time']
+          layer['end_time'] = controlnet_flux_prefs['end_time']
+          controlnet_flux_prefs['init_video'] = ""
+          init_video.value = ""
+          original_image.update()
+        controlnet_flux_prefs['multi_controlnets'].append(layer)
+        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(layer['init_video'] if layer['use_init_video'] else layer['original_image']), Text(f"- Conditioning Scale: {layer['conditioning_scale']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
+          ]), data=layer))
+        multi_layers.update()
+        controlnet_flux_prefs['original_image'] = ""
+        original_image.value = ""
+        original_image.update()
+    def delete_layer(e):
+        controlnet_flux_prefs['multi_controlnets'].remove(e.control.data)
+        for c in multi_layers.controls:
+          if c.data['original_image'] == e.control.data['original_image']:
+             multi_layers.controls.remove(c)
+             break
+        multi_layers.update()
+    def delete_all_layers(e):
+        controlnet_flux_prefs['multi_controlnets'].clear()
+        multi_layers.controls.clear()
+        multi_layers.update()
+    def toggle_img2img(e):
+        controlnet_flux_prefs['use_image2image'] = e.control.value
+        img2img_row.height = None if e.control.value else 0
+        img2img_row.update()
+    def toggle_ip_adapter(e):
+        controlnet_flux_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_FLUX_model.visible = e.control.value
+        ip_adapter_FLUX_model.update()
+    original_image = TextField(label="Original Drawing", value=controlnet_flux_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    prompt = TextField(label="Prompt Text", value=controlnet_flux_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_flux_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    control_task = Dropdown(label="ControlNet-FLUX Task", width=210, options=[dropdown.Option(f) for f in controlnet_flux_control_modes], value=controlnet_flux_prefs['control_task'], on_change=change_task)
+    #control_task = Dropdown(label="ControlNet-FLUX Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Canny Map Edge mid"), dropdown.Option("Canny Map Edge small"), dropdown.Option("Depth"), dropdown.Option("Depth mid"), dropdown.Option("Depth small"), dropdown.Option("Marigold Depth"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("Pose"), dropdown.Option("Scribble"), dropdown.Option("Scribble Anime")], value=controlnet_flux_prefs['control_task'], on_change=change_task)
+    #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video Pose")
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_flux_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
+    control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_flux_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
+    control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_flux_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
+    #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNetFLUX Layer", on_click=add_layer)
+    add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
+    multi_layers = Column([], spacing=0)
+    seed = TextField(label="Seed", width=90, value=str(controlnet_flux_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    #use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switcher(label="Use Init Video", value=controlnet_flux_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
+    init_video = TextField(label="Init Video Clip", value=controlnet_flux_prefs['init_video'], expand=True, visible=controlnet_flux_prefs['use_init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=controlnet_flux_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
+    start_time = TextField(label="Start Time (s)", value=controlnet_flux_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
+    end_time = TextField(label="End Time (0 for all)", value=controlnet_flux_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
+    vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_flux_prefs['use_init_video'] else 0)
+    num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_flux_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_flux_prefs, key='guidance_scale')
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_flux_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_flux_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
+    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
+    threshold.height = None if controlnet_flux_prefs['control_task'] == "Canny Map Edge" else 0
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=32, multiple=32, suffix="px", pref=controlnet_flux_prefs, key='max_size')
+    use_image2image = Switcher(label="Use Image2Image or Inpainting", value=controlnet_flux_prefs['use_image2image'], on_change=toggle_img2img)
+    init_image = FileInput(label="Init Image", pref=controlnet_flux_prefs, key='init_image', expand=True, page=page)
+    mask_image = FileInput(label="Mask Image (optional)", pref=controlnet_flux_prefs, key='mask_image', expand=True, page=page)
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=controlnet_flux_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+    alpha_mask = Checkbox(label="Alpha Mask", value=controlnet_flux_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
+    img2img_row = Container(content=ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]), height=None if controlnet_flux_prefs['use_image2image'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=controlnet_flux_prefs['use_ip_adapter'], on_change=toggle_ip_adapter)
+    ip_adapter_FLUX_model = Dropdown(label="IP-Adapter FLUX Model", width=220, options=[], value=controlnet_flux_prefs['ip_adapter_FLUX_model'], visible=controlnet_flux_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_FLUX_model'))
+    for m in ip_adapter_SDXL_models:
+        ip_adapter_FLUX_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_flux_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_flux_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_flux_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    file_prefix = TextField(label="Filename Prefix",  value=controlnet_flux_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
+    show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_flux_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
+    quantize = Switcher(label="Quantize (not yet)", value=controlnet_flux_prefs['quantize'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'quantize'), tooltip="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision.")
+    cpu_offload = Switcher(label="CPU Offload", value=controlnet_flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_flux_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    upscaler = UpscaleBlock(controlnet_flux_prefs)
+    page.upscalers.append(upscaler)
+    run_prompt_list = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_flux(page, from_list=True))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🛃  ControlNet FLUX.1 Image+Text-to-Image (under construction)", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models... Trained at 512x512 & 1024x1024", actions=[save_default(controlnet_flux_prefs, ['original_image', 'init_image', 'mask_image', 'ip_adapter_image', 'multi_controlnets']), IconButton(icon=icons.HELP, tooltip="Help with ControlNet-FLUX Settings", on_click=controlnet_flux_help)]),
+        Row([control_task, original_image, init_video]),#, add_layer_btn
+        conditioning_scale,
+        #Row([control_guidance_start, control_guidance_end]),
+        multi_layers,
+        vid_params,
+        Divider(thickness=2, height=4),
+        prompt,
+        #ResponsiveRow([prompt, negative_prompt]),
+        threshold,
+        num_inference_row,
+        guidance,
+        #eta_row,
+        max_row,
+        #use_image2image,
+        #img2img_row,
+        #Row([use_ip_adapter, ip_adapter_FLUX_model], vertical_alignment=CrossAxisAlignment.START),
+        #ip_adapter_container,
+        show_processed_image,
+        Row([cpu_offload, quantize]),
+        Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_flux_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
+        upscaler,
+        Row([ElevatedButton(content=Text("🔓  Run ControlNet-FLUX.1", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_flux(page)),
+             run_prompt_list]),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 
@@ -23017,9 +23279,10 @@ pipe_controlnet = None
 controlnet = None
 controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 controlnet_xl_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
-controlnet_sd3_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Tile":None}
+controlnet_sd3_models = {"Canny Map Edge":None, "Tile":None, "Depth":None, "Blur":None, "Pose":None, "Grey":None, "LQ":None}
 controlnet_xs_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 controlnet_hunyuan_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Marigold Depth":None}
+controlnet_flux_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Tile":None}
 stability_api = None
 safety = {'safety_checker':None, 'requires_safety_checker':False, 'feature_extractor':None} if prefs['disable_nsfw_filter'] else {}
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -26448,7 +26711,7 @@ def clear_zoe_depth_pipe():
     flush()
     pipe_zoe_depth = None
 def clear_controlnet_pipe():
-  global pipe_controlnet, controlnet, controlnet_models, controlnet_xl_models, status
+  global pipe_controlnet, controlnet, controlnet_models, controlnet_xl_models, controlnet_flux_models, status
   if pipe_controlnet is not None:
     del pipe_controlnet
     del controlnet
@@ -26460,6 +26723,10 @@ def clear_controlnet_pipe():
       if v != None:
         del v
         controlnet_xl_models[k] = None
+    for k, v in controlnet_flux_models.items():
+      if v != None:
+        del v
+        controlnet_flux_models[k] = None
     flush()
     pipe_controlnet = None
     controlnet = None
@@ -28254,7 +28521,7 @@ def start_diffusion(page):
           w = int(arg['width'] * prefs["enlarge_scale"])
           h = int(arg['height'] * prefs["enlarge_scale"])
           prt(Row([Text(f'Enlarging {prefs["enlarge_scale"]}X to {w}x{h}')], alignment=MainAxisAlignment.CENTER))
-          upscale_image(fpath, fpath, scale=prefs["enlarge_scale"], face_enhance=prefs["face_enhance"])
+          upscale_image(fpath, fpath, scale=prefs["enlarge_scale"], face_enhance=prefs["face_enhance"], column=page.imageColumn)
           clear_last(update=False)
 
         config_json = arg.copy()
@@ -28439,7 +28706,7 @@ def start_diffusion(page):
     bfolder = fpath.rpartition(slash)[2]
     if prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
       prt('Applying Real-ESRGAN Upscaling to images...')
-      upscale_image(images, fpath, scale=prefs["enlarge_scale"], face_enhance=prefs["face_enhance"])
+      upscale_image(images, fpath, scale=prefs["enlarge_scale"], face_enhance=prefs["face_enhance"], column=page.imageColumn)
       '''os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
       upload_folder = 'upload'
       result_folder = 'results'
@@ -31257,7 +31524,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(image_path, blip_diffusion_prefs, f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}", model_id, random_seed, extra=pr)
                 if blip_diffusion_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], blip_diffusion_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -33981,7 +34248,7 @@ def run_demofusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(image_path, demofusion_prefs, f"DemoFusion", model_ckpt, random_seed, extra=pr)
                 if demofusion_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]))]), alignment=MainAxisAlignment.CENTER)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(batch_output, fname, 0)
                 out_path = new_file
@@ -40275,7 +40542,7 @@ def run_controlnet(page, from_list=False):
             controlnet_models[task] = ControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "M-LSD":
             from controlnet_aux import MLSDdetector
-            mlsd = MLSDdetector.from_pretrained('lllyasviel/ControlNet')
+            mlsd = MLSDdetector.from_pretrained('lllyasviel/sd-controlnet-mlsd')
             controlnet_models[task] = ControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Normal Map":
             #from transformers import pipeline
@@ -40917,7 +41184,7 @@ def run_controlnet_xl(page, from_list=False):
             controlnet_xl_models[task] = ControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "M-LSD":
             from controlnet_aux import MLSDdetector
-            mlsd = MLSDdetector.from_pretrained('lllyasviel/ControlNetXL')
+            mlsd = MLSDdetector.from_pretrained('lllyasviel/sd-controlnet-mlsd')
             controlnet_xl_models[task] = ControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Normal Map":
             #from transformers import pipeline
@@ -41558,7 +41825,7 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
             controlnet_sd3_models[task] = SD3ControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "M-LSD":
             from controlnet_aux import MLSDdetector
-            mlsd = MLSDdetector.from_pretrained('lllyasviel/ControlNetSD3')
+            mlsd = MLSDdetector.from_pretrained('lllyasviel/sd-controlnet-mlsd')
             controlnet_sd3_models[task] = SD3ControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Normal Map":
             #from transformers import pipeline
@@ -43667,7 +43934,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
                     if wuerstchen_prefs['display_upscaled_image']:
-                        prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -43873,7 +44140,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
                     if stable_cascade_prefs['display_upscaled_image']:
-                        prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], stable_cascade_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -44822,7 +45089,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, hunyuan_dit_prefs, f"Hunyuan-DiT", model_id, random_seed, extra=pr)
                 if hunyuan_dit_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(hunyuan_dit_prefs["enlarge_scale"]), height=pr['height'] * float(hunyuan_dit_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(hunyuan_dit_prefs["enlarge_scale"]), height=pr['height'] * float(hunyuan_dit_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], hunyuan_dit_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -44995,7 +45262,7 @@ def run_lumina(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, lumina_next_prefs, f"Lumina-Next-DiT", model_id, random_seed, extra=pr)
                 if lumina_next_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(lumina_next_prefs["enlarge_scale"]), height=pr['height'] * float(lumina_next_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(lumina_next_prefs["enlarge_scale"]), height=pr['height'] * float(lumina_next_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], lumina_next_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -45265,11 +45532,11 @@ def run_flux(page, from_list=False, with_params=False):
                 upscaled_path = os.path.join(out_path, output_file)
 
                 if flux_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, upscaled_path, scale=flux_prefs["enlarge_scale"], face_enhance=flux_prefs["face_enhance"])
+                    upscale_image(image_path, upscaled_path, scale=flux_prefs["enlarge_scale"], face_enhance=flux_prefs["face_enhance"], column=page.imageColumn if from_list else page.Flux)
                     image_path = upscaled_path
                     save_metadata(upscaled_path, flux_prefs, f"FLUX.1", model_id, random_seed, extra=pr)
                     if flux_prefs['display_upscaled_image']:
-                        prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(flux_prefs["enlarge_scale"]), height=pr['height'] * float(flux_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(flux_prefs["enlarge_scale"]), height=pr['height'] * float(flux_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
                 new_file = available_file(os.path.join(prefs['image_output'], flux_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
                 shutil.copy(image_path, new_file)
@@ -45414,7 +45681,7 @@ def run_flux_pro(page, from_list=False):
                 image_path = upscaled_path
                 save_metadata(image_path, flux_pro_prefs, "FLUX.1 Pro", seed=random_seed)
                 if flux_pro_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=asset_dir(upscaled_path), width=int(w * flux_pro_prefs["enlarge_scale"]), height=int(h * flux_pro_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=int(w * flux_pro_prefs["enlarge_scale"]), height=int(h * flux_pro_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
             else:
                 new_path
                 try:
@@ -45423,6 +45690,615 @@ def run_flux_pro(page, from_list=False):
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
+
+def run_controlnet_flux(page, from_list=False, with_params=False):
+    global controlnet_flux_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_flux_models
+    if not check_diffusers(page): return
+    if not bool(controlnet_flux_prefs['original_image']) and len(controlnet_flux_prefs['multi_controlnets']) == 0:
+      alert_msg(page, "You must provide the Original Image to process...")
+      return
+    if not bool(controlnet_flux_prefs['prompt']) and not from_list:
+      alert_msg(page, "You must provide a Prompt to paint in your image...")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.ControlNetFLUX.controls.append(line)
+        #page.controlnet_flux_output.controls.append(line)
+        if update:
+          page.ControlNetFLUX.update()
+          #page.controlnet_flux_output.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.ControlNetFLUX, lines=lines)
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.ControlNetFLUX.controls = page.ControlNetFLUX.controls[:1]
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.ControlNetFLUX.auto_scroll = scroll
+        page.ControlNetFLUX.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = controlnet_flux_prefs['steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    controlnet_flux_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+    else:
+      if not bool(controlnet_flux_prefs['prompt']):
+        alert_msg(page, "You need to add a Text Prompt first... ")
+        return
+    original = controlnet_flux_prefs['original_image']
+    conditioning_scale = controlnet_flux_prefs['conditioning_scale']
+    control_guidance_start = controlnet_flux_prefs['control_guidance_start']
+    control_guidance_end = controlnet_flux_prefs['control_guidance_end']
+    if len(controlnet_flux_prefs['multi_controlnets']) > 0:
+      original = []
+      conditioning_scale = []
+      control_guidance_start = []
+      control_guidance_end = []
+      for c in controlnet_flux_prefs['multi_controlnets']:
+        original.append(c['original_image'])
+        conditioning_scale.append(c['conditioning_scale'])
+        control_guidance_start.append(c['control_guidance_start'])
+        control_guidance_end.append(c['control_guidance_end'])
+    control = {'prompt':controlnet_flux_prefs['prompt'], 'negative_prompt': controlnet_flux_prefs['negative_prompt'], 'original_image': original, 'conditioning_scale': conditioning_scale, 'control_guidance_start':control_guidance_start, 'control_guidance_end': control_guidance_end, 'seed': controlnet_flux_prefs['seed']}
+    if controlnet_flux_prefs['use_init_video']:
+      control['init_video'] = controlnet_flux_prefs['init_video']
+      control['start_time'] = controlnet_flux_prefs['start_time']
+      control['end_time'] = controlnet_flux_prefs['end_time']
+      control['fps'] = controlnet_flux_prefs['fps']
+    if from_list:
+      for p in prompts:
+        c = control.copy()
+        c['prompt'] = p.prompt
+        c['negative_prompt'] = p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_flux_prefs['negative_prompt']
+        if not with_params: #TODO: Add more params
+          c['seed'] = p['seed']
+        #control = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_flux_prefs['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else controlnet_flux_prefs['original_image'], 'conditioning_scale': controlnet_flux_prefs['conditioning_scale'], 'control_guidance_start': controlnet_flux_prefs['control_guidance_start'], 'control_guidance_end': controlnet_flux_prefs['control_guidance_end'], 'seed': p['seed']}
+        controlnet_flux_prompts.append(c)
+      page.tabs.selected_index = 4
+      page.tabs.update()
+      #page.controlnet_flux_output.controls.clear()
+    else:
+      controlnet_flux_prompts.append(control)
+      #page.controlnet_flux_output.controls.clear()
+    autoscroll(True)
+    clear_list()
+    prt(Divider(thickness=2, height=4))
+    installer = Installing("Installing ControlNet-FLUX Packages... See console for progress.")
+    prt(installer)
+    if status['loaded_controlnet'] == controlnet_flux_prefs["control_task"]:
+        clear_pipes('controlnet')
+    else:
+        clear_pipes()
+    import requests
+    from io import BytesIO
+    from PIL import ImageOps
+    from PIL.PngImagePlugin import PngInfo
+    try:
+        pip_install("controlnet-aux", installer=installer)
+        from controlnet_aux import MLSDdetector
+        from controlnet_aux import OpenposeDetector
+        from diffusers.models import FLUXControlNetModel#, FLUXMultiControlNetModel
+        #run_sp("pip install scikit-image", realtime=False)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR Installing Required Packages...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        flush()
+        return
+    canny_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Canny"
+    depth_checkpoint = "diffusers/controlnet-depth-sd3-1.0"
+    seg_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    softedge_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    lineart_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    openpose_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    #openpose_checkpoint = "OzzyGT/controlnet-openpose-sd3-1.0"
+    scribble_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    #scribble_checkpoint = "lllyasviel/control_v11p_sd15_scribble"
+    scribble_anime_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    HED_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    mlsd_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    normal_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    ip2p_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    shuffle_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    tile_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    brightness_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
+    hed = None
+    openpose = None
+    depth_estimator = None
+    feature_extractor = None
+    mlsd = None
+    image_processor = None
+    image_segmentor = None
+    normal = None
+    lineart = None
+    shuffle = None
+    original_img = None
+    def get_controlnet(task):
+        nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+        if controlnet_flux_models[task] != None:
+            return controlnet_flux_models[task]
+        if "Canny Map" in task or task == "Video Canny Edge":
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            task = "Canny Map Edge"
+        elif "Scribble" in task:
+            from controlnet_aux import HEDdetector
+            hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(scribble_anime_checkpoint if "Anime" in task else scribble_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "Pose" or task == "Video Pose":
+            task = "Pose"
+            from controlnet_aux import OpenposeDetector
+            openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "Marigold Depth":
+            import diffusers
+            depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-depth-lcm-v1-0", torch_dtype=torch.float16).to(torch_device)
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif "Depth" in task:
+            from transformers import DPTFeatureExtractor, DPTForDepthEstimation
+            depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
+            feature_extractor = DPTFeatureExtractor.from_pretrained("Intel/dpt-hybrid-midas")
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "Softedge":
+            from controlnet_aux import HEDdetector, PidiNetDetector
+            hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
+            hed = PidiNetDetector.from_pretrained('lllyasviel/Annotators') #pidi_net
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(softedge_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "HED":
+            from controlnet_aux import HEDdetector
+            hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
+            #pidi_net = PidiNetDetector.from_pretrained('lllyasviel/Annotators')
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "M-LSD":
+            from controlnet_aux import MLSDdetector
+            mlsd = MLSDdetector.from_pretrained('lllyasviel/sd-controlnet-mlsd')
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "Normal Map":
+            #from transformers import pipeline
+            #depth_estimator = pipeline("depth-estimation", model ="Intel/dpt-hybrid-midas")
+            from controlnet_aux import NormalBaeDetector
+            normal = NormalBaeDetector.from_pretrained("lllyasviel/Annotators")
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(normal_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "Segmented":
+            from transformers import AutoImageProcessor, UperNetForSemanticSegmentation
+            from controlnet_utils import ade_palette
+            image_processor = AutoImageProcessor.from_pretrained("openmmlab/upernet-convnext-small")
+            image_segmentor = UperNetForSemanticSegmentation.from_pretrained("openmmlab/upernet-convnext-small")
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(seg_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "LineArt":
+            from controlnet_aux import LineartDetector
+            lineart = LineartDetector.from_pretrained("lllyasviel/Annotators")
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(lineart_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "Shuffle":
+            from controlnet_aux import ContentShuffleDetector
+            shuffle = ContentShuffleDetector()
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(shuffle_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "Tile":
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(tile_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        elif task == "Brightness":
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(brightness_checkpoint, torch_dtype=torch.bfloat16)
+        elif task == "Instruct Pix2Pix":
+            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(ip2p_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+
+        return controlnet_flux_models[task]
+    width, height = 0, 0
+    def resize_for_condition_image(input_image: PILImage, resolution: int):
+        input_image = input_image.convert("RGB")
+        W, H = input_image.size
+        k = float(resolution) / min(H, W)
+        H *= k
+        W *= k
+        H = int(round(H / 64.0)) * 64
+        W = int(round(W / 64.0)) * 64
+        img = input_image.resize((W, H), resample=PILImage.Resampling.LANCZOS)
+        return img
+    def prep_image(task, img):
+        nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+        nonlocal width, height
+        if isinstance(img, list):
+          img = img[0]
+        if isinstance(img, str):
+          if img.startswith('http'):
+              #response = requests.get(controlnet_flux_prefs['original_image'])
+              #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+              original_img = PILImage.open(requests.get(img, stream=True).raw)
+          else:
+              if os.path.isfile(img):
+                  original_img = PILImage.open(img)
+              else:
+                  alert_msg(page, f"ERROR: Couldn't find your original_image {img}")
+                  return
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, controlnet_flux_prefs['max_size'])
+          #print(f"Size: {width}x{height}")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        #return original_img
+        try:
+            if 'Canny' in task: # == "Canny Map Edge" or task == "Video Canny Edge":
+                input_image = np.array(original_img)
+                input_image = cv2.Canny(input_image, controlnet_flux_prefs['low_threshold'], controlnet_flux_prefs['high_threshold'])
+                input_image = input_image[:, :, None]
+                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
+                original_img = PILImage.fromarray(input_image)
+            elif "Scribble" in task:
+                original_img = hed(original_img, scribble=True)
+            elif task == "Pose" or task == "Video Pose":
+                original_img = openpose(original_img, hand_and_face=True)
+            elif task == "Kandinsky Depth":
+                original_img = depth_estimator(original_img)['depth']
+                input_image = np.array(original_img)
+                input_image = input_image[:, :, None]
+                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
+                detected_map = torch.from_numpy(input_image).float() / 255.0
+                original_img = detected_map.permute(2, 0, 1).unsqueeze(0).half().to("cuda")
+                #original_img = PILImage.fromarray(input_image)
+            elif task == "Marigold Depth":
+                random_seed = get_seed(controlnet_flux_prefs['seed'])
+                generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+                input_image = depth_estimator(original_img, generator=generator).prediction
+                input_image = depth_estimator.image_processor.visualize_depth(input_image, color_map="binary")
+                original_img = input_image[0]
+            elif "Depth" in task:
+                original_img = feature_extractor(images=original_img, return_tensors="pt").pixel_values.to("cuda")
+                with torch.no_grad(), torch.autocast("cuda"):
+                    depth_map = depth_estimator(original_img).predicted_depth
+                depth_map = torch.nn.functional.interpolate(
+                    depth_map.unsqueeze(1),
+                    size=(1024, 1024),
+                    mode="bicubic",
+                    align_corners=False,
+                )
+                depth_min = torch.amin(depth_map, dim=[1, 2, 3], keepdim=True)
+                depth_max = torch.amax(depth_map, dim=[1, 2, 3], keepdim=True)
+                depth_map = (depth_map - depth_min) / (depth_max - depth_min)
+                original_img = torch.cat([depth_map] * 3, dim=1)
+                original_img = original_img.permute(0, 2, 3, 1).cpu().numpy()[0]
+                original_img = PILImage.fromarray((original_img * 255.0).clip(0, 255).astype(np.uint8))
+            elif task == "Softedge":
+                original_img = hed(original_img, safe=True)
+            elif task == "HED":
+                original_img = hed(original_img, safe=True)
+            elif task == "M-LSD":
+                original_img = mlsd(original_img)
+            elif task == "Normal Map":
+                original_img = normal(original_img)
+            elif task == "Segmented":
+                from controlnet_utils import ade_palette
+                pixel_values = image_processor(original_img, return_tensors="pt").pixel_values
+                with torch.no_grad():
+                  outputs = image_segmentor(pixel_values)
+                seg = image_processor.post_process_semantic_segmentation(outputs, target_sizes=[original_img.size[::-1]])[0]
+                color_seg = np.zeros((seg.shape[0], seg.shape[1], 3), dtype=np.uint8) # height, width, 3
+                palette = np.array(ade_palette())
+                for label, color in enumerate(palette):
+                    color_seg[seg == label, :] = color
+                color_seg = color_seg.astype(np.uint8)
+                original_img = PILImage.fromarray(color_seg)
+            elif task == "LineArt":
+                original_img = lineart(original_img)
+            elif task == "Shuffle":
+                original_img = shuffle(original_img)
+            elif task == "Tile":
+                original_img = resize_for_condition_image(original_img, 1024)
+            elif task == "Brightness":
+                original_img = PILImage.fromarray(original_img).convert('L')
+            return original_img
+        except Exception as e:
+            alert_msg(page, f"ERROR Preparing ControlNet-FLUX {controlnet_flux_prefs['control_task']} Input Image {img}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            flush()
+            return
+    def prep_video(vid):
+        nonlocal width, height
+        if vid.startswith('http'):
+            init_vid = download_file(vid, stable_dir)
+        else:
+            if os.path.isfile(vid):
+                init_vid = vid
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_video {vid}")
+                return
+        try:
+            start_time = float(controlnet_flux_prefs['start_time'])
+            end_time = float(controlnet_flux_prefs['end_time'])
+            fps = int(controlnet_flux_prefs['fps'])
+            max_size = controlnet_flux_prefs['max_size']
+        except Exception:
+            alert_msg(page, "Make sure your Numbers are actual numbers...")
+            return
+        prt("Extracting Frames from Video Clip")
+        try:
+            cap = cv2.VideoCapture(init_vid)
+        except Exception as e:
+            alert_msg(page, "ERROR Reading Video File. May be Incompatible Format...")
+            clear_last()
+            return
+        count = 0
+        video = []
+        frames = []
+        width = height = 0
+        cap.set(cv2.CAP_PROP_FPS, fps)
+        video_length = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        start_frame = int(start_time * fps)
+        if end_time == 0 or end_time == 0.0:
+            end_frame = int(video_length)
+        else:
+            end_frame = int(end_time * fps)
+        total = end_frame - start_frame
+        for i in range(start_frame, end_frame):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            success, image = cap.read()
+            if success:
+                #filename = os.path.join(output_dir, f'{file_prefix}{count}.png')
+                if width == 0:
+                    shape = image.shape
+                    width, height = scale_dimensions(shape[1], shape[0], max=max_size, multiple=16)
+                image = cv2.resize(image, (width, height), interpolation = cv2.INTER_AREA)
+                #cv2.imwrite(os.path.join(output_dir, filename), image)
+                image = prep_image(controlnet_flux_prefs['control_task'], PILImage.fromarray(image))
+                video.append(image)
+                count += 1
+        cap.release()
+        clear_last()
+        return video
+    loaded_controlnet = None
+    if len(controlnet_flux_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_flux_prefs['use_init_video']:
+        controlnet = []
+        loaded_controlnet = []
+        for c in controlnet_flux_prefs['multi_controlnets']:
+            controlnet.append(get_controlnet(c['control_task']))
+            loaded_controlnet.append(c['control_task'])
+        if len(controlnet) == 1:
+            controlnet = controlnet[0]
+            loaded_controlnet = loaded_controlnet[0]
+        else:
+            controlnet = FLUXMultiControlNetModel(controlnet)
+    else:
+        controlnet = get_controlnet(controlnet_flux_prefs['control_task'])
+        loaded_controlnet = controlnet_flux_prefs['control_task']
+    control_mode = 0
+    for i, c in enumerate(controlnet_flux_control_modes):
+        if c in controlnet_flux_prefs['control_task']:
+            control_mode = i
+            break
+    for k, v in controlnet_flux_models.items():
+      if v != None and k in loaded_controlnet:
+        del v
+        controlnet_flux_models[k] = None
+    controlnet_type = "text2image"
+    if controlnet_flux_prefs['use_image2image']:
+        if bool(controlnet_flux_prefs['init_image']):
+            if bool(controlnet_flux_prefs['mask_image']) or controlnet_flux_prefs['alpha_mask']:
+                controlnet_type = "inpaint"
+            else:
+                controlnet_type = "image2image"
+    use_ip_adapter = controlnet_flux_prefs['use_ip_adapter']
+    if use_ip_adapter:
+        ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == controlnet_flux_prefs['ip_adapter_FLUX_model'])
+    else:
+        ip_adapter_model = None
+    if controlnet_type != status['loaded_controlnet_type']:
+        clear_pipes()
+    #model = get_model(prefs['model_ckpt'])
+    model_path = "black-forest-labs/FLUX.1-dev"
+    if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_flux_prefs["control_task"]:
+        #vae = AutoencoderKL.from_pretrained("madebyollin/sd3-vae-fp16-fix", torch_dtype=torch.bfloat16)
+        if controlnet_type == "text2image":
+            from diffusers import FluxControlNetPipeline #, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None
+            pipe_controlnet = FluxControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16)
+        elif controlnet_type == "image2image":
+            from diffusers import FluxControImg2ImglNetPipeline
+            pipe_controlnet = FluxControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        elif controlnet_type == "inpaint":
+            from diffusers import FluxControlNetInpaintPipeline
+            pipe_controlnet = FluxControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        if controlnet_flux_prefs['cpu_offload']:
+            pipe_controlnet.enable_model_cpu_offload()
+        else:
+            pipe_controlnet.to("cuda")
+        #pipe_controlnet.enable_model_cpu_offload()
+        #pipe_controlnet = optimize_FLUX(pipe_controlnet, vae_slicing=True, vae_tiling=True)
+        status['loaded_controlnet'] = loaded_controlnet #controlnet_flux_prefs["control_task"]
+        status['loaded_controlnet_type'] = controlnet_type
+    #pipe_controlnet = pipeline_scheduler(pipe_controlnet)
+    if controlnet_flux_prefs['use_init_video']:
+        from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
+        pipe_controlnet.unet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
+        pipe_controlnet.controlnet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
+    init_img = None
+    mask_img = None
+    if bool(controlnet_flux_prefs['init_image'] and controlnet_flux_prefs['use_image2image']):
+        if controlnet_flux_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(controlnet_flux_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(controlnet_flux_prefs['init_image']):
+                init_img = PILImage.open(controlnet_flux_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {controlnet_flux_prefs['init_image']}")
+                return
+        width, height = init_img.size
+        width, height = scale_dimensions(width, height, controlnet_flux_prefs['max_size'])
+        if bool(controlnet_flux_prefs['alpha_mask']):
+            init_img = init_img.convert("RGBA")
+        else:
+            init_img = init_img.convert("RGB")
+        init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        if not bool(controlnet_flux_prefs['mask_image']) and bool(controlnet_flux_prefs['alpha_mask']):
+            mask_img = init_img.convert('RGBA')
+            red, green, blue, alpha = PILImage.Image.split(init_img)
+            mask_img = alpha.convert('L')
+        elif bool(controlnet_flux_prefs['mask_image']):
+            if controlnet_flux_prefs['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(controlnet_flux_prefs['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(controlnet_flux_prefs['mask_image']):
+                    mask_img = PILImage.open(controlnet_flux_prefs['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {controlnet_flux_prefs['mask_image']}")
+                    return
+            width, height = mask_img.size
+            width, height = scale_dimensions(width, height, controlnet_flux_prefs['max_size'])
+            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        if controlnet_flux_prefs['invert_mask'] and not controlnet_flux_prefs['alpha_mask']:
+            from PIL import ImageOps
+            mask_img = ImageOps.invert(mask_img.convert('RGB'))
+    if use_ip_adapter:
+        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+        pipe_controlnet.set_ip_adapter_scale(controlnet_flux_prefs['ip_adapter_strength'])
+        if controlnet_flux_prefs['ip_adapter_image'].startswith('http'):
+            ip_adapter_image = PILImage.open(requests.get(controlnet_flux_prefs['ip_adapter_image'], stream=True).raw)
+        else:
+            if os.path.isfile(controlnet_flux_prefs['ip_adapter_image']):
+                ip_adapter_image = PILImage.open(controlnet_flux_prefs['ip_adapter_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your ip_adapter_image {controlnet_flux_prefs['ip_adapter_image']}")
+                return
+        ip_adapter_image = ImageOps.exif_transpose(ip_adapter_image).convert("RGB")
+        status['loaded_ip_adapter'] = ip_adapter_model
+        ip_adapter_args = {'ip_adapter_image': ip_adapter_image}
+    else:
+        ip_adapter_args = {}
+    clear_last()
+    prt(f"Generating ControlNet-FLUX {controlnet_flux_prefs['control_task']} of your Image...")
+    batch_output = os.path.join(stable_dir, controlnet_flux_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], controlnet_flux_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for pr in controlnet_flux_prompts:
+        prt(progress)
+        autoscroll(False)
+        filename = f"{controlnet_flux_prefs['file_prefix']}{format_filename(pr['prompt'])}"
+        filename = filename[:int(prefs['file_max_length'])]
+        if len(controlnet_flux_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_flux_prefs['use_init_video']:
+            original_img = []
+            for c in controlnet_flux_prefs['multi_controlnets']:
+                original_img.append(prep_image(c['control_task'], c['original_image']))
+                if controlnet_flux_prefs['show_processed_image']:
+                    w, h = original_img[-1].size
+                    src_base64 = pil_to_base64(original_img[-1])
+                    prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+        elif not controlnet_flux_prefs['use_init_video']:
+            original_img = prep_image(controlnet_flux_prefs['control_task'], pr['original_image'])
+            if controlnet_flux_prefs['show_processed_image']:
+                w, h = original_img.size
+                src_base64 = pil_to_base64(original_img)
+                prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+        else:
+            video_img = prep_video(pr['original_image'])
+            latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.bfloat16).repeat(len(video_img), 1, 1, 1)
+        try:
+            random_seed = get_seed(pr['seed'])
+            generator = torch.Generator(device="cpu").manual_seed(random_seed)
+            if controlnet_type == "text2image":
+                if not controlnet_flux_prefs['use_init_video']:
+                    #Main one, everything else not implemented yet
+                    images = pipe_controlnet(pr['prompt'], control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], num_images_per_prompt=controlnet_flux_prefs['batch_size'], generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img) * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+            elif controlnet_type == "image2image":
+                if not controlnet_flux_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], num_images_per_prompt=controlnet_flux_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img) * len(video_img), image=init_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+            elif controlnet_type == "inpaint":
+                if not controlnet_flux_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], image=init_img, mask=mask_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], num_images_per_prompt=controlnet_flux_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img) * len(video_img), image=init_img, mask=mask_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+        except Exception as e:
+            #clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR Generating ControlNet-FLUX {controlnet_flux_prefs['control_task']}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            flush()
+            return
+        #clear_pipes('controlnet')
+        clear_last()
+        #clear_last()
+        autoscroll(True)
+        #filename = pr['original_image'].rpartition(slash)[2].rpartition('.')[0]
+        #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+        num = 0
+        for image in images:
+            random_seed += num
+            fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+            image_path = available_file(os.path.join(stable_dir, controlnet_flux_prefs['batch_folder_name']), fname, num)
+            unscaled_path = image_path
+            output_file = image_path.rpartition(slash)[2]
+            #PILImage.fromarray(image).save(image_path)
+            image.save(image_path)
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+            new_file = available_file(batch_output, fname, num)
+            if not controlnet_flux_prefs['display_upscaled_image'] or not controlnet_flux_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if controlnet_flux_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=controlnet_flux_prefs["enlarge_scale"])
+                image_path = upscaled_path
+            if prefs['save_image_metadata']:
+                task = and_list(controlnet_flux_prefs['control_task']) if isinstance(controlnet_flux_prefs['control_task'], list) else controlnet_flux_prefs['control_task']
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {controlnet_flux_prefs['enlarge_scale']}x with ESRGAN" if controlnet_flux_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", "ControlNet-FLUX.1 " + task)
+                if prefs['save_config_in_metadata']:
+                  config_json = controlnet_flux_prefs.copy()
+                  config_json['model_path'] = model_path
+                  config_json['seed'] = random_seed
+                  config_json['prompt'] = pr['prompt']
+                  config_json['negative_prompt'] = pr['negative_prompt']
+                  del config_json['batch_size']
+                  del config_json['max_size']
+                  del config_json['display_upscaled_image']
+                  del config_json['batch_folder_name']
+                  if not config_json['apply_ESRGAN_upscale']:
+                    del config_json['enlarge_scale']
+                    del config_json['apply_ESRGAN_upscale']
+                  metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            #TODO: PyDrive
+            if storage_type == "Colab Google Drive":
+                #new_file = available_file(output_path, fname, num)
+                #out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                #new_file = available_file(output_path, fname, num)
+                #out_path = new_file
+                shutil.copy(image_path, new_file)
+            if controlnet_flux_prefs['display_upscaled_image']:
+                prt(Row([ImageButton(src=new_file, data=new_file, width=width * float(controlnet_flux_prefs["enlarge_scale"]), height=height * float(controlnet_flux_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+            num += 1
+    autoscroll(False)
+    del hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+    play_snd(Snd.ALERT, page)
+
 
 def run_kolors(page, from_list=False, with_params=False):
     global kolors_prefs, pipe_kolors, prefs, status
@@ -45846,7 +46722,7 @@ def run_auraflow(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, auraflow_prefs, f"AuraFlow", model_id, random_seed, extra=pr)
                 if auraflow_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(auraflow_prefs["enlarge_scale"]), height=pr['height'] * float(auraflow_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(auraflow_prefs["enlarge_scale"]), height=pr['height'] * float(auraflow_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], auraflow_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -46105,7 +46981,7 @@ def run_layer_diffusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, layer_diffusion_prefs, f"Layer Diffusion", model_id, random_seed, extra=pr)
                 if layer_diffusion_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=asset_dir(upscaled_path), width=w * float(layer_diffusion_prefs["enlarge_scale"]), height=h * float(layer_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=w * float(layer_diffusion_prefs["enlarge_scale"]), height=h * float(layer_diffusion_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
             out_path = new_file
             shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
@@ -51822,7 +52698,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=animatediff_img2video_prefs["enlarge_scale"], face_enhance=animatediff_img2video_prefs["face_enhance"])
                     if animatediff_img2video_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=asset_dir(image_path), width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=image_path, width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])))], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=animatediff_img2video_prefs['fps'])
@@ -52102,7 +52978,7 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=animatediff_sdxl_prefs["enlarge_scale"], face_enhance=animatediff_sdxl_prefs["face_enhance"])
                     if animatediff_sdxl_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=asset_dir(image_path), width=int(pr['width'] * float(animatediff_sdxl_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_sdxl_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=image_path, width=int(pr['width'] * float(animatediff_sdxl_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_sdxl_prefs["enlarge_scale"])))], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=animatediff_sdxl_prefs['fps'])
@@ -52925,7 +53801,8 @@ def run_pia(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=pia_prefs["enlarge_scale"], face_enhance=pia_prefs["face_enhance"])
                     if pia_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=asset_dir(image_path), width=int(pr['width'] * float(pia_prefs["enlarge_scale"])), height=int(pr['height'] * float(pia_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=image_path, width=int(pr['width'] * float(pia_prefs["enlarge_scale"])), height=int(pr['height'] * float(pia_prefs["enlarge_scale"])), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                        #prt(ImageButton(src=image_path, width=int(pr['width'] * float(pia_prefs["enlarge_scale"])), height=int(pr['height'] * float(pia_prefs["enlarge_scale"]))), alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=pia_prefs['fps'])
@@ -53505,7 +54382,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=i2vgen_xl_prefs["enlarge_scale"], face_enhance=i2vgen_xl_prefs["face_enhance"])
                     if i2vgen_xl_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=asset_dir(image_path), width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])))], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=i2vgen_xl_prefs['fps'])
@@ -55314,7 +56191,7 @@ def run_materialdiffusion(page):
             image_path = upscaled_path
             save_metadata(image_path, materialdiffusion_prefs, "Material Diffusion", seed=random_seed)
             if materialdiffusion_prefs['display_upscaled_image']:
-                prt(Row([Img(src=asset_dir(upscaled_path), width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
         else:
             new_path
             try:
@@ -55447,7 +56324,7 @@ def run_materialdiffusion_sdxl(page):
             image_path = upscaled_path
             save_metadata(image_path, materialdiffusion_sdxl_prefs, "Material Diffusion SDXL", seed=random_seed)
             if materialdiffusion_sdxl_prefs['display_upscaled_image']:
-                prt(Row([Img(src=asset_dir(upscaled_path), width=int(materialdiffusion_sdxl_prefs['width']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), height=int(materialdiffusion_sdxl_prefs['height']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, width=int(materialdiffusion_sdxl_prefs['width']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), height=int(materialdiffusion_sdxl_prefs['height']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
         else:
             new_path
             try:
@@ -58552,7 +59429,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, kandinsky_3_prefs, f"Kandinsky 3 {task_type}", "kandinsky-community/kandinsky-3", random_seed, extra=pr)
                 if kandinsky_3_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], kandinsky_3_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -58835,7 +59712,8 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 os.chdir(stable_dir)
                 save_metadata(upscaled_path, kandinsky_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-decoder", random_seed, extra=pr)
                 if kandinsky_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(kandinsky_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=int(pr['width'] * float(kandinsky_prefs["enlarge_scale"])), height=int(pr['height'] * float(kandinsky_prefs["enlarge_scale"])), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(ImageButton(src=upscaled_path, width=pr['width'] * float(kandinsky_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
             #else:
             #    time.sleep(1.2)
             #    shutil.copy(image_path, os.path.join(out_path, output_file))
@@ -59021,7 +59899,7 @@ def run_kandinsky21(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky21_prefs["enlarge_scale"], face_enhance=kandinsky21_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky21_prefs, "Kandinsky 2.1")
             if kandinsky21_prefs['display_upscaled_image']:
-                prt(Row([Img(src=asset_dir(upscaled_path), width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -59183,7 +60061,7 @@ def run_kandinsky_fuse(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky_fuse_prefs["enlarge_scale"], face_enhance=kandinsky_fuse_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky_fuse_prefs, "Kandinsky Fuse", seed=random_seed)
             if kandinsky_fuse_prefs['display_upscaled_image']:
-                prt(Row([Img(src=asset_dir(upscaled_path), width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -59318,7 +60196,7 @@ def run_kandinsky21_fuse(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky21_fuse_prefs["enlarge_scale"], face_enhance=kandinsky21_fuse_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse")
             if kandinsky21_fuse_prefs['display_upscaled_image']:
-                prt(Row([Img(src=asset_dir(upscaled_path), width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -59533,7 +60411,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, kandinsky_controlnet_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-controlnet-depth", random_seed, extra=pr)
                     if kandinsky_controlnet_prefs['display_upscaled_image']:
-                        prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
                 #else:
                 #    time.sleep(1.2)
                 #    shutil.copy(image_path, os.path.join(out_path, output_file))
