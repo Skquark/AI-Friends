@@ -44,6 +44,13 @@ stable_dir = root_dir
 env = os.environ.copy()
 def run_sp(cmd_str, cwd=None, realtime=False, output_column=None):
   cmd_list = cmd_str if type(cmd_str) is list else cmd_str.split()
+  if cmd_list[0] == "python":
+    import sys
+    if sys.prefix != sys.base_prefix:
+      python_exe = sys.executable
+      if ' ' in python_exe:
+        python_exe = f'"{python_exe}"'
+      cmd_list[0] = python_exe
   cwd_arg = {} if cwd is None else {'cwd': cwd}
   if realtime or output_column != None:
     process = subprocess.Popen(cmd_str, shell=True, env=env, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8', errors='replace', **cwd_arg) 
