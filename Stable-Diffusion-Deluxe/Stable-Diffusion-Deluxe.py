@@ -10122,12 +10122,13 @@ def buildControlNetSD3(page):
     threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(bottom=8))
     threshold.height = None if controlnet_sd3_prefs['control_task'] == "Canny Map Edge" else 0
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_sd3_prefs, key='max_size')
-    use_image2image = Switcher(label="Use Image2Image or Inpainting", value=controlnet_sd3_prefs['use_image2image'], on_change=toggle_img2img)
+    use_image2image = Switcher(label="Use Inpainting Mask (ignores other ControlNet layers", value=controlnet_sd3_prefs['use_image2image'], on_change=toggle_img2img)
     init_image = FileInput(label="Init Image", pref=controlnet_sd3_prefs, key='init_image', expand=True, page=page)
-    mask_image = FileInput(label="Mask Image (optional)", pref=controlnet_sd3_prefs, key='mask_image', expand=True, page=page)
+    mask_image = FileInput(label="Mask Image", pref=controlnet_sd3_prefs, key='mask_image', expand=True, page=page)
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=controlnet_sd3_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     alpha_mask = Checkbox(label="Alpha Mask", value=controlnet_sd3_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
     img2img_row = Container(content=ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]), height=None if controlnet_sd3_prefs['use_image2image'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    #img2img_row = Container(content=Row([mask_image, invert_mask]), height=None if controlnet_sd3_prefs['use_image2image'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=controlnet_sd3_prefs['use_ip_adapter'], on_change=toggle_ip_adapter)
     ip_adapter_SD3_model = Dropdown(label="IP-Adapter SD3 Model", width=220, options=[], value=controlnet_sd3_prefs['ip_adapter_SD3_model'], visible=controlnet_sd3_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_SD3_model'))
     for m in ip_adapter_SDXL_models:
@@ -10160,8 +10161,8 @@ def buildControlNetSD3(page):
         guidance,
         #eta_row,
         max_row,
-        #use_image2image,
-        #img2img_row,
+        use_image2image,
+        img2img_row,
         #Row([use_ip_adapter, ip_adapter_SD3_model], vertical_alignment=CrossAxisAlignment.START),
         #ip_adapter_container,
         show_processed_image,
@@ -31524,7 +31525,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(image_path, blip_diffusion_prefs, f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}", model_id, random_seed, extra=pr)
                 if blip_diffusion_prefs['display_upscaled_image']:
-                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], blip_diffusion_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -34248,7 +34249,7 @@ def run_demofusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(image_path, demofusion_prefs, f"DemoFusion", model_ckpt, random_seed, extra=pr)
                 if demofusion_prefs['display_upscaled_image']:
-                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]))]), alignment=MainAxisAlignment.CENTER)
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]), page=page)]), alignment=MainAxisAlignment.CENTER)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(batch_output, fname, 0)
                 out_path = new_file
@@ -41777,6 +41778,7 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
     shuffle_checkpoint = "lllyasviel/control_v11e_sd15_shuffle"
     tile_checkpoint = "InstantX/SD3-Controlnet-Tile"
     brightness_checkpoint = "ioclab/control_v1p_sd15_brightness"
+    inpainting_checkpoint = "alimama-creative/SD3-Controlnet-Inpainting"
     hed = None
     openpose = None
     depth_estimator = None
@@ -41853,7 +41855,8 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
             controlnet_sd3_models[task] = SD3ControlNetModel.from_pretrained(brightness_checkpoint, torch_dtype=torch.float16, use_safetensors=True)
         elif task == "Instruct Pix2Pix":
             controlnet_sd3_models[task] = SD3ControlNetModel.from_pretrained(ip2p_checkpoint, torch_dtype=torch.float16).to(torch_device)
-
+        elif task == "Inpainting":
+            controlnet_sd3_models[task] = SD3ControlNetModel.from_pretrained(inpainting_checkpoint, torch_dtype=torch.float16).to(torch_device)
         return controlnet_sd3_models[task]
     width, height = 0, 0
     def resize_for_condition_image(input_image: PILImage, resolution: int):
@@ -42055,11 +42058,11 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
             from diffusers import StableDiffusion3ControlNetPipeline #, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None
             pipe_controlnet = StableDiffusion3ControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16)
         elif controlnet_type == "image2image":
-            from diffusers import StableDiffusion3ControImg2ImglNetPipeline
-            pipe_controlnet = StableDiffusion3ControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            from diffusers import StableDiffusion3ControlNetInpaintingPipeline#StableDiffusion3ControImg2ImglNetPipeline
+            pipe_controlnet = StableDiffusion3ControlNetInpaintingPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         elif controlnet_type == "inpaint":
-            from diffusers import StableDiffusion3ControlNetInpaintPipeline
-            pipe_controlnet = StableDiffusion3ControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            from diffusers import StableDiffusion3ControlNetInpaintingPipeline
+            pipe_controlnet = StableDiffusion3ControlNetInpaintingPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         if prefs['SD3_cpu_offload']:
             pipe_controlnet.enable_model_cpu_offload()
         else:
@@ -43934,7 +43937,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
                     if wuerstchen_prefs['display_upscaled_image']:
-                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -44140,7 +44143,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
                     if stable_cascade_prefs['display_upscaled_image']:
-                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], stable_cascade_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -45089,7 +45092,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, hunyuan_dit_prefs, f"Hunyuan-DiT", model_id, random_seed, extra=pr)
                 if hunyuan_dit_prefs['display_upscaled_image']:
-                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(hunyuan_dit_prefs["enlarge_scale"]), height=pr['height'] * float(hunyuan_dit_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(hunyuan_dit_prefs["enlarge_scale"]), height=pr['height'] * float(hunyuan_dit_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], hunyuan_dit_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -45262,7 +45265,7 @@ def run_lumina(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, lumina_next_prefs, f"Lumina-Next-DiT", model_id, random_seed, extra=pr)
                 if lumina_next_prefs['display_upscaled_image']:
-                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(lumina_next_prefs["enlarge_scale"]), height=pr['height'] * float(lumina_next_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(lumina_next_prefs["enlarge_scale"]), height=pr['height'] * float(lumina_next_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], lumina_next_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -45536,7 +45539,7 @@ def run_flux(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(upscaled_path, flux_prefs, f"FLUX.1", model_id, random_seed, extra=pr)
                     if flux_prefs['display_upscaled_image']:
-                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(flux_prefs["enlarge_scale"]), height=pr['height'] * float(flux_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(flux_prefs["enlarge_scale"]), height=pr['height'] * float(flux_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 new_file = available_file(os.path.join(prefs['image_output'], flux_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
                 shutil.copy(image_path, new_file)
@@ -45681,7 +45684,7 @@ def run_flux_pro(page, from_list=False):
                 image_path = upscaled_path
                 save_metadata(image_path, flux_pro_prefs, "FLUX.1 Pro", seed=random_seed)
                 if flux_pro_prefs['display_upscaled_image']:
-                    prt(Row([ImageButton(src=upscaled_path, width=int(w * flux_pro_prefs["enlarge_scale"]), height=int(h * flux_pro_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=int(w * flux_pro_prefs["enlarge_scale"]), height=int(h * flux_pro_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
             else:
                 new_path
                 try:
@@ -45708,28 +45711,28 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
         if update:
           page.imageColumn.update()
       else:
-        page.ControlNetFLUX.controls.append(line)
+        page.ControlNetFlux.controls.append(line)
         #page.controlnet_flux_output.controls.append(line)
         if update:
-          page.ControlNetFLUX.update()
+          page.ControlNetFlux.update()
           #page.controlnet_flux_output.update()
     def clear_last(lines=1):
       if from_list:
         clear_line(page.imageColumn, lines=lines)
       else:
-        clear_line(page.ControlNetFLUX, lines=lines)
+        clear_line(page.ControlNetFlux, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
       else:
-        page.ControlNetFLUX.controls = page.ControlNetFLUX.controls[:1]
+        page.ControlNetFlux.controls = page.ControlNetFlux.controls[:1]
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
         page.imageColumn.update()
       else:
-        page.ControlNetFLUX.auto_scroll = scroll
-        page.ControlNetFLUX.update()
+        page.ControlNetFlux.auto_scroll = scroll
+        page.ControlNetFlux.update()
     progress = ProgressBar(bar_height=8)
     total_steps = controlnet_flux_prefs['steps']
     def callback_fnc(pipe, step, timestep, callback_kwargs):
@@ -46722,7 +46725,7 @@ def run_auraflow(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, auraflow_prefs, f"AuraFlow", model_id, random_seed, extra=pr)
                 if auraflow_prefs['display_upscaled_image']:
-                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(auraflow_prefs["enlarge_scale"]), height=pr['height'] * float(auraflow_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(auraflow_prefs["enlarge_scale"]), height=pr['height'] * float(auraflow_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], auraflow_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -46981,7 +46984,7 @@ def run_layer_diffusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, layer_diffusion_prefs, f"Layer Diffusion", model_id, random_seed, extra=pr)
                 if layer_diffusion_prefs['display_upscaled_image']:
-                    prt(Row([ImageButton(src=upscaled_path, width=w * float(layer_diffusion_prefs["enlarge_scale"]), height=h * float(layer_diffusion_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=w * float(layer_diffusion_prefs["enlarge_scale"]), height=h * float(layer_diffusion_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
             out_path = new_file
             shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
@@ -52698,7 +52701,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=animatediff_img2video_prefs["enlarge_scale"], face_enhance=animatediff_img2video_prefs["face_enhance"])
                     if animatediff_img2video_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([ImageButton(src=image_path, width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])))], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=image_path, width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])), page=page)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=animatediff_img2video_prefs['fps'])
@@ -52978,7 +52981,7 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=animatediff_sdxl_prefs["enlarge_scale"], face_enhance=animatediff_sdxl_prefs["face_enhance"])
                     if animatediff_sdxl_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([ImageButton(src=image_path, width=int(pr['width'] * float(animatediff_sdxl_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_sdxl_prefs["enlarge_scale"])))], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=image_path, width=int(pr['width'] * float(animatediff_sdxl_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_sdxl_prefs["enlarge_scale"])), page=page)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=animatediff_sdxl_prefs['fps'])
@@ -54382,7 +54385,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=i2vgen_xl_prefs["enlarge_scale"], face_enhance=i2vgen_xl_prefs["face_enhance"])
                     if i2vgen_xl_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([ImageButton(src=upscaled_path, width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])))], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])), page=page)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=i2vgen_xl_prefs['fps'])
@@ -55300,9 +55303,13 @@ def run_cogvideo_x(page):
                 if prefs['enable_torch_compile']:
                     installer.status(f"...Torch compiling unet")
                     pipe_cogvideo_x.transformer.to(memory_format=torch.channels_last)
-                    pipe_cogvideo_x.vae.to(memory_format=torch.channels_last)
+                    #pipe_cogvideo_x.vae.to(memory_format=torch.channels_last)
                     pipe_cogvideo_x.transformer = torch.compile(pipe_cogvideo_x.transformer)
-                    pipe_cogvideo_x.vae.decode = torch.compile(pipe_cogvideo_x.vae.decode)
+                    #pipe_cogvideo_x.vae.decode = torch.compile(pipe_cogvideo_x.vae.decode)
+            if prefs['vae_slicing']:
+                pipe_cogvideo_x.enable_attention_slicing(slice_size=2)#vae.enable_slicing()
+            if prefs['vae_tiling']:
+                pipe_cogvideo_x.vae.enable_tiling(tile_sample_min_height=96, tile_sample_min_width=96, tile_overlap_factor_height=1 / 12, tile_overlap_factor_width=1 / 12)
             #pipe_cogvideo_x.scheduler = DDIMScheduler.from_config(pipe_cogvideo_x.scheduler.config)
             pipe_cogvideo_x.set_progress_bar_config(disable=True)
         except Exception as e:
@@ -56191,7 +56198,7 @@ def run_materialdiffusion(page):
             image_path = upscaled_path
             save_metadata(image_path, materialdiffusion_prefs, "Material Diffusion", seed=random_seed)
             if materialdiffusion_prefs['display_upscaled_image']:
-                prt(Row([ImageButton(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
         else:
             new_path
             try:
@@ -56324,7 +56331,7 @@ def run_materialdiffusion_sdxl(page):
             image_path = upscaled_path
             save_metadata(image_path, materialdiffusion_sdxl_prefs, "Material Diffusion SDXL", seed=random_seed)
             if materialdiffusion_sdxl_prefs['display_upscaled_image']:
-                prt(Row([ImageButton(src=upscaled_path, width=int(materialdiffusion_sdxl_prefs['width']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), height=int(materialdiffusion_sdxl_prefs['height']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, width=int(materialdiffusion_sdxl_prefs['width']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), height=int(materialdiffusion_sdxl_prefs['height']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
         else:
             new_path
             try:
@@ -59429,7 +59436,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, kandinsky_3_prefs, f"Kandinsky 3 {task_type}", "kandinsky-community/kandinsky-3", random_seed, extra=pr)
                 if kandinsky_3_prefs['display_upscaled_image']:
-                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], kandinsky_3_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -59713,7 +59720,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 save_metadata(upscaled_path, kandinsky_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-decoder", random_seed, extra=pr)
                 if kandinsky_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=int(pr['width'] * float(kandinsky_prefs["enlarge_scale"])), height=int(pr['height'] * float(kandinsky_prefs["enlarge_scale"])), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-                    #prt(ImageButton(src=upscaled_path, width=pr['width'] * float(kandinsky_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                    #prt(ImageButton(src=upscaled_path, width=pr['width'] * float(kandinsky_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
             #else:
             #    time.sleep(1.2)
             #    shutil.copy(image_path, os.path.join(out_path, output_file))
@@ -59899,7 +59906,7 @@ def run_kandinsky21(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky21_prefs["enlarge_scale"], face_enhance=kandinsky21_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky21_prefs, "Kandinsky 2.1")
             if kandinsky21_prefs['display_upscaled_image']:
-                prt(Row([ImageButton(src=upscaled_path, width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -60061,7 +60068,7 @@ def run_kandinsky_fuse(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky_fuse_prefs["enlarge_scale"], face_enhance=kandinsky_fuse_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky_fuse_prefs, "Kandinsky Fuse", seed=random_seed)
             if kandinsky_fuse_prefs['display_upscaled_image']:
-                prt(Row([ImageButton(src=upscaled_path, width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -60196,7 +60203,7 @@ def run_kandinsky21_fuse(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky21_fuse_prefs["enlarge_scale"], face_enhance=kandinsky21_fuse_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse")
             if kandinsky21_fuse_prefs['display_upscaled_image']:
-                prt(Row([ImageButton(src=upscaled_path, width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -60411,7 +60418,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, kandinsky_controlnet_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-controlnet-depth", random_seed, extra=pr)
                     if kandinsky_controlnet_prefs['display_upscaled_image']:
-                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]))], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #else:
                 #    time.sleep(1.2)
                 #    shutil.copy(image_path, os.path.join(out_path, output_file))
@@ -60971,8 +60978,8 @@ class ImageButton(Stack):
         self.subtitle = subtitle
         self.actions = actions
         self.center = center
-        self.width = width
-        self.height = height
+        self.width = int(width)
+        self.height = int(height)
         self.data = data or src
         self.fit = fit
         self.show_subtitle = show_subtitle
