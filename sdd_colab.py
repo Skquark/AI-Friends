@@ -25560,8 +25560,8 @@ def upscale_image(source, target, method=None, scale=4, face_enhance=False, mode
             pass
         if pipe_aura_sr == None:
             from aura_sr import AuraSR
-            stat(f"Loading Aura-SR Pipeline")
-            pipe_aura_sr = AuraSR.from_pretrained("fal-ai/AuraSR-v2", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            stat(f"Loading Aura-SR v2 Pipeline")
+            pipe_aura_sr = AuraSR.from_pretrained("fal/AuraSR-v2", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         stat(f"Upscaling {method} {scale}X")
         x2 = scale <= 2
         for i in source:
@@ -36565,7 +36565,7 @@ def run_tortoise_tts(page):
     if not os.path.isdir(tortoise_dir):
       installer.status("...cloning jnorberg/toroise-tts")
       os.chdir(root_dir)
-      run_process("git clone https://github.com/jnordberg/tortoise-tts.git", page=page)
+      run_sp("git clone https://github.com/jnordberg/tortoise-tts.git")
     os.chdir(tortoise_dir)
     pip_install("ffmpeg pydub", installer=installer)
     try:
@@ -36573,8 +36573,8 @@ def run_tortoise_tts(page):
     except Exception:
       installer.status("...installing all requirements")
       try:
-        run_process("pip install -r requirements.txt", page=page, cwd=tortoise_dir)
-        run_process("python setup.py install", page=page, cwd=tortoise_dir)
+        run_sp("pip install -r requirements.txt", cwd=tortoise_dir)
+        run_sp("python setup.py install", cwd=tortoise_dir)
       except Exception as e:
         clear_last()
         alert_msg(page, "Error Installing Tortoise TextToSpeech requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
