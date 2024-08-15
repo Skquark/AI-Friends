@@ -45394,8 +45394,8 @@ def run_flux(page, from_list=False, with_params=False):
             if flux_prefs['nf4']:
                 pip_install("sentencepiece protobuf bitsandbytes", installer=installer)
                 installer.status(f"...downloading sayakpaul/flux.1-dev-nf4")
-                sdd_components_py = os.path.join(root_dir, "convert_nf4_flux.py")
-                if not os.path.exists(sdd_utils_py):
+                nf4_flux = os.path.join(root_dir, "convert_nf4_flux.py")
+                if not os.path.exists(nf4_flux):
                     download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/convert_nf4_flux.py", to=root_dir, raw=False, replace=True)
                 from huggingface_hub import hf_hub_download
                 from accelerate.utils import set_module_tensor_to_device, compute_module_sizes
@@ -45543,15 +45543,17 @@ def run_flux(page, from_list=False, with_params=False):
             model_url = f"https://huggingface.co/{model_id}"
             alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace {model_id} Model Cards to use Checkpoint',
                       content=Column([Markdown(f'[{model_url}]({model_url})', selectable=True, on_tap_link=open_url), Text(str(e), selectable=True)]))
-            return
+            return None
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing Flux, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=flux_prefs)
-            return
+            return None
         return pipe_flux
     
     if pipe_flux == None:
         pipe_flux = get_flux_pipe(mode)
+        if pipe_flux == None:
+            return
     if len(flux_prefs['lora_map']) > 0:
         adapters = []
         scales = []
