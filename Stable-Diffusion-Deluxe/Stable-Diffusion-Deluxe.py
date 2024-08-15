@@ -42,8 +42,8 @@ except:
   pass
 stable_dir = root_dir
 env = os.environ.copy()
-def run_sp(cmd_str, cwd=None, realtime=False, output_column=None):
-  cmd_list = cmd_str if type(cmd_str) is list else cmd_str.split()
+def run_sp(cmd_str: str or list, cwd: str = None, realtime: bool = False, output_column=None):
+  cmd_list = cmd_str if isinstance(cmd_str, list) else cmd_str.split()
   if cmd_list[0] == "python":
     import sys
     if sys.prefix != sys.base_prefix:
@@ -52,25 +52,29 @@ def run_sp(cmd_str, cwd=None, realtime=False, output_column=None):
         python_exe = f'"{python_exe}"'
       cmd_list[0] = python_exe
   cwd_arg = {} if cwd is None else {'cwd': cwd}
-  if realtime or output_column != None:
-    process = subprocess.Popen(cmd_str, shell=True, env=env, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8', errors='replace', **cwd_arg) 
-    while True:
-      realtime_output = process.stdout.readline()
-      if realtime_output == '' and process.poll() is not None:
-        break
-      if realtime_output:
-        if not output_column:
-            print(realtime_output.strip(), flush=False)
-        else:
-            from flet import Text
-            output_column.controls.append(Text(realtime_output.strip()))
-            output_column.update()
-        sys.stdout.flush()
-  else:
-    returned = subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env, **cwd_arg).stdout.decode('utf-8')
-    if 'ERROR' in returned:
-      print(f"Error Running {cmd_str} - {returned}")
-    return returned
+  try:
+    if realtime or output_column != None:
+      process = subprocess.Popen(cmd_str, shell=False, env=env, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8', errors='replace', **cwd_arg) 
+      while True:
+        realtime_output = process.stdout.readline()
+        if realtime_output == '' and process.poll() is not None:
+          break
+        if realtime_output:
+          if not output_column:
+              print(realtime_output.strip(), flush=False)
+          else:
+              from flet import Text
+              output_column.controls.append(Text(realtime_output.strip()))
+              output_column.update()
+          sys.stdout.flush()
+    else:
+      returned = subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env, shell=False, **cwd_arg).stdout.decode('utf-8')
+      if 'ERROR' in returned:
+        print(f"Error Running {cmd_str} - {returned}")
+      return returned
+  except Exception as e:
+      print(f"Error Running {cmd_str}: {e}")
+      return e
 
 save_to_GDrive = storage_type == "Colab Google Drive"
 if save_to_GDrive:
@@ -2166,7 +2170,8 @@ def buildInstallers(page):
       prefs['install_ESRGAN'] = e.control.value
       upscale_settings.height=None if prefs['install_ESRGAN'] else 0
       upscale_settings.update()
-      page.update()
+      show_upscalers(page, prefs['install_ESRGAN'])
+      #page.update()
   def change_upscale_model(e):
       prefs['upscale_model'] = e.control.value
       for u in Real_ESRGAN_models:
@@ -2189,7 +2194,7 @@ def buildInstallers(page):
       current_model = u
   model_info = Markdown(f"  [**Model Info**]({current_model['info']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   AuraSR_overlapped = Checkbox(label="Overlapped Tiling", tooltip="Reduce seams, but doubles the time upscaling by taking an additional pass and averaging the results.", value=prefs['AuraSR_overlapped'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AuraSR_overlapped'))
-  AuraSR_keep_loaded = Checkbox(label="Keep Pipeline Loaded", tooltip="Aura-SR is stay loaded in memory for faster batch upscales, but reserves more VRAM usage", value=prefs['AuraSR_keep_loaded'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AuraSR_keep_loaded'))
+  AuraSR_keep_loaded = Checkbox(label="Keep Pipeline Loaded", tooltip="Aura-SR is stay loaded in memory for faster batch upscales, but reserves ~3.2GB VRAM usage.", value=prefs['AuraSR_keep_loaded'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AuraSR_keep_loaded'))
   
   upscale_settings = Container(content=Row([upscale_model, model_info]) if "Real-ESRGAN" in prefs['upscale_method'] else Row([AuraSR_overlapped, AuraSR_keep_loaded]) if prefs['upscale_method']=="Aura-SR" else Row([]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=6))
   upscale_settings.height = None if prefs['install_ESRGAN'] and "Real-ESRGAN" in prefs['upscale_method'] or prefs['upscale_method']=="Aura-SR" else 0
@@ -2539,16 +2544,14 @@ def buildInstallers(page):
         Header("📥  Stable Diffusion Required & Optional Installers", subtitle="Run this every time you Start the App or make Changes. Only pick what you plan to use this session..."),
         install_diffusers,
         diffusers_settings,
-        #install_text2img,
-        #install_img2img,
+        Row([install_ESRGAN, upscale_method]),
+        upscale_settings,
         install_Stability_api,
         stability_settings,
         install_AIHorde,
         AIHorde_settings,
         #install_CLIP_guided,
         #clip_settings,
-        Row([install_ESRGAN, upscale_method]),
-        upscale_settings,
         #install_OpenAI,
         #install_TextSynth,
         #install_button,
@@ -7492,8 +7495,8 @@ def buildBLIPDiffusion(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             #Row([batch_folder_name, file_prefix]),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
             page.blip_diffusion_output
@@ -7728,8 +7731,8 @@ def buildIP_Adapter(page):
             init_image_strength,
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.ip_adapter_output
         ],
@@ -7844,8 +7847,8 @@ def buildHD_Painter(page):
             Row([use_rasg, use_painta]),
             Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.hd_painter_output
         ],
@@ -7957,8 +7960,8 @@ def buildReference(page):
         max_row,
         width_slider,
         height_slider,
-        ResponsiveRow([Row([batch_size, num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
         upscaler,
+        ResponsiveRow([Row([batch_size, num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
         Row([ElevatedButton(content=Text("💗  Make Reference", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_reference(page)),
              ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_reference(page, from_list=True))]),
         page.reference_output,
@@ -8130,8 +8133,8 @@ def buildControlNetQR(page):
         Row([control_guidance_start, control_guidance_end]),
         max_size,
         #batch_size, 
-        ResponsiveRow([Row([num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
         upscaler,
+        ResponsiveRow([Row([num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
         Row([ElevatedButton(content=Text("🧑‍💻️  Make ControlNet QR", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_qr(page)),
              ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_qr(page, from_list=True), tooltip="Runs from global Prompt Queue using Image Parameters for Prompt, Neg Prompt, Steps, Guidance, Init Image, Strength and Seed.")]),
         page.controlnet_qr_output,
@@ -8224,8 +8227,8 @@ def buildControlNetSegmentAnything(page):
         max_row,
         #width_slider,
         #height_slider,
-        ResponsiveRow([Row([batch_size, num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
         upscaler,
+        ResponsiveRow([Row([batch_size, num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
         Row([ElevatedButton(content=Text("👹  Make ControlNet Segments", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_segment(page)),
              ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_segment(page, from_list=True))]),
         page.controlnet_segment_output,
@@ -8313,8 +8316,8 @@ def buildEDICT(page):
         guidance,
         strength,
         max_row,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=EDICT_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=EDICT_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         ElevatedButton(content=Text("🧝  Run EDICT Edit", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_EDICT(page)),
         page.EDICT_output,
         clear_button,
@@ -8401,8 +8404,8 @@ def buildDiffEdit(page):
         guidance,
         strength,
         max_row,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=DiffEdit_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=DiffEdit_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         ElevatedButton(content=Text("😃  Run DiffEdit", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiffEdit(page)),
         page.DiffEdit_output,
         clear_button,
@@ -8479,8 +8482,8 @@ def buildNull_Text(page):
         guidance,
         #strength,
         max_row,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=null_text_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=null_text_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         ElevatedButton(content=Text("⭕  Run Null-Text Inversion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_null_text(page)),
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
@@ -8585,8 +8588,8 @@ def buildUnCLIP(page):
         prior_guidance, decoder_guidance,
         #eta_row, max_row,
         use_StableUnCLIP_pipeline,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         Row([ElevatedButton(content=Text("🖇️   Get unCLIP Generation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP(page)),
              ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP(page, from_list=True))]),
         page.unCLIP_output,
@@ -8675,8 +8678,8 @@ def buildUnCLIP_ImageVariation(page):
         decoder_guidance,
         #eta_row,
         max_row,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_image_variation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_image_variation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         Row([ElevatedButton(content=Text("🦄   Get unCLIP Image Variation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_image_variation(page)),
              ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_image_variation(page, from_list=True))]),
         page.unCLIP_image_variation_output,
@@ -8867,8 +8870,8 @@ def buildUnCLIP_ImageInterpolation(page):
         decoder_guidance,
         #eta_row,
         max_row,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_image_interpolation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_image_interpolation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         Row([ElevatedButton(content=Text("🦾   Get unCLIP Image Interpolation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_image_interpolation(page)),
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_image_interpolation(page, from_list=True))
              ]),
@@ -8968,8 +8971,8 @@ def buildMagicMix(page):
         mix_factor_row,
         ResponsiveRow([kmin_row, kmax_row]),
         max_row,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=magic_mix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=magic_mix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         Row([ElevatedButton(content=Text("🪄  Make MagicMix", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_magic_mix(page)),
              ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_magic_mix(page, from_list=True))]),
         page.magic_mix_output,
@@ -9062,8 +9065,8 @@ def buildPaintByExample(page):
         guidance,
         eta_row,
         max_row,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=paint_by_example_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=paint_by_example_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         #Row([jump_length, jump_n_sample, seed]),
         ElevatedButton(content=Text("🐾  Run Paint-by-Example", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_paint_by_example(page)),
         page.paint_by_example_output,
@@ -9210,8 +9213,8 @@ def buildInstructPix2Pix(page):
         use_SDXL,#, ip_adapter_SDXL_model
         Row([use_ip_adapter, ip_adapter_model, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
         ip_adapter_container,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=instruct_pix2pix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=instruct_pix2pix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         Row([ElevatedButton(content=Text("🏖️  Run Instruct Pix2Pix", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instruct_pix2pix(page)),
              run_prompt_list]),
         page.instruct_pix2pix_output,
@@ -9318,8 +9321,8 @@ def buildLEdits(page):
         use_SDXL,#, ip_adapter_SDXL_model
         Row([use_ip_adapter, ip_adapter_model, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
         ip_adapter_container,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=ledits_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=ledits_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         Row([ElevatedButton(content=Text("🪙  Run LEdits++", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ledits(page)),
              run_prompt_list]),
       ]))], scroll=ScrollMode.AUTO, auto_scroll=False)
@@ -9595,9 +9598,9 @@ def buildControlNet(page):
         img2img_row,
         Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
         ip_adapter_container,
+        upscaler,
         show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
-        upscaler,
         Row([ElevatedButton(content=Text("🏸  Run ControlNet", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet(page)),
              run_prompt_list]),
         page.controlnet_output,
@@ -9893,9 +9896,9 @@ def buildControlNetXL(page):
         ip_adapter_container,
         use_pag,
         pag_container,
+        upscaler,
         show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_xl_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
-        upscaler,
         Row([ElevatedButton(content=Text("🛃  Run ControlNet-XL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_xl(page)),
              run_prompt_list]),
         page.controlnet_xl_output,
@@ -10165,9 +10168,9 @@ def buildControlNetSD3(page):
         img2img_row,
         #Row([use_ip_adapter, ip_adapter_SD3_model], vertical_alignment=CrossAxisAlignment.START),
         #ip_adapter_container,
+        upscaler,
         show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_sd3_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
-        upscaler,
         Row([ElevatedButton(content=Text("✊  Run ControlNet-SD3", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_sd3(page)),
              run_prompt_list]),
         page.controlnet_sd3_output,
@@ -10440,9 +10443,9 @@ def buildControlNetXS(page):
         #img2img_row,
         #Row([use_ip_adapter, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
         #ip_adapter_container,
+        upscaler,
         show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_xs_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
-        upscaler,
         Row([ElevatedButton(content=Text("⛹️  Run ControlNet-XS", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_xs(page)),
              run_prompt_list]),
         page.controlnet_xs_output,
@@ -10596,8 +10599,8 @@ def buildControlNet_Video2Video(page):
         ResponsiveRow([motion_alpha, motion_sigma]),
         ResponsiveRow([max_dimension, min_dimension]),
         Row([no_audio, skip_dumped_frames, save_frames, fix_orientation, show_console]),
-        Row([output_name, batch_folder_name, file_prefix]),
         upscaler,
+        Row([output_name, batch_folder_name, file_prefix]),
         Row([ElevatedButton(content=Text("🍃  Run ControlNet Vid2Vid", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_video2video(page))]),
         page.controlnet_video2video_output,
         clear_button,
@@ -10725,8 +10728,8 @@ def buildDeepFloyd(page):
         eta_row,
         max_row,
         Row([apply_watermark, low_memory, keep_pipelines, model_size]),
-        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=deepfloyd_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name, file_prefix]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=deepfloyd_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name, file_prefix]),
         Row([ElevatedButton(content=Text("🎈  Run DeepFloyd", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_deepfloyd(page)),
              run_prompt_list]),
         page.deepfloyd_output,
@@ -10820,8 +10823,8 @@ def buildAmused(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([amused_model, amused_custom_model]),
             #Row([cpu_offload, cpu_only]),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.amused_output
         ],
@@ -10895,8 +10898,8 @@ def buildWuerstchen(page):
             ResponsiveRow([prior_steps, prior_guidance_scale]),
             ResponsiveRow([steps, guidance]), 
             width_slider, height_slider, #Divider(height=9, thickness=2),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.wuerstchen_output
         ],
@@ -10971,8 +10974,8 @@ def buildStableCascade(page):
             ResponsiveRow([prior_steps, prior_guidance_scale]),
             ResponsiveRow([steps, guidance]), 
             width_slider, height_slider, #Divider(height=9, thickness=2),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.stable_cascade_output
         ],
@@ -11065,8 +11068,8 @@ def buildPixArtAlpha(page):
             Row([pixart_model, pixart_custom_model]),
             Row([clean_caption, resolution_binning, cpu_offload, use_8bit]),
             #Can't get wrap to work!! Container(Row([Container(clean_caption), Container(resolution_binning), Container(cpu_offload), Container(use_8bit)], wrap=True, expand=True, width=page.width, alignment=ft.MainAxisAlignment.START), width=800),#], expand=True),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.pixart_alpha_output
         ],
@@ -11186,10 +11189,10 @@ def buildPixArtSigma(page):
             #SDXL_high_noise_frac,
             use_pag,
             pag_container,
+            upscaler,
             Row([clean_caption, resolution_binning, cpu_offload, use_8bit]),
             #Can't get wrap to work!! Container(Row([Container(clean_caption), Container(resolution_binning), Container(cpu_offload), Container(use_8bit)], wrap=True, expand=True, width=page.width, alignment=ft.MainAxisAlignment.START), width=800),#], expand=True),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            upscaler,
             parameters_row,
             page.pixart_sigma_output
         ],
@@ -11449,9 +11452,13 @@ flux_prefs = {
     "width": 1024,
     "height": 720,
     "guidance_scale": 4.0,
+    'init_image': '',
+    'mask_image': '',
+    'init_image_strength': 0.6,
     "cpu_offload": True,
     "quantize": True, # Check if VRAM > 16
     "fp16": False,
+    "nf4": False,
     "merge": False,
     "seed": 0,
     "flux_model": "FLUX.1-dev",
@@ -11563,6 +11570,10 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=flux_prefs, key='guidance_scale', visible = flux_prefs['flux_model'] != "FLUX.1-schnell")
     width_slider = SliderRow(label="Width", min=256, max=1440, divisions=74, multiple=16, suffix="px", pref=flux_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1440, divisions=74, multiple=16, suffix="px", pref=flux_prefs, key='height')
+    init_image = FileInput(label="Init Image (optional)", pref=flux_prefs, key='init_image', page=page, col={'md':6})
+    mask_image = FileInput(label="Mask Image (optional)", pref=flux_prefs, key='mask_image', page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=flux_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+
     flux_model = Dropdown(label="FLUX.1 Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("FLUX.1-dev"), dropdown.Option("FLUX.1-schnell"), dropdown.Option("FLUX.1-merged")], value=flux_prefs['flux_model'], on_change=changed_model)
     flux_custom_model = TextField(label="Custom Flux Model (URL or Path)", value=flux_prefs['custom_model'], expand=True, visible=flux_prefs['flux_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
@@ -11579,7 +11590,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     #merge = Switcher(label="Merge Dev & Schnell", value=flux_prefs['merge'], visible=flux_prefs['flux_model']!="Custom", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'merge'), tooltip="Combines the two models together with the Transformer for better results with less steps.")
     quantize = Switcher(label="Quantize", value=flux_prefs['quantize'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'quantize'), tooltip="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision.")
     cpu_offload = Switcher(label="CPU Offload", value=flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
-    fp16 = Switcher(label="FP16 Mode", value=flux_prefs['fp16'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'fp16'), tooltip="(under construction) Load model in 16-bit Floating Point to reduce memory but produces slightly different outputs compared to FP32/BF16.")
+    nf4 = Switcher(label="NF4 Mode", value=flux_prefs['nf4'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'nf4'), tooltip="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16.")
     #distilled_model = Switcher(label="Use Distilled Model", value=flux_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
     seed = TextField(label="Seed", width=90, value=str(flux_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     upscaler = UpscaleBlock(flux_prefs)
@@ -11596,12 +11607,14 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
             prompt,
             steps, lightning_steps,
             guidance, width_slider, height_slider,
+            #ResponsiveRow([init_image, mask_image]),
+            #init_image_strength,
             Row([flux_model, flux_custom_model]),
             Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
             lora_layer_map,
             Divider(thickness=4, height=4),
             upscaler,
-            Row([cpu_offload, quantize]),
+            Row([cpu_offload, quantize, nf4]),
             ResponsiveRow([Row([batch_size, n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Flux_output
@@ -11728,6 +11741,7 @@ controlnet_flux_prefs = {
     'file_prefix': 'controlnet-FLUX-',
     'cpu_offload': True,
     'quantize': False,
+    'nf4': False,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -11764,7 +11778,7 @@ def buildControlNetFLUX(page):
           #Text("Shuffle - An image with shuffled patches or regions."),
           #Text("Brightness - An image based on brightness of init."),
           #Text("Instruct Pix2Pix - Trained with pixel to pixel instruction."),
-        ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Some Control... ", on_click=close_controlnet_flux_dlg)], actions_alignment=MainAxisAlignment.END)
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Finally, Some Control... ", on_click=close_controlnet_flux_dlg)], actions_alignment=MainAxisAlignment.END)
       page.overlay.append(controlnet_flux_help_dlg)
       controlnet_flux_help_dlg.open = True
       page.update()
@@ -11918,6 +11932,7 @@ def buildControlNetFLUX(page):
     show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_flux_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     quantize = Switcher(label="Quantize (not yet)", value=controlnet_flux_prefs['quantize'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'quantize'), tooltip="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision.")
     cpu_offload = Switcher(label="CPU Offload", value=controlnet_flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
+    nf4 = Switcher(label="NF4 Mode (almost)", value=controlnet_flux_prefs['nf4'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'nf4'), tooltip="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16.")
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_flux_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     upscaler = UpscaleBlock(controlnet_flux_prefs)
     page.upscalers.append(upscaler)
@@ -11943,10 +11958,10 @@ def buildControlNetFLUX(page):
         #img2img_row,
         #Row([use_ip_adapter, ip_adapter_FLUX_model], vertical_alignment=CrossAxisAlignment.START),
         #ip_adapter_container,
-        show_processed_image,
-        Row([cpu_offload, quantize]),
-        Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_flux_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
         upscaler,
+        show_processed_image,
+        Row([cpu_offload, quantize, nf4]),
+        Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_flux_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
         Row([ElevatedButton(content=Text("🔓  Run ControlNet-FLUX.1", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_flux(page)),
              run_prompt_list]),
       ]
@@ -12052,9 +12067,9 @@ def buildKolors(page):
             Row([kolors_model, kolors_custom_model]),
             Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
+            upscaler,
             Row([cpu_offload]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            upscaler,
             parameters_row,
             page.kolors_output
         ],
@@ -12347,8 +12362,8 @@ def buildDifferential_Diffusion(page):
             use_SD3,
             Row([use_ip_adapter, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.differential_diffusion_output
         ],
@@ -12442,8 +12457,8 @@ def buildLMD_Plus(page):
             Row([AI_engine, temperature]),
             Row([lmd_plus_model, lmd_plus_custom_model, cpu_offload]),
             #Row([clean_caption, mask_feature, cpu_offload]),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.lmd_plus_output
         ],
@@ -12550,9 +12565,9 @@ def buildLCM(page):
             Row([lcm_model, lcm_custom_model]),
             Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
+            upscaler,
             Row([cpu_offload, cpu_only]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            upscaler,
             parameters_row,
             page.lcm_output
         ],
@@ -12719,8 +12734,8 @@ def buildLCMInterpolation(page):
             guidance, width_slider, height_slider,
             Row([embedding_interpolation_type, latent_interpolation_type]),
             Row([save_video, video_container]),
-            ResponsiveRow([Row([seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.lcm_interpolation_output
         ],
@@ -12809,8 +12824,8 @@ def buildInstaFlow(page):
             width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([instaflow_model, instaflow_custom_model, cpu_offload]),
             #Row([]),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.instaflow_output
         ],
@@ -12967,8 +12982,8 @@ def buildPAG(page):
             Row([use_ip_adapter, ip_adapter_model, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
             #Row([cpu_offload, cpu_only]),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.pag_output
         ],
@@ -13071,8 +13086,8 @@ def buildLDM3D(page):
             Row([ldm3d_model, ldm3d_custom_model]),
             Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
-            Row([cpu_offload, use_upscale]),
             upscaler,
+            Row([cpu_offload, use_upscale]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.ldm3d_output
@@ -14679,8 +14694,8 @@ def buildROOP(page):
         ResponsiveRow([Column([keep_fps, keep_frames, frame_processor], col={'md':6, 'lg':4, 'xl':3}), Column([keep_audio, many_faces, video_encoder], col={'md':6, 'lg':4, 'xl':3})]),
         video_quality,
         max_row,
-        Row([output_name, batch_folder_name]),
         upscaler,
+        Row([output_name, batch_folder_name]),
         #Row([jump_length, jump_n_sample, seed]),
         ElevatedButton(content=Text("😷  Run ROOP Swap", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_roop(page)),
         page.roop_output,
@@ -15184,9 +15199,9 @@ def buildRAVE(page):
         max_size,
         #ResponsiveRow([motion_alpha, motion_sigma]),
         #ResponsiveRow([max_dimension, min_dimension]),
+        upscaler,
         Row([batch_size, batch_size_vae, give_control_inversion, is_ddim_inversion, is_shuffle]),
         Row([seed, output_name, batch_folder_name, file_prefix]),
-        upscaler,
         Row([ElevatedButton(content=Text("💀  Run RAVE on Video", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_rave(page))]),
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
@@ -16183,9 +16198,9 @@ def buildAnimateDiffImage2Video(page):
             motion_loras_strength,
             Divider(thickness=4, height=4),
             Row([animatediff_img2video_model, animatediff_img2video_custom_model, latent_interpolation_method]),
+            upscaler,
             Row([cpu_offload, export_to_video, interpolate_video]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            upscaler,
             parameters_row,
             page.animatediff_img2video_output
         ],
@@ -16390,9 +16405,9 @@ def buildAnimateDiffSDXL(page):
             #motion_loras_strength,
             #Divider(thickness=4, height=4),
             #Row([animatediff_sdxl_model, animatediff_sdxl_custom_model, latent_interpolation_method]),
+            upscaler,
             Row([free_init, cpu_offload, export_to_video, interpolate_video]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            upscaler,
             parameters_row,
             page.animatediff_sdxl_output
         ],
@@ -17070,8 +17085,8 @@ def buildI2VGenXL(page):
             #Divider(thickness=4, height=4),
             Row([i2vgen_xl_model, i2vgen_xl_custom_model]),
             Row([cpu_offload, export_to_video, interpolate_video]),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.i2vgen_xl_output
         ],
@@ -18576,8 +18591,8 @@ def buildDiT(page):
         #Row([prompt, mask_image, invert_mask]),
         num_inference_row,
         guidance_scale,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=DiT_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=DiT_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         Row([ElevatedButton(content=Text("🔀   Get DiT Generation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiT(page)),
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiT(page, from_list=True))
              ]),
@@ -18731,8 +18746,8 @@ def buildDallE3(page):
             prompt,
             Row([hd_quality, natural_style]),
             #img_block,
-            param_rows,
             upscaler,
+            param_rows,
             parameters_row,
             dall_e_3_output
         ],
@@ -19847,8 +19862,8 @@ def buildDeepDaze(page):
         save_every_row,
         max_row,
         #NumberPicker(label="Number of Images: ", min=1, max=20, value=deep_daze_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')),
-        Row([batch_folder_name, file_prefix]),
         upscaler,
+        Row([batch_folder_name, file_prefix]),
         Row([ElevatedButton(content=Text("😶   Get DeepDaze Generation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_deep_daze(page)),
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_deep_daze(page, from_list=True))
         ]),
@@ -20105,8 +20120,8 @@ def buildSemanticGuidance(page):
         edit_momentum_scale, edit_mom_beta,
         eta_row,
         width_slider, height_slider,
-        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=semantic_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         upscaler,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=semantic_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         #Row([jump_length, jump_n_sample, seed]),
         Row([
             ElevatedButton(content=Text("🎳  Run Semantic Guidance", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_semantic(page)),
@@ -20208,8 +20223,8 @@ def buildDemoFusion(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([multi_decoder, show_image, cpu_offload]),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             upscaler,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.demofusion_output
         ],
@@ -25761,6 +25776,9 @@ def upscale_image(source, target, method=None, scale=4, face_enhance=False, mode
         except Exception as e:
             stat(f"Error running {method}")
             print(f"Error running {method}: {e}")
+            if column is not None:
+                del column.controls[-1]
+                column.update()
             return
         out_file = short_name.rpartition('.')[0] + '_out.png'
         stat("Saving output")
@@ -25802,6 +25820,9 @@ def upscale_image(source, target, method=None, scale=4, face_enhance=False, mode
             run_sp(f"python basicsr/infer_sr.py -opt options/test/SRFormer/test_SRFormer_DF2Ksrx{x}.yml --input_dir upload --output_dir results", cwd=SRFormer_dir)
         except Exception as e:
             print(f"Error running {method}: {e}")
+            if column is not None:
+                del column.controls[-1]
+                column.update()
             return
         stat("Saving output")
         to = os.path.dirname(target)
@@ -25821,7 +25842,8 @@ def upscale_image(source, target, method=None, scale=4, face_enhance=False, mode
             stat(f"Loading Aura-SR v2 Pipeline")
             pipe_aura_sr = AuraSR.from_pretrained("fal/AuraSR-v2", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         stat(f"Upscaling {method} {scale}X")
-        x2 = scale <= 2
+        import math
+        x = int(math.ceil(scale))
         for i in source:
             try:
                 img = PILImage.open(i)
@@ -25830,15 +25852,9 @@ def upscale_image(source, target, method=None, scale=4, face_enhance=False, mode
                 max_size = int(max_size * scale)
                 width, height = scale_dimensions(width, height, max_size, multiple=4)
                 if prefs['AuraSR_overlapped']:
-                    if x2:
-                        upscaled_image = pipe_aura_sr.upscale_2x_overlapped(img)
-                    else:
-                        upscaled_image = pipe_aura_sr.upscale_4x_overlapped(img)
+                    upscaled_image = pipe_aura_sr.upscale_overlapped(img, scale=x)
                 else:
-                    if x2:
-                        upscaled_image = pipe_aura_sr.upscale_2x(img)
-                    else:
-                        upscaled_image = pipe_aura_sr.upscale_4x(img)
+                    upscaled_image = pipe_aura_sr.upscale(img, scale=x)
                 w, h = upscaled_image.size
                 upscaled_size = max(w, h)
                 if max_size != upscaled_size:
@@ -25849,6 +25865,9 @@ def upscale_image(source, target, method=None, scale=4, face_enhance=False, mode
             except Exception as e:
                 stat(f"Error running {method}")
                 print(f"Error running {method}: {e}")
+                if column is not None:
+                    del column.controls[-1]
+                    column.update()
                 return
         if not prefs['AuraSR_keep_loaded']:
             del pipe_aura_sr
@@ -25871,6 +25890,9 @@ def upscale_image(source, target, method=None, scale=4, face_enhance=False, mode
             except Exception as e:
                 stat(f"Error running {method}")
                 print(f"Error running {method}: {e}")
+                if column is not None:
+                    del column.controls[-1]
+                    column.update()
                 return
     else: #TODO: Add SwinIR, DAT and other Upscale methods
         print(f"Unknown upscale method {method}")
@@ -31521,7 +31543,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if blip_diffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=blip_diffusion_prefs["enlarge_scale"], face_enhance=blip_diffusion_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=blip_diffusion_prefs["enlarge_scale"], face_enhance=blip_diffusion_prefs["face_enhance"], column=page.imageColumn if from_list else page.BLIPDiffusion)
                 image_path = upscaled_path
                 save_metadata(image_path, blip_diffusion_prefs, f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}", model_id, random_seed, extra=pr)
                 if blip_diffusion_prefs['display_upscaled_image']:
@@ -31884,7 +31906,7 @@ def run_anytext(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if anytext_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=anytext_prefs["enlarge_scale"], face_enhance=anytext_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=anytext_prefs["enlarge_scale"], face_enhance=anytext_prefs["face_enhance"], column=page.imageColumn if from_list else page.AnyText)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 save_metadata(image_path, anytext_prefs, f"AnyText {mode}", anytext_model, random_seed, extra=pr)
@@ -32250,7 +32272,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if ip_adapter_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=ip_adapter_prefs["enlarge_scale"], face_enhance=ip_adapter_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=ip_adapter_prefs["enlarge_scale"], face_enhance=ip_adapter_prefs["face_enhance"], column=page.imageColumn if from_list else page.IP_Adapter)
                 image_path = upscaled_path
                 save_metadata(image_path, ip_adapter_prefs, f"IP-Adapter", model_id, random_seed, scheduler=True, extra=pr)
                 if ip_adapter_prefs['display_upscaled_image']:
@@ -32490,7 +32512,7 @@ def run_hd_painter(page, from_list=False, with_params=False):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if hd_painter_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=hd_painter_prefs["enlarge_scale"], face_enhance=hd_painter_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=hd_painter_prefs["enlarge_scale"], face_enhance=hd_painter_prefs["face_enhance"], column=page.imageColumn if from_list else page.HD_Painter)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 save_metadata(image_path, hd_painter_prefs, f"HD-Painter", hd_painter_model, random_seed, extra=pr)
@@ -32673,7 +32695,7 @@ def run_reference(page, from_list=False):
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if reference_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, upscaled_path, scale=reference_prefs["enlarge_scale"])
+                    upscale_image(image_path, upscaled_path, scale=reference_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.Reference)
                     image_path = upscaled_path
                     save_metadata(image_path, reference_prefs, f"Reference", model, random_seed, extra=pr)
                     if reference_prefs['display_upscaled_image']:
@@ -32949,7 +32971,7 @@ def run_controlnet_qr(page, from_list=False):
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if controlnet_qr_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, upscaled_path, scale=controlnet_qr_prefs["enlarge_scale"])
+                    upscale_image(image_path, upscaled_path, scale=controlnet_qr_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNetQR)
                     image_path = upscaled_path
                     if controlnet_qr_prefs['display_upscaled_image']:
                         time.sleep(0.6)
@@ -33190,7 +33212,7 @@ def run_controlnet_segment(page, from_list=False):
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if controlnet_segment_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, upscaled_path, scale=controlnet_segment_prefs["enlarge_scale"])
+                    upscale_image(image_path, upscaled_path, scale=controlnet_segment_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNetSegmentAnything)
                     image_path = upscaled_path
                     save_metadata(image_path, controlnet_segment_prefs, f"ControlNetSegmentAnything", model, random_seed, extra=pr)
                     if controlnet_segment_prefs['display_upscaled_image']:
@@ -33342,7 +33364,7 @@ def run_EDICT(page):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if EDICT_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=EDICT_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=EDICT_prefs["enlarge_scale"], column=page.EDICT)
                 image_path = upscaled_path
                 save_metadata(image_path, EDICT_prefs, f"EDICT Editor", model_id, random_seed)
                 if EDICT_prefs['display_upscaled_image']:
@@ -33525,7 +33547,7 @@ def run_DiffEdit(page):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if DiffEdit_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=DiffEdit_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=DiffEdit_prefs["enlarge_scale"], column=page.DiffEdit)
                 image_path = upscaled_path
                 save_metadata(image_path, DiffEdit_prefs, f"DiffEdit", model_id, random_seed)
                 if DiffEdit_prefs['display_upscaled_image']:
@@ -33680,7 +33702,7 @@ def run_null_text(page):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if null_text_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=null_text_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=null_text_prefs["enlarge_scale"], column=page.Null_Text)
                 image_path = upscaled_path
                 save_metadata(image_path, null_text_prefs, f"Null-Text Inversion", model_id, random_seed)
                 if null_text_prefs['display_upscaled_image']:
@@ -34047,7 +34069,7 @@ def run_semantic(page):
             save_metadata(image_path, semantic_prefs, f"Semantic Guidance", model_path, random_seed, scheduler=True)
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if semantic_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscale_image(image_path, upscaled_path, scale=semantic_prefs["enlarge_scale"])
+            upscale_image(image_path, upscaled_path, scale=semantic_prefs["enlarge_scale"], column=page.SemanticGuidance)
             image_path = upscaled_path
             save_metadata(image_path, semantic_prefs, f"Semantic Guidance", model_path, random_seed, scheduler=True)
             if semantic_prefs['display_upscaled_image']:
@@ -34245,7 +34267,7 @@ def run_demofusion(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if demofusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=demofusion_prefs["enlarge_scale"], faceenhance=demofusion_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=demofusion_prefs["enlarge_scale"], faceenhance=demofusion_prefs["face_enhance"], column=page.imageColumn if from_list else page.DemoFusion)
                 image_path = upscaled_path
                 save_metadata(image_path, demofusion_prefs, f"DemoFusion", model_ckpt, random_seed, extra=pr)
                 if demofusion_prefs['display_upscaled_image']:
@@ -38965,7 +38987,7 @@ def run_unCLIP(page, from_list=False):
                     w = int(unCLIP_prefs['width'] * unCLIP_prefs["enlarge_scale"])
                     h = int(unCLIP_prefs['height'] * unCLIP_prefs["enlarge_scale"])
                     prt(Row([Text(f'Enlarging {unCLIP_prefs["enlarge_scale"]}X to {w}x{h}')], alignment=MainAxisAlignment.CENTER))
-                    upscale_image(image_path, upscaled_path, scale=unCLIP_prefs["enlarge_scale"])
+                    upscale_image(image_path, upscaled_path, scale=unCLIP_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.unCLIP)
                     image_path = upscaled_path
                     clear_last()
                 if prefs['save_image_metadata']:
@@ -39133,7 +39155,7 @@ def run_unCLIP_image_variation(page, from_list=False):
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_image_variation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, upscaled_path, scale=unCLIP_image_variation_prefs["enlarge_scale"])
+                    upscale_image(image_path, upscaled_path, scale=unCLIP_image_variation_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.UnCLIP_ImageVariation)
                     image_path = upscaled_path
                     if unCLIP_image_variation_prefs['display_upscaled_image']:
                         time.sleep(0.6)
@@ -39294,7 +39316,7 @@ def run_unCLIP_interpolation(page, from_list=False):
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, upscaled_path, scale=unCLIP_interpolation_prefs["enlarge_scale"])
+                    upscale_image(image_path, upscaled_path, scale=unCLIP_interpolation_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.unCLIP_Interpolation)
                     image_path = upscaled_path
 
                 if prefs['save_image_metadata']:
@@ -39478,7 +39500,7 @@ def run_unCLIP_image_interpolation(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=unCLIP_image_interpolation_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=unCLIP_image_interpolation_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.UnCLIP_ImageInterpolation)
                 image_path = upscaled_path
                 if unCLIP_image_interpolation_prefs['display_upscaled_image']:
                     time.sleep(0.6)
@@ -39670,7 +39692,7 @@ def run_magic_mix(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if magic_mix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=magic_mix_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=magic_mix_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.MagicMix)
                 image_path = upscaled_path
                 if magic_mix_prefs['display_upscaled_image']:
                     time.sleep(0.6)
@@ -39844,7 +39866,7 @@ def run_paint_by_example(page):
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
             #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if paint_by_example_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscale_image(image_path, upscaled_path, scale=paint_by_example_prefs["enlarge_scale"])
+            upscale_image(image_path, upscaled_path, scale=paint_by_example_prefs["enlarge_scale"], column=page.PaintByExample)
             image_path = upscaled_path
             if paint_by_example_prefs['display_upscaled_image']:
                 time.sleep(0.6)
@@ -40123,7 +40145,7 @@ def run_instruct_pix2pix(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if instruct_pix2pix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=instruct_pix2pix_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=instruct_pix2pix_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.InstructPix2Pix)
                 image_path = upscaled_path
                 if instruct_pix2pix_prefs['display_upscaled_image']:
                     time.sleep(0.6)
@@ -40347,7 +40369,7 @@ def run_ledits(page, from_list=False):
                   prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                   #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
               if ledits_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                  upscale_image(image_path, upscaled_path, scale=ledits_prefs["enlarge_scale"])
+                  upscale_image(image_path, upscaled_path, scale=ledits_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.LEdits)
                   image_path = upscaled_path
                   save_metadata(unscaled_path, pipe_ledits, f"LEdits++{' SDXL' if ledits_prefs['use_SDXL'] else ''}", model_id_SDXL if ledits_prefs['use_SDXL'] else model_id, random_seed, extra=pr)
                   if ledits_prefs['display_upscaled_image']:
@@ -40949,7 +40971,7 @@ def run_controlnet(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if controlnet_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=controlnet_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=controlnet_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNet)
                 image_path = upscaled_path
             if prefs['save_image_metadata']:
                 task = and_list(controlnet_prefs['control_task']) if isinstance(controlnet_prefs['control_task'], list) else controlnet_prefs['control_task']
@@ -41595,7 +41617,7 @@ def run_controlnet_xl(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if controlnet_xl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=controlnet_xl_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=controlnet_xl_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNetXL)
                 image_path = upscaled_path
             if prefs['save_image_metadata']:
                 task = and_list(controlnet_xl_prefs['control_task']) if isinstance(controlnet_xl_prefs['control_task'], list) else controlnet_xl_prefs['control_task']
@@ -42205,7 +42227,7 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
                 prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if controlnet_sd3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=controlnet_sd3_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=controlnet_sd3_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNetSD3)
                 image_path = upscaled_path
             if prefs['save_image_metadata']:
                 task = and_list(controlnet_sd3_prefs['control_task']) if isinstance(controlnet_sd3_prefs['control_task'], list) else controlnet_sd3_prefs['control_task']
@@ -42726,7 +42748,7 @@ def run_controlnet_xs(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if controlnet_xs_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=controlnet_xs_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=controlnet_xs_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNetXS)
                 image_path = upscaled_path
             if prefs['save_image_metadata']:
                 task = and_list(controlnet_xs_prefs['control_task']) if isinstance(controlnet_xs_prefs['control_task'], list) else controlnet_xs_prefs['control_task']
@@ -43496,7 +43518,7 @@ def run_deepfloyd(page, from_list=False):
                     #h = int(arg['height'] * prefs["enlarge_scale"])
                     #prt(Row([Text(f'Enlarging {prefs["enlarge_scale"]}X to {w}x{h}')], alignment=MainAxisAlignment.CENTER))
                     prt(Row([Text(f'Enlarging Real-ESRGAN {prefs["enlarge_scale"]}X')], alignment=MainAxisAlignment.CENTER))
-                    upscale_image(image_path, upscaled_path, scale=deepfloyd_prefs["enlarge_scale"])
+                    upscale_image(image_path, upscaled_path, scale=deepfloyd_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.DeepFloyd)
                     image_path = upscaled_path
                     clear_last()
                     save_metadata(image_path, deepfloyd_prefs, "DeepFloyd-IF", model_id, random_seed, extra=pr)
@@ -43751,7 +43773,7 @@ def run_amused(page, from_list=False, with_params=False):
             if not amused_prefs['display_upscaled_image'] or not amused_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if amused_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=amused_prefs["enlarge_scale"], face_enhance=amused_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=amused_prefs["enlarge_scale"], face_enhance=amused_prefs["face_enhance"], column=page.imageColumn if from_list else page.Amused)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 if amused_prefs['display_upscaled_image']:
@@ -43933,7 +43955,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                 upscaled_path = os.path.join(out_path, output_file)
 
                 if wuerstchen_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, upscaled_path, scale=wuerstchen_prefs["enlarge_scale"], faceenhance=wuerstchen_prefs["face_enhance"])
+                    upscale_image(image_path, upscaled_path, scale=wuerstchen_prefs["enlarge_scale"], faceenhance=wuerstchen_prefs["face_enhance"], column=page.imageColumn if from_list else page.Wuerstchen)
                     image_path = upscaled_path
                     save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
                     if wuerstchen_prefs['display_upscaled_image']:
@@ -44139,7 +44161,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                 upscaled_path = os.path.join(out_path, output_file)
 
                 if stable_cascade_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, upscaled_path, scale=stable_cascade_prefs["enlarge_scale"], faceenhance=stable_cascade_prefs["face_enhance"])
+                    upscale_image(image_path, upscaled_path, scale=stable_cascade_prefs["enlarge_scale"], faceenhance=stable_cascade_prefs["face_enhance"], column=page.imageColumn if from_list else page.StableCascade)
                     image_path = upscaled_path
                     save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
                     if stable_cascade_prefs['display_upscaled_image']:
@@ -44425,7 +44447,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
             if not pixart_alpha_prefs['display_upscaled_image'] or not pixart_alpha_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if pixart_alpha_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=pixart_alpha_prefs["enlarge_scale"], face_enhance=pixart_alpha_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=pixart_alpha_prefs["enlarge_scale"], face_enhance=pixart_alpha_prefs["face_enhance"], column=page.imageColumn if from_list else page.PixArtAlpha)
                 image_path = upscaled_path
                 if pixart_alpha_prefs['display_upscaled_image']:
                     #prt(Row([Img(src=upscaled_path, width=pr['width'] * float(pixart_alpha_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_alpha_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -44706,7 +44728,7 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
             if not pixart_sigma_prefs['display_upscaled_image'] or not pixart_sigma_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if pixart_sigma_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=pixart_sigma_prefs["enlarge_scale"], face_enhance=pixart_sigma_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=pixart_sigma_prefs["enlarge_scale"], face_enhance=pixart_sigma_prefs["face_enhance"], column=page.imageColumn if from_list else page.PixArtSigma)
                 image_path = upscaled_path
                 if pixart_sigma_prefs['display_upscaled_image']:
                     #prt(Row([Img(src=upscaled_path, width=pr['width'] * float(pixart_sigma_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_sigma_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -45088,7 +45110,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if hunyuan_dit_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=hunyuan_dit_prefs["enlarge_scale"], face_enhance=hunyuan_dit_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=hunyuan_dit_prefs["enlarge_scale"], face_enhance=hunyuan_dit_prefs["face_enhance"], column=page.imageColumn if from_list else page.Hunyuan)
                 image_path = upscaled_path
                 save_metadata(upscaled_path, hunyuan_dit_prefs, f"Hunyuan-DiT", model_id, random_seed, extra=pr)
                 if hunyuan_dit_prefs['display_upscaled_image']:
@@ -45261,7 +45283,7 @@ def run_lumina(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if lumina_next_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=lumina_next_prefs["enlarge_scale"], face_enhance=lumina_next_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=lumina_next_prefs["enlarge_scale"], face_enhance=lumina_next_prefs["face_enhance"], column=page.imageColumn if from_list else page.Lumina)
                 image_path = upscaled_path
                 save_metadata(upscaled_path, lumina_next_prefs, f"Lumina-Next-DiT", model_id, random_seed, extra=pr)
                 if lumina_next_prefs['display_upscaled_image']:
@@ -45288,14 +45310,14 @@ def run_flux(page, from_list=False, with_params=False):
         return
       for p in prompts:
         if with_params:
-            flux_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':flux_prefs['guidance_scale'], 'steps':flux_prefs['steps'], 'width':flux_prefs['width'], 'height':flux_prefs['height'], 'num_images':flux_prefs['num_images'], 'batch_size':flux_prefs['batch_size'], 'seed':flux_prefs['seed']})
+            flux_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':flux_prefs['guidance_scale'], 'steps':flux_prefs['steps'], 'width':flux_prefs['width'], 'height':flux_prefs['height'], 'init_image':flux_prefs['init_image'], 'mask_image':flux_prefs['mask_image'], 'init_image_strength':flux_prefs['init_image_strength'], 'num_images':flux_prefs['num_images'], 'batch_size':flux_prefs['batch_size'], 'seed':flux_prefs['seed']})
         else:
-            flux_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['n_iterations'], 'batch_size':p['batch_size'], 'seed':p['seed']})
+            flux_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'mask_image':p['mask_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['n_iterations'], 'batch_size':p['batch_size'], 'seed':p['seed']})
     else:
       if not bool(flux_prefs['prompt']):
         alert_msg(page, "You must provide a text prompt to process your image generation...")
         return
-      flux_prompts.append({'prompt': flux_prefs['prompt'], 'negative_prompt':flux_prefs['negative_prompt'], 'guidance_scale':flux_prefs['guidance_scale'], 'steps':flux_prefs['steps'], 'width':flux_prefs['width'], 'height':flux_prefs['height'], 'num_images':flux_prefs['num_images'], 'batch_size':flux_prefs['batch_size'], 'seed':flux_prefs['seed']})
+      flux_prompts.append({'prompt': flux_prefs['prompt'], 'negative_prompt':flux_prefs['negative_prompt'], 'guidance_scale':flux_prefs['guidance_scale'], 'steps':flux_prefs['steps'], 'width':flux_prefs['width'], 'height':flux_prefs['height'], 'init_image':flux_prefs['init_image'], 'mask_image':flux_prefs['mask_image'], 'init_image_strength':flux_prefs['init_image_strength'], 'num_images':flux_prefs['num_images'], 'batch_size':flux_prefs['batch_size'], 'seed':flux_prefs['seed']})
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line, size=17)
@@ -45350,20 +45372,71 @@ def run_flux(page, from_list=False, with_params=False):
     status.setdefault('loaded_flux_model', '')
     status.setdefault('loaded_flux_mode', [])
     cpu_offload = flux_prefs['cpu_offload']
-    fp16 = flux_prefs['fp16']
+    fp16 = False#flux_prefs['fp16']
     installer = Installing(f"Installing FLUX.1 Engine & Models... See console log for progress.")
     prt(installer)
-    if status['loaded_flux_model'] != model_id or status['loaded_flux_mode'] != [flux_prefs['quantize'], cpu_offload, fp16]:
+    if bool(flux_prefs['init_image']) and bool(flux_prefs['mask_image']):
+        mode = "Inpaint"
+    elif bool(flux_prefs['init_image']):
+        mode = "Image2Image"
+    else:
+        mode = "Text2Image"
+    if status['loaded_flux_model'] != model_id or status['loaded_flux_mode'] != [flux_prefs['quantize'], cpu_offload, flux_prefs['nf4']]:
         installer.status(f"...clearing pipes")
         clear_pipes()
     else:
         clear_pipes('flux')
-    if pipe_flux == None:
-        from urllib.error import HTTPError
-        dtype = torch.bfloat16
+    from urllib.error import HTTPError
+    dtype = torch.bfloat16
+    def get_flux_pipe(mode="Text2Image"):
         try:
             from diffusers import FluxPipeline
-            if flux_prefs['quantize']:
+            if flux_prefs['nf4']:
+                pip_install("sentencepiece protobuf bitsandbytes", installer=installer)
+                installer.status(f"...downloading sayakpaul/flux.1-dev-nf4")
+                sdd_components_py = os.path.join(root_dir, "convert_nf4_flux.py")
+                if not os.path.exists(sdd_utils_py):
+                    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/convert_nf4_flux.py", to=root_dir, raw=False, replace=True)
+                from huggingface_hub import hf_hub_download
+                from accelerate.utils import set_module_tensor_to_device, compute_module_sizes
+                from accelerate import init_empty_weights
+                from convert_nf4_flux import _replace_with_bnb_linear, create_quantized_param, check_quantized_param
+                from diffusers import FluxTransformer2DModel
+                import safetensors.torch
+                import gc
+                is_torch_e4m3fn_available = hasattr(torch, "float8_e4m3fn")
+                ckpt_path = hf_hub_download("sayakpaul/flux.1-dev-nf4", filename="diffusion_pytorch_model.safetensors", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                original_state_dict = safetensors.torch.load_file(ckpt_path)
+                installer.status(f"...initialize Transformer2D Model")
+                with init_empty_weights():
+                    config = FluxTransformer2DModel.load_config("sayakpaul/flux.1-dev-nf4")
+                    model = FluxTransformer2DModel.from_config(config).to(dtype)
+                    expected_state_dict_keys = list(model.state_dict().keys())
+                _replace_with_bnb_linear(model, "nf4")
+                installer.status(f"...loading parameters")
+                for param_name, param in original_state_dict.items():
+                    if param_name not in expected_state_dict_keys:
+                        continue
+                    is_param_float8_e4m3fn = is_torch_e4m3fn_available and param.dtype == torch.float8_e4m3fn
+                    if torch.is_floating_point(param) and not is_param_float8_e4m3fn:
+                        param = param.to(dtype)
+                    if not check_quantized_param(model, param_name):
+                        set_module_tensor_to_device(model, param_name, device=0, value=param)
+                    else:
+                        create_quantized_param(model, param, param_name, target_device=0, state_dict=original_state_dict, pre_quantized=True)
+                del original_state_dict
+                gc.collect()
+                installer.status(f'...loading flux.1-dev model (module size {compute_module_sizes(model)[""] / 1024 / 1204})')
+                if mode == "Inpaint":
+                    from diffusers import FluxInpaintPipeline
+                    pipe_flux = FluxInpaintPipeline.from_pretrained("black-forest-labs/flux.1-dev", transformer=model, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                elif mode == "Image2Image":
+                    from diffusers import FluxImg2ImgPipeline
+                    pipe_flux = FluxImg2ImgPipeline.from_pretrained("black-forest-labs/flux.1-dev", transformer=model, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                else:
+                    pipe_flux = FluxPipeline.from_pretrained("black-forest-labs/flux.1-dev", transformer=model, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_flux.enable_model_cpu_offload()
+            elif flux_prefs['quantize']:
                 pip_install("optimum-quanto|optimum sentencepiece protobuf", installer=installer)
                 installer.status(f"...quantize qfloat8")
                 from optimum.quanto import freeze, qfloat8, quantize
@@ -45391,16 +45464,39 @@ def run_flux(page, from_list=False, with_params=False):
                 freeze(transformer)
                 quantize(text_encoder_2, weights=qfloat8)
                 freeze(text_encoder_2)
-                installer.status(f"...loading Flux Pipeline")
-                pipe_flux = FluxPipeline(
-                    scheduler=scheduler,
-                    text_encoder=text_encoder,
-                    tokenizer=tokenizer,
-                    text_encoder_2=None,
-                    tokenizer_2=tokenizer_2,
-                    vae=vae,
-                    transformer=None,
-                )
+                installer.status(f"...loading Flux {mode} Pipeline")
+                if mode == "Inpaint":
+                    from diffusers import FluxInpaintPipeline
+                    pipe_flux = FluxInpaintPipeline(
+                        scheduler=scheduler,
+                        text_encoder=text_encoder,
+                        tokenizer=tokenizer,
+                        text_encoder_2=None,
+                        tokenizer_2=tokenizer_2,
+                        vae=vae,
+                        transformer=None,
+                    )
+                elif mode == "Image2Image":
+                    from diffusers import FluxImg2ImgPipeline
+                    pipe_flux = FluxImg2ImgPipeline(
+                        scheduler=scheduler,
+                        text_encoder=text_encoder,
+                        tokenizer=tokenizer,
+                        text_encoder_2=None,
+                        tokenizer_2=tokenizer_2,
+                        vae=vae,
+                        transformer=None,
+                    )
+                else:
+                    pipe_flux = FluxPipeline(
+                        scheduler=scheduler,
+                        text_encoder=text_encoder,
+                        tokenizer=tokenizer,
+                        text_encoder_2=None,
+                        tokenizer_2=tokenizer_2,
+                        vae=vae,
+                        transformer=None,
+                    )
                 pipe_flux.text_encoder_2 = text_encoder_2
                 pipe_flux.transformer = transformer
                 '''if fp16:
@@ -45412,10 +45508,12 @@ def run_flux(page, from_list=False, with_params=False):
                 if prefs['vae_tiling']:
                     pipe_flux.vae.enable_tiling()
             else:
-                if merge:
-                    from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel
-                    transformer = FluxTransformer2DModel.from_pretrained(merged, torch_dtype=dtype)
-                    pipe_flux = FluxPipeline.from_pretrained(model_id, transformer=transformer, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                if mode == "Inpaint":
+                    from diffusers import FluxInpaintPipeline
+                    pipe_flux = FluxInpaintPipeline.from_pretrained(model_id, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                elif mode == "Image2Image":
+                    from diffusers import FluxImg2ImgPipeline
+                    pipe_flux = FluxImg2ImgPipeline.from_pretrained(model_id, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 else:
                     pipe_flux = FluxPipeline.from_pretrained(model_id, torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 if prefs['vae_slicing']:
@@ -45439,7 +45537,7 @@ def run_flux(page, from_list=False, with_params=False):
                     #pipe_flux.transformer.enable_forward_chunking(chunk_size=1, dim=1)
             pipe_flux.set_progress_bar_config(disable=True)
             status['loaded_flux_model'] = model_id
-            status['loaded_flux_mode'] = [flux_prefs['quantize'], cpu_offload, fp16]
+            status['loaded_flux_mode'] = [mode, flux_prefs['quantize'], cpu_offload, flux_prefs['nf4']]
         except HTTPError as e:
             clear_last()
             model_url = f"https://huggingface.co/{model_id}"
@@ -45450,6 +45548,10 @@ def run_flux(page, from_list=False, with_params=False):
             clear_last()
             alert_msg(page, f"ERROR Initializing Flux, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=flux_prefs)
             return
+        return pipe_flux
+    
+    if pipe_flux == None:
+        pipe_flux = get_flux_pipe(mode)
     if len(flux_prefs['lora_map']) > 0:
         adapters = []
         scales = []
@@ -45472,6 +45574,52 @@ def run_flux(page, from_list=False, with_params=False):
     clear_last()
     n = 0
     for pr in flux_prompts:
+        init_img = None
+        mask_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            max_size = max(pr['width'], pr['height'])
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, max_size, multiple=32)
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        if bool(pr['mask_image']):
+            fname = pr['mask_image'].rpartition(slash)[2]
+            if pr['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['mask_image']):
+                    mask_img = PILImage.open(pr['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
+                    return
+            max_size = max(pr['width'], pr['height'])
+            width, height = mask_img.size
+            width, height = scale_dimensions(width, height, max_size, multiple=32)
+            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        if mask_img != None and init_img != None:
+            mode = "Inpainting"
+            mods = {'image': init_img, 'mask_image': mask_img, 'strength': pr['init_image_strength']}
+        elif init_img != None:
+            mode = "Image2Image"
+            mods = {'image': init_img, 'strength': pr['init_image_strength']}
+        else:
+            mode = "Text2Image"
+            mods = {'height': pr['height'], 'width': pr['width']}
+        if mode != status['loaded_flux_mode'][0]:
+            prt(Installing(f"Initializing Flux {mode} Pipeline..."))
+            clear_pipes()
+            pipe_amused = get_flux_pipe(mode)
+            clear_last()
         for i in range(pr['num_images']):
             i_num = f"{i+1} of {pr['num_images']} - " if pr['num_images'] > 1 else ""
             total_steps = pr['steps'] if not schnell and not flux_prefs['flux_model'] == "FLUX.1-merged" else flux_prefs['lightning_steps']
@@ -45496,6 +45644,7 @@ def run_flux(page, from_list=False, with_params=False):
                     max_sequence_length=256 if schnell else 512,
                     generator=generator,
                     callback_on_step_end=pb.callback_step,#callback_fn,
+                    #**mods,
                 ).images
             except Exception as e:
                 clear_last()
@@ -45680,7 +45829,7 @@ def run_flux_pro(page, from_list=False):
             new_path = os.path.join(out_path, new_file)
             if flux_pro_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscaled_path = os.path.join(out_path, new_file)
-                upscale_image(image_path, upscaled_path, scale=flux_pro_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=flux_pro_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.Flux)
                 image_path = upscaled_path
                 save_metadata(image_path, flux_pro_prefs, "FLUX.1 Pro", seed=random_seed)
                 if flux_pro_prefs['display_upscaled_image']:
@@ -45804,7 +45953,7 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
         pip_install("controlnet-aux", installer=installer)
         from controlnet_aux import MLSDdetector
         from controlnet_aux import OpenposeDetector
-        from diffusers.models import FLUXControlNetModel#, FLUXMultiControlNetModel
+        from diffusers.models import FluxControlNetModel#, FluxMultiControlNetModel
         #run_sp("pip install scikit-image", realtime=False)
     except Exception as e:
         clear_last()
@@ -45844,66 +45993,66 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
         if controlnet_flux_models[task] != None:
             return controlnet_flux_models[task]
         if "Canny Map" in task or task == "Video Canny Edge":
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
             task = "Canny Map Edge"
         elif "Scribble" in task:
             from controlnet_aux import HEDdetector
             hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(scribble_anime_checkpoint if "Anime" in task else scribble_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(scribble_anime_checkpoint if "Anime" in task else scribble_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Pose" or task == "Video Pose":
             task = "Pose"
             from controlnet_aux import OpenposeDetector
             openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Marigold Depth":
             import diffusers
             depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-depth-lcm-v1-0", torch_dtype=torch.float16).to(torch_device)
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif "Depth" in task:
             from transformers import DPTFeatureExtractor, DPTForDepthEstimation
             depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
             feature_extractor = DPTFeatureExtractor.from_pretrained("Intel/dpt-hybrid-midas")
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Softedge":
             from controlnet_aux import HEDdetector, PidiNetDetector
             hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
             hed = PidiNetDetector.from_pretrained('lllyasviel/Annotators') #pidi_net
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(softedge_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(softedge_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "HED":
             from controlnet_aux import HEDdetector
             hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
             #pidi_net = PidiNetDetector.from_pretrained('lllyasviel/Annotators')
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "M-LSD":
             from controlnet_aux import MLSDdetector
             mlsd = MLSDdetector.from_pretrained('lllyasviel/sd-controlnet-mlsd')
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Normal Map":
             #from transformers import pipeline
             #depth_estimator = pipeline("depth-estimation", model ="Intel/dpt-hybrid-midas")
             from controlnet_aux import NormalBaeDetector
             normal = NormalBaeDetector.from_pretrained("lllyasviel/Annotators")
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(normal_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(normal_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Segmented":
             from transformers import AutoImageProcessor, UperNetForSemanticSegmentation
             from controlnet_utils import ade_palette
             image_processor = AutoImageProcessor.from_pretrained("openmmlab/upernet-convnext-small")
             image_segmentor = UperNetForSemanticSegmentation.from_pretrained("openmmlab/upernet-convnext-small")
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(seg_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(seg_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "LineArt":
             from controlnet_aux import LineartDetector
             lineart = LineartDetector.from_pretrained("lllyasviel/Annotators")
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(lineart_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(lineart_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Shuffle":
             from controlnet_aux import ContentShuffleDetector
             shuffle = ContentShuffleDetector()
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(shuffle_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(shuffle_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Tile":
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(tile_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(tile_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Brightness":
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(brightness_checkpoint, torch_dtype=torch.bfloat16)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(brightness_checkpoint, torch_dtype=torch.bfloat16)
         elif task == "Instruct Pix2Pix":
-            controlnet_flux_models[task] = FLUXControlNetModel.from_pretrained(ip2p_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(ip2p_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
 
         return controlnet_flux_models[task]
     width, height = 0, 0
@@ -46076,7 +46225,7 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
             controlnet = controlnet[0]
             loaded_controlnet = loaded_controlnet[0]
         else:
-            controlnet = FLUXMultiControlNetModel(controlnet)
+            controlnet = FluxMultiControlNetModel(controlnet)
     else:
         controlnet = get_controlnet(controlnet_flux_prefs['control_task'])
         loaded_controlnet = controlnet_flux_prefs['control_task']
@@ -46259,7 +46408,7 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
                 prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if controlnet_flux_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=controlnet_flux_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=controlnet_flux_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNetFlux)
                 image_path = upscaled_path
             if prefs['save_image_metadata']:
                 task = and_list(controlnet_flux_prefs['control_task']) if isinstance(controlnet_flux_prefs['control_task'], list) else controlnet_flux_prefs['control_task']
@@ -46537,7 +46686,7 @@ def run_kolors(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if kolors_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=kolors_prefs["enlarge_scale"], face_enhance=kolors_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=kolors_prefs["enlarge_scale"], face_enhance=kolors_prefs["face_enhance"], column=page.imageColumn if from_list else page.Kolors)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 save_metadata(image_path, kolors_prefs, f"Kolors", kolors_model, random_seed, extra=pr)
@@ -46721,7 +46870,7 @@ def run_auraflow(page, from_list=False, with_params=False):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if auraflow_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=auraflow_prefs["enlarge_scale"], face_enhance=auraflow_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=auraflow_prefs["enlarge_scale"], face_enhance=auraflow_prefs["face_enhance"], column=page.imageColumn if from_list else page.AuraFlow)
                 image_path = upscaled_path
                 save_metadata(upscaled_path, auraflow_prefs, f"AuraFlow", model_id, random_seed, extra=pr)
                 if auraflow_prefs['display_upscaled_image']:
@@ -46980,7 +47129,7 @@ def run_layer_diffusion(page, from_list=False, with_params=False):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if layer_diffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=layer_diffusion_prefs["enlarge_scale"], face_enhance=layer_diffusion_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=layer_diffusion_prefs["enlarge_scale"], face_enhance=layer_diffusion_prefs["face_enhance"], column=page.imageColumn if from_list else page.LayerDiffusion)
                 image_path = upscaled_path
                 save_metadata(upscaled_path, layer_diffusion_prefs, f"Layer Diffusion", model_id, random_seed, extra=pr)
                 if layer_diffusion_prefs['display_upscaled_image']:
@@ -47247,7 +47396,7 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if differential_diffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=differential_diffusion_prefs["enlarge_scale"], face_enhance=differential_diffusion_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=differential_diffusion_prefs["enlarge_scale"], face_enhance=differential_diffusion_prefs["face_enhance"], column=page.imageColumn if from_list else page.Differential_Diffusion)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 save_metadata(image_path, differential_diffusion_prefs, f"Differential Diffusion Image2Image", model_id, random_seed, extra=pr)
@@ -47509,7 +47658,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if lmd_plus_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=lmd_plus_prefs["enlarge_scale"], face_enhance=lmd_plus_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=lmd_plus_prefs["enlarge_scale"], face_enhance=lmd_plus_prefs["face_enhance"], column=page.imageColumn if from_list else page.LMD_Plus)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 save_metadata(image_path, lmd_plus_prefs, f"LMD+", lmd_plus_model, random_seed, extra=pr)
@@ -47750,7 +47899,7 @@ def run_lcm(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if lcm_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=lcm_prefs["enlarge_scale"], face_enhance=lcm_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=lcm_prefs["enlarge_scale"], face_enhance=lcm_prefs["face_enhance"], column=page.imageColumn if from_list else page.LCM)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 save_metadata(image_path, lcm_prefs, f"LCM", lcm_model, random_seed, extra=pr)
@@ -47888,7 +48037,7 @@ def run_lcm_interpolation(page):
         out_path = batch_output# if save_to_GDrive else txt2img_output
 
         if lcm_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscale_image(image_path, image_path, scale=lcm_interpolation_prefs["enlarge_scale"], face_enhance=lcm_interpolation_prefs["face_enhance"])
+            upscale_image(image_path, image_path, scale=lcm_interpolation_prefs["enlarge_scale"], face_enhance=lcm_interpolation_prefs["face_enhance"], column=page.LCMInterpolation)
             if lcm_interpolation_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([Img(src=asset_dir(image_path), width=lcm_interpolation_prefs['width'] * float(lcm_interpolation_prefs["enlarge_scale"]), height=lcm_interpolation_prefs['height'] * float(lcm_interpolation_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -48089,7 +48238,7 @@ def run_instaflow(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if instaflow_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=instaflow_prefs["enlarge_scale"], face_enhance=instaflow_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=instaflow_prefs["enlarge_scale"], face_enhance=instaflow_prefs["face_enhance"], column=page.imageColumn if from_list else page.InstaFlow)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 save_metadata(image_path, instaflow_prefs, "InstaFlow", instaflow_model, random_seed, extra=pr)
@@ -48410,7 +48559,7 @@ def run_pag(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if pag_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=pag_prefs["enlarge_scale"], face_enhance=pag_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=pag_prefs["enlarge_scale"], face_enhance=pag_prefs["face_enhance"], column=page.imageColumn if from_list else page.PAG)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 save_metadata(image_path, pag_prefs, f"PAG", pag_model, random_seed, extra=pr)
@@ -48633,8 +48782,8 @@ def run_ldm3d(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
             depth_upscaled_path = os.path.join(out_path, depth_output_file)
             if ldm3d_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=ldm3d_prefs["enlarge_scale"], face_enhance=ldm3d_prefs["face_enhance"])
-                upscale_image(depth_image_path, depth_upscaled_path, scale=ldm3d_prefs["enlarge_scale"], face_enhance=ldm3d_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=ldm3d_prefs["enlarge_scale"], face_enhance=ldm3d_prefs["face_enhance"], column=page.imageColumn if from_list else page.LDM3D)
+                upscale_image(depth_image_path, depth_upscaled_path, scale=ldm3d_prefs["enlarge_scale"], face_enhance=ldm3d_prefs["face_enhance"], column=page.imageColumn if from_list else page.LDM3D)
                 image_path = upscaled_path
                 depth_image_path = depth_upscaled_path
                 os.chdir(stable_dir)
@@ -48922,7 +49071,7 @@ def run_text_to_video(page):
                 save_metadata(unscaled_path, text_to_video_prefs, f"Text-To-Video", model_id, random_seed, scheduler=True)
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
             if text_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=text_to_video_prefs["enlarge_scale"])
+                upscale_image(image_path, upscaled_path, scale=text_to_video_prefs["enlarge_scale"], column=page.TextToVideo)
                 image_path = upscaled_path
                 save_metadata(image_path, text_to_video_prefs, f"Text-To-Video", model_id, random_seed, scheduler=True)
                 if text_to_video_prefs['display_upscaled_image']:
@@ -49081,7 +49230,7 @@ def run_text_to_video_zero(page):
             save_metadata(unscaled_path, text_to_video_zero_prefs, f"Text-To-Video Zero", model_id, random_seed)
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if text_to_video_zero_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscale_image(image_path, upscaled_path, scale=text_to_video_zero_prefs["enlarge_scale"])
+            upscale_image(image_path, upscaled_path, scale=text_to_video_zero_prefs["enlarge_scale"], column=page.TextToVideo)
             image_path = upscaled_path
             save_metadata(image_path, text_to_video_zero_prefs, f"Text-To-Video Zero", model_id, random_seed)
             if text_to_video_zero_prefs['display_upscaled_image']:
@@ -49280,7 +49429,7 @@ def run_video_to_video(page):
             save_metadata(unscaled_path, video_to_video_prefs, f"Video-To-Video", model_id, random_seed, scheduler=True)
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if video_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscale_image(image_path, upscaled_path, scale=video_to_video_prefs["enlarge_scale"], face_enhance=video_to_video_prefs["face_enhance"])
+            upscale_image(image_path, upscaled_path, scale=video_to_video_prefs["enlarge_scale"], face_enhance=video_to_video_prefs["face_enhance"], column=page.VideoToVideo)
             image_path = upscaled_path
             save_metadata(image_path, video_to_video_prefs, f"Video-To-Video", model_id, random_seed, scheduler=True)
             if video_to_video_prefs['display_upscaled_image']:
@@ -50184,7 +50333,7 @@ def run_stable_animation(page):
         upscaled_path = os.path.join(out_path, output_file)
 
         if stable_animation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscale_image(image_path, upscaled_path, scale=stable_animation_prefs["enlarge_scale"])
+            upscale_image(image_path, upscaled_path, scale=stable_animation_prefs["enlarge_scale"], column=page.StableAnimation)
             image_path = upscaled_path
             save_metadata(image_path, stable_animation_prefs, f"Stable Animation", model_path, random_seed, scheduler=True)
             if stable_animation_prefs['display_upscaled_image']:
@@ -50376,7 +50525,7 @@ def run_svd(page):
             #prt(Row([Img(src=image_path, width=svd_prefs['width'], height=svd_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
         if svd_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscale_image(image_path, image_path, scale=svd_prefs["enlarge_scale"], face_enhance=svd_prefs["face_enhance"])
+            upscale_image(image_path, image_path, scale=svd_prefs["enlarge_scale"], face_enhance=svd_prefs["face_enhance"], column=page.SVD)
             if svd_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([Img(src=asset_dir(image_path), width=width * float(svd_prefs["enlarge_scale"]), height=height * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -52698,7 +52847,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     #prt(Row([Img(src=image_path, width=animatediff_img2video_prefs['width'], height=animatediff_img2video_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 if animatediff_img2video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, image_path, scale=animatediff_img2video_prefs["enlarge_scale"], face_enhance=animatediff_img2video_prefs["face_enhance"])
+                    upscale_image(image_path, image_path, scale=animatediff_img2video_prefs["enlarge_scale"], face_enhance=animatediff_img2video_prefs["face_enhance"], column=page.imageColumn if from_list else page.AnimateDiffImage2Video)
                     if animatediff_img2video_prefs['display_upscaled_image']:
                         time.sleep(0.6)
                         prt(Row([ImageButton(src=image_path, width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -52978,7 +53127,7 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
                     #prt(Row([Img(src=image_path, width=animatediff_sdxl_prefs['width'], height=animatediff_sdxl_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 if animatediff_sdxl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, image_path, scale=animatediff_sdxl_prefs["enlarge_scale"], face_enhance=animatediff_sdxl_prefs["face_enhance"])
+                    upscale_image(image_path, image_path, scale=animatediff_sdxl_prefs["enlarge_scale"], face_enhance=animatediff_sdxl_prefs["face_enhance"], column=page.imageColumn if from_list else page.AnimateDiffSDXL)
                     if animatediff_sdxl_prefs['display_upscaled_image']:
                         time.sleep(0.6)
                         prt(Row([ImageButton(src=image_path, width=int(pr['width'] * float(animatediff_sdxl_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_sdxl_prefs["enlarge_scale"])), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -53801,7 +53950,7 @@ def run_pia(page, from_list=False, with_params=False):
                     #prt(Row([Img(src=image_path, width=pia_prefs['width'], height=pia_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 if pia_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, image_path, scale=pia_prefs["enlarge_scale"], face_enhance=pia_prefs["face_enhance"])
+                    upscale_image(image_path, image_path, scale=pia_prefs["enlarge_scale"], face_enhance=pia_prefs["face_enhance"], column=page.imageColumn if from_list else page.PIA)
                     if pia_prefs['display_upscaled_image']:
                         time.sleep(0.6)
                         prt(Row([ImageButton(src=image_path, width=int(pr['width'] * float(pia_prefs["enlarge_scale"])), height=int(pr['height'] * float(pia_prefs["enlarge_scale"])), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -54382,7 +54531,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
                     #prt(Row([Img(src=image_path, width=i2vgen_xl_prefs['width'], height=i2vgen_xl_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 if i2vgen_xl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, image_path, scale=i2vgen_xl_prefs["enlarge_scale"], face_enhance=i2vgen_xl_prefs["face_enhance"])
+                    upscale_image(image_path, image_path, scale=i2vgen_xl_prefs["enlarge_scale"], face_enhance=i2vgen_xl_prefs["face_enhance"], column=page.imageColumn if from_list else page.I2VGenXL)
                     if i2vgen_xl_prefs['display_upscaled_image']:
                         time.sleep(0.6)
                         prt(Row([ImageButton(src=upscaled_path, width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -56194,7 +56343,7 @@ def run_materialdiffusion(page):
         new_path = os.path.join(out_path, new_file)
         if materialdiffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = os.path.join(out_path, new_file)
-            upscale_image(image_path, upscaled_path, scale=materialdiffusion_prefs["enlarge_scale"])
+            upscale_image(image_path, upscaled_path, scale=materialdiffusion_prefs["enlarge_scale"], column=page.MaterialDiffusion)
             image_path = upscaled_path
             save_metadata(image_path, materialdiffusion_prefs, "Material Diffusion", seed=random_seed)
             if materialdiffusion_prefs['display_upscaled_image']:
@@ -56327,7 +56476,7 @@ def run_materialdiffusion_sdxl(page):
         new_path = os.path.join(out_path, new_file)
         if materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = os.path.join(out_path, new_file)
-            upscale_image(image_path, upscaled_path, scale=materialdiffusion_sdxl_prefs["enlarge_scale"])
+            upscale_image(image_path, upscaled_path, scale=materialdiffusion_sdxl_prefs["enlarge_scale"], column=page.MaterialDiffusion)
             image_path = upscaled_path
             save_metadata(image_path, materialdiffusion_sdxl_prefs, "Material Diffusion SDXL", seed=random_seed)
             if materialdiffusion_sdxl_prefs['display_upscaled_image']:
@@ -56441,7 +56590,7 @@ def run_DiT(page, from_list=False):
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if DiT_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, upscaled_path, scale=DiT_prefs["enlarge_scale"], face_enhance=DiT_prefs["face_enhance"])
+                    upscale_image(image_path, upscaled_path, scale=DiT_prefs["enlarge_scale"], face_enhance=DiT_prefs["face_enhance"], column=page.DiT)
                     image_path = upscaled_path
                     save_metadata(upscaled_path, DiT_prefs, "DiT", "facebook/DiT-XL-2-512", random_seed, prompt=pr)
                     if DiT_prefs['display_upscaled_image']:
@@ -59027,7 +59176,7 @@ def run_dall_e(page, from_list=False):
 
             if dall_e_2_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscaled_path = new_path
-                upscale_image(image_path, upscaled_path, scale=dall_e_2_prefs["enlarge_scale"], face_enhance=dall_e_2_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=dall_e_2_prefs["enlarge_scale"], face_enhance=dall_e_2_prefs["face_enhance"], column=page.DallE2)
                 save_metadata(upscaled_path, dall_e_2_prefs, "Dall-E 2")
                 if dall_e_2_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_2_prefs["enlarge_scale"]), height=size * float(dall_e_2_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -59189,7 +59338,7 @@ def run_dall_e_3(page, from_list=False):
 
             if dall_e_3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscaled_path = new_path
-                upscale_image(image_path, upscaled_path, scale=dall_e_3_prefs["enlarge_scale"], face_enhance=dall_e_3_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=dall_e_3_prefs["enlarge_scale"], face_enhance=dall_e_3_prefs["face_enhance"], column=page.imageColumn if from_list else page.DallE)
                 save_metadata(upscaled_path, dall_e_3_prefs, "Dall-E 3")
                 if dall_e_3_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=w * float(dall_e_3_prefs["enlarge_scale"]), height=h * float(dall_e_3_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -59432,7 +59581,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if kandinsky_3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=kandinsky_3_prefs["enlarge_scale"], face_enhance=kandinsky_3_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=kandinsky_3_prefs["enlarge_scale"], face_enhance=kandinsky_3_prefs["face_enhance"], column=page.imageColumn if from_list else page.Kandinsky)
                 image_path = upscaled_path
                 save_metadata(upscaled_path, kandinsky_3_prefs, f"Kandinsky 3 {task_type}", "kandinsky-community/kandinsky-3", random_seed, extra=pr)
                 if kandinsky_3_prefs['display_upscaled_image']:
@@ -59714,7 +59863,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if kandinsky_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=kandinsky_prefs["enlarge_scale"], face_enhance=kandinsky_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=kandinsky_prefs["enlarge_scale"], face_enhance=kandinsky_prefs["face_enhance"], column=page.imageColumn if from_list else page.Kandinsky)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 save_metadata(upscaled_path, kandinsky_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-decoder", random_seed, extra=pr)
@@ -59903,7 +60052,7 @@ def run_kandinsky21(page):
         new_path = os.path.join(out_path, new_file)
         if kandinsky21_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = new_path
-            upscale_image(image_path, upscaled_path, scale=kandinsky21_prefs["enlarge_scale"], face_enhance=kandinsky21_prefs["face_enhance"])
+            upscale_image(image_path, upscaled_path, scale=kandinsky21_prefs["enlarge_scale"], face_enhance=kandinsky21_prefs["face_enhance"], column=page.Kandinsky21)
             save_metadata(upscaled_path, kandinsky21_prefs, "Kandinsky 2.1")
             if kandinsky21_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=upscaled_path, width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -60065,7 +60214,7 @@ def run_kandinsky_fuse(page):
         new_path = os.path.join(out_path, new_file)
         if kandinsky_fuse_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = os.path.join(out_path, new_file)
-            upscale_image(image_path, upscaled_path, scale=kandinsky_fuse_prefs["enlarge_scale"], face_enhance=kandinsky_fuse_prefs["face_enhance"])
+            upscale_image(image_path, upscaled_path, scale=kandinsky_fuse_prefs["enlarge_scale"], face_enhance=kandinsky_fuse_prefs["face_enhance"], column=page.KandinskyFuse)
             save_metadata(upscaled_path, kandinsky_fuse_prefs, "Kandinsky Fuse", seed=random_seed)
             if kandinsky_fuse_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=upscaled_path, width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -60200,7 +60349,7 @@ def run_kandinsky21_fuse(page):
         new_path = os.path.join(out_path, new_file)
         if kandinsky21_fuse_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = new_path
-            upscale_image(image_path, upscaled_path, scale=kandinsky21_fuse_prefs["enlarge_scale"], face_enhance=kandinsky21_fuse_prefs["face_enhance"])
+            upscale_image(image_path, upscaled_path, scale=kandinsky21_fuse_prefs["enlarge_scale"], face_enhance=kandinsky21_fuse_prefs["face_enhance"], column=page.Kandinsky21Fuse)
             save_metadata(upscaled_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse")
             if kandinsky21_fuse_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=upscaled_path, width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -60414,7 +60563,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                 upscaled_path = os.path.join(out_path, output_file)
 
                 if kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    upscale_image(image_path, upscaled_path, scale=kandinsky_controlnet_prefs["enlarge_scale"], face_enhance=kandinsky_controlnet_prefs["face_enhance"])
+                    upscale_image(image_path, upscaled_path, scale=kandinsky_controlnet_prefs["enlarge_scale"], face_enhance=kandinsky_controlnet_prefs["face_enhance"], column=page.imageColumn if from_list else page.KandinskyControlNet)
                     image_path = upscaled_path
                     save_metadata(image_path, kandinsky_controlnet_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-controlnet-depth", random_seed, extra=pr)
                     if kandinsky_controlnet_prefs['display_upscaled_image']:
@@ -60542,7 +60691,7 @@ def run_deep_daze(page):
         #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
     if deep_daze_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
         upscaled_path = os.path.join(out_path, output_file)
-        upscale_image(image_path, upscaled_path, scale=deep_daze_prefs["enlarge_scale"])
+        upscale_image(image_path, upscaled_path, scale=deep_daze_prefs["enlarge_scale"], column=page.DeepDaze)
         image_path = upscaled_path
     save_metadata(image_path, deep_daze_prefs, f"Deep Daze", "deepdaze")
     if prefs['save_image_metadata']:
@@ -60599,6 +60748,7 @@ def main(page: Page):
         page.launch_url(e.data)
     def exit_disconnect(e):
         save_settings_file(page, change_icon=is_Colab)
+        clear_pipes()
         if is_Colab:
           #run_sp("install pyautogui", realtime=False)
           #import pyautogui
@@ -61398,21 +61548,21 @@ class UpscaleBlock(Stack): # TODO: Add Method dropdown to support AuraSR, PIL En
         self.pref = pref
         self.build()
     def build(self):
-        self.apply_ESRGAN_upscale = Switcher(label=f"Apply {prefs['upscale_method']} Upscale", value=self.pref['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=self.toggle_ESRGAN)
+        self.apply_ESRGAN_upscale = Switcher(label=f"Apply {prefs['upscale_method']} Upscaling", value=self.pref['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=self.toggle_ESRGAN)
         self.enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=self.pref, key='enlarge_scale')
         self.face_enhance = 'face_enhance' in self.pref
         self.face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=self.pref['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(face_enhance=e.control.value), visible = 'ESRGAN' in prefs['upscale_method']) if self.face_enhance else Container(content=None)
         #self.aurasr_overlaping = Checkbox(label="Use Tile Overlaping", value=self.pref['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(face_enhance=e.control.value)) if self.face_enhance else Container(content=None)
         self.display_upscaled_image = Checkbox(label="Display Upscaled Image", value=self.pref['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:self.pref.update(display_upscaled_image=float(e.control.value)))
         self.ESRGAN_settings = Container(Column([self.enlarge_scale_slider, Row([self.face_enhance, self.display_upscaled_image])], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if self.pref['apply_ESRGAN_upscale'] else 0)
-        self.ESRGAN_block = Container(Column([self.apply_ESRGAN_upscale, self.ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if status['installed_ESRGAN'] else 0)
+        self.ESRGAN_block = Container(Column([self.apply_ESRGAN_upscale, self.ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if prefs['install_ESRGAN'] else 0)
         return self.ESRGAN_block
     def show(self, visible=True):
         self.ESRGAN_block.height = None if visible else 0
         try:
             self.ESRGAN_block.update()
         except Exception as e:
-            print(f"Upscaler {self.pref}: {e}")
+            #print(f"Upscaler {self.pref}: {e}")
             pass
         self.change_method(prefs['upscale_method'])
     def toggle_ESRGAN(self, e):
@@ -61436,7 +61586,7 @@ class UpscaleBlock(Stack): # TODO: Add Method dropdown to support AuraSR, PIL En
             #self.ESRGAN_block.update()
             self.update()
         except Exception as e:
-            print(f"Upscaler update {self.pref}: {e}")
+            #print(f"Upscaler update {self.pref}: {e}")
             pass
 
 
