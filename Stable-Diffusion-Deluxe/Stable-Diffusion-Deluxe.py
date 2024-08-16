@@ -11460,6 +11460,7 @@ flux_prefs = {
     "fp16": False,
     "nf4": False,
     "merge": False,
+    "optimization": 'quantize',
     "seed": 0,
     "flux_model": "FLUX.1-dev",
     "custom_model": "",
@@ -11591,6 +11592,23 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     quantize = Switcher(label="Quantize", value=flux_prefs['quantize'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'quantize'), tooltip="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision.")
     cpu_offload = Switcher(label="CPU Offload", value=flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     nf4 = Switcher(label="NF4 Mode", value=flux_prefs['nf4'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'nf4'), tooltip="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16.")
+    def optimization_changed(e):
+        o = e.control.value
+        flux_prefs['optimization'] = o
+        if o == "bf16":
+            flux_prefs['cpu_offload'], flux_prefs['quantize'], flux_prefs['nf4'] = [False, False, False]
+        elif o == "bf16_cpu":
+            flux_prefs['cpu_offload'], flux_prefs['quantize'], flux_prefs['nf4'] = [True, False, False]
+        elif o == "quantize":
+            flux_prefs['cpu_offload'], flux_prefs['quantize'], flux_prefs['nf4'] = [True, True, False]
+        elif o == "nf4":
+            flux_prefs['cpu_offload'], flux_prefs['quantize'], flux_prefs['nf4'] = [True, False, True]
+    optimization = ft.RadioGroup(content=Row([Text("Optimization Mode:", weight=ft.FontWeight.BOLD),
+        Tooltip(content=ft.Radio(value="bf16", label="BFoat16"), message="Best Quality and Speed if you have more than 24GB VRAM."),
+        Tooltip(content=ft.Radio(value="bf16_cpu", label="BF16 CPU Offload"), message="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory."),
+        Tooltip(content=ft.Radio(value="quantize", label="QF8 Quantize"), message="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision."),
+        Tooltip(content=ft.Radio(value="nf4", label="NF4"),  message="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16."),
+    ]), value=flux_prefs['optimization'], on_change=optimization_changed)
     #distilled_model = Switcher(label="Use Distilled Model", value=flux_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
     seed = TextField(label="Seed", width=90, value=str(flux_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     upscaler = UpscaleBlock(flux_prefs)
@@ -11614,7 +11632,8 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
             lora_layer_map,
             Divider(thickness=4, height=4),
             upscaler,
-            Row([cpu_offload, quantize, nf4]),
+            optimization,
+            #Row([cpu_offload, quantize, nf4]),
             ResponsiveRow([Row([batch_size, n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Flux_output
@@ -11742,6 +11761,7 @@ controlnet_flux_prefs = {
     'cpu_offload': True,
     'quantize': False,
     'nf4': False,
+    'optimization': 'bf16_cpu',
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -11932,7 +11952,24 @@ def buildControlNetFLUX(page):
     show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_flux_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     quantize = Switcher(label="Quantize (not yet)", value=controlnet_flux_prefs['quantize'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'quantize'), tooltip="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision.")
     cpu_offload = Switcher(label="CPU Offload", value=controlnet_flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
-    nf4 = Switcher(label="NF4 Mode (almost)", value=controlnet_flux_prefs['nf4'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'nf4'), tooltip="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16.")
+    nf4 = Switcher(label="NF4 Mode", value=controlnet_flux_prefs['nf4'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'nf4'), tooltip="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16.")
+    def optimization_changed(e):
+        o = e.control.value
+        controlnet_flux_prefs['optimization'] = o
+        if o == "bf16":
+            controlnet_flux_prefs['cpu_offload'], controlnet_flux_prefs['quantize'], controlnet_flux_prefs['nf4'] = [False, False, False]
+        elif o == "bf16_cpu":
+            controlnet_flux_prefs['cpu_offload'], controlnet_flux_prefs['quantize'], controlnet_flux_prefs['nf4'] = [True, False, False]
+        elif o == "quantize":
+            controlnet_flux_prefs['cpu_offload'], controlnet_flux_prefs['quantize'], controlnet_flux_prefs['nf4'] = [True, True, False]
+        elif o == "nf4":
+            fluxcontrolnet_flux_prefs_prefs['cpu_offload'], controlnet_flux_prefs['quantize'], controlnet_flux_prefs['nf4'] = [True, False, True]
+    optimization = ft.RadioGroup(content=Row([Text("Optimization Mode:", weight=ft.FontWeight.BOLD),
+        Tooltip(content=ft.Radio(value="bf16", label="BFoat16"), message="Best Quality and Speed if you have more than 24GB VRAM."),
+        Tooltip(content=ft.Radio(value="bf16_cpu", label="BF16 CPU Offload"), message="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory."),
+        Tooltip(content=ft.Radio(value="quantize", label="QF8 Quantize"), message="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision."),
+        Tooltip(content=ft.Radio(value="nf4", label="NF4"),  message="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16."),
+    ]), value=controlnet_flux_prefs['optimization'], on_change=optimization_changed)
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_flux_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     upscaler = UpscaleBlock(controlnet_flux_prefs)
     page.upscalers.append(upscaler)
@@ -11940,7 +11977,7 @@ def buildControlNetFLUX(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🛃  ControlNet FLUX.1 Image+Text-to-Image (under construction)", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models... Trained at 512x512 & 1024x1024", actions=[save_default(controlnet_flux_prefs, ['original_image', 'init_image', 'mask_image', 'ip_adapter_image', 'multi_controlnets']), IconButton(icon=icons.HELP, tooltip="Help with ControlNet-FLUX Settings", on_click=controlnet_flux_help)]),
+        Header("🛃  ControlNet FLUX.1 Image+Text-to-Image (Canny only, for now)", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models... Trained at 512x512 & 1024x1024", actions=[save_default(controlnet_flux_prefs, ['original_image', 'init_image', 'mask_image', 'ip_adapter_image', 'multi_controlnets']), IconButton(icon=icons.HELP, tooltip="Help with ControlNet-FLUX Settings", on_click=controlnet_flux_help)]),
         Row([control_task, original_image, init_video]),#, add_layer_btn
         conditioning_scale,
         #Row([control_guidance_start, control_guidance_end]),
@@ -11960,7 +11997,8 @@ def buildControlNetFLUX(page):
         #ip_adapter_container,
         upscaler,
         show_processed_image,
-        Row([cpu_offload, quantize, nf4]),
+        #Row([cpu_offload, quantize, nf4]),
+        optimization,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_flux_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
         Row([ElevatedButton(content=Text("🔓  Run ControlNet-FLUX.1", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_flux(page)),
              run_prompt_list]),
@@ -45373,6 +45411,7 @@ def run_flux(page, from_list=False, with_params=False):
     status.setdefault('loaded_flux_mode', [])
     cpu_offload = flux_prefs['cpu_offload']
     fp16 = False#flux_prefs['fp16']
+    nf4 = flux_prefs['nf4']
     installer = Installing(f"Installing FLUX.1 Engine & Models... See console log for progress.")
     prt(installer)
     if bool(flux_prefs['init_image']) and bool(flux_prefs['mask_image']):
@@ -45381,7 +45420,7 @@ def run_flux(page, from_list=False, with_params=False):
         mode = "Image2Image"
     else:
         mode = "Text2Image"
-    if status['loaded_flux_model'] != model_id or status['loaded_flux_mode'] != [flux_prefs['quantize'], cpu_offload, flux_prefs['nf4']]:
+    if status['loaded_flux_model'] != model_id or status['loaded_flux_mode'] != [mode, flux_prefs['optimization']]:
         installer.status(f"...clearing pipes")
         clear_pipes()
     else:
@@ -45391,7 +45430,7 @@ def run_flux(page, from_list=False, with_params=False):
     def get_flux_pipe(mode="Text2Image"):
         try:
             from diffusers import FluxPipeline
-            if flux_prefs['nf4']:
+            if nf4:
                 pip_install("sentencepiece protobuf bitsandbytes", installer=installer)
                 installer.status(f"...downloading sayakpaul/flux.1-dev-nf4")
                 nf4_flux = os.path.join(root_dir, "convert_nf4_flux.py")
@@ -45537,7 +45576,7 @@ def run_flux(page, from_list=False, with_params=False):
                     #pipe_flux.transformer.enable_forward_chunking(chunk_size=1, dim=1)
             pipe_flux.set_progress_bar_config(disable=True)
             status['loaded_flux_model'] = model_id
-            status['loaded_flux_mode'] = [mode, flux_prefs['quantize'], cpu_offload, flux_prefs['nf4']]
+            status['loaded_flux_mode'] = [mode, flux_prefs['optimization']]
         except HTTPError as e:
             clear_last()
             model_url = f"https://huggingface.co/{model_id}"
@@ -45943,9 +45982,12 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
     prt(Divider(thickness=2, height=4))
     installer = Installing("Installing ControlNet-FLUX Packages... See console for progress.")
     prt(installer)
-    if status['loaded_controlnet'] == controlnet_flux_prefs["control_task"]:
+    status.setdefault('loaded_controlnet_flux_mode', controlnet_flux_prefs['optimization'])
+    
+    if status['loaded_controlnet'] == controlnet_flux_prefs["control_task"] and status['loaded_controlnet_flux_mode'] == controlnet_flux_prefs["optimization"]:
         clear_pipes('controlnet')
     else:
+        installer.status("...clearing pipes")
         clear_pipes()
     import requests
     from io import BytesIO
@@ -46254,13 +46296,88 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
         ip_adapter_model = None
     if controlnet_type != status['loaded_controlnet_type']:
         clear_pipes()
+    nf4 = controlnet_flux_prefs['nf4']
     #model = get_model(prefs['model_ckpt'])
     model_path = "black-forest-labs/FLUX.1-dev"
     if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_flux_prefs["control_task"]:
         #vae = AutoencoderKL.from_pretrained("madebyollin/sd3-vae-fp16-fix", torch_dtype=torch.bfloat16)
         if controlnet_type == "text2image":
             from diffusers import FluxControlNetPipeline #, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None
-            pipe_controlnet = FluxControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16)
+            if nf4:
+                pip_install("sentencepiece protobuf bitsandbytes", installer=installer)
+                installer.status(f"...downloading sayakpaul/flux.1-dev-nf4")
+                nf4_flux = os.path.join(root_dir, "convert_nf4_flux.py")
+                if not os.path.exists(nf4_flux):
+                    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/convert_nf4_flux.py", to=root_dir, raw=False, replace=True)
+                from huggingface_hub import hf_hub_download
+                from accelerate.utils import set_module_tensor_to_device, compute_module_sizes
+                from accelerate import init_empty_weights
+                from convert_nf4_flux import _replace_with_bnb_linear, create_quantized_param, check_quantized_param
+                from diffusers import FluxTransformer2DModel
+                import safetensors.torch
+                import gc
+                is_torch_e4m3fn_available = hasattr(torch, "float8_e4m3fn")
+                ckpt_path = hf_hub_download("sayakpaul/flux.1-dev-nf4", filename="diffusion_pytorch_model.safetensors", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                original_state_dict = safetensors.torch.load_file(ckpt_path)
+                installer.status(f"...initialize Transformer2D Model")
+                with init_empty_weights():
+                    config = FluxTransformer2DModel.load_config("sayakpaul/flux.1-dev-nf4")
+                    model = FluxTransformer2DModel.from_config(config).to(dtype)
+                    expected_state_dict_keys = list(model.state_dict().keys())
+                _replace_with_bnb_linear(model, "nf4")
+                installer.status(f"...loading parameters")
+                for param_name, param in original_state_dict.items():
+                    if param_name not in expected_state_dict_keys:
+                        continue
+                    is_param_float8_e4m3fn = is_torch_e4m3fn_available and param.dtype == torch.float8_e4m3fn
+                    if torch.is_floating_point(param) and not is_param_float8_e4m3fn:
+                        param = param.to(dtype)
+                    if not check_quantized_param(model, param_name):
+                        set_module_tensor_to_device(model, param_name, device=0, value=param)
+                    else:
+                        create_quantized_param(model, param, param_name, target_device=0, state_dict=original_state_dict, pre_quantized=True)
+                del original_state_dict
+                gc.collect()
+                installer.status(f'...loading flux.1-dev model (module size {compute_module_sizes(model)[""] / 1024 / 1204})')
+                pipe_controlnet = FluxControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, transformer=model, safety_checker=None, torch_dtype=torch.bfloat16)
+                #pipe_controlnet.enable_model_cpu_offload()
+            elif flux_prefs['quantize']:
+                pip_install("optimum-quanto|optimum sentencepiece protobuf", installer=installer)
+                installer.status(f"...quantize qfloat8")
+                from optimum.quanto import freeze, qfloat8, quantize
+                from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
+                from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel
+                from transformers import CLIPTextModel, CLIPTokenizer,T5EncoderModel, T5TokenizerFast
+                scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(model_path, subfolder="scheduler", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...quantize text_encoder")
+                text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...quantize CLIPTokenizer")
+                tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...quantize text_encoder_2")
+                text_encoder_2 = T5EncoderModel.from_pretrained(model_path, subfolder="text_encoder_2", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...quantize tokenizer_2")
+                tokenizer_2 = T5TokenizerFast.from_pretrained(model_path, subfolder="tokenizer_2", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...quantize vae")
+                vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...quantize transformer")
+                transformer = FluxTransformer2DModel.from_pretrained(model_path, subfolder="transformer", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...quantize qfloat8")
+                quantize(transformer, weights=qfloat8)
+                freeze(transformer)
+                quantize(text_encoder_2, weights=qfloat8)
+                freeze(text_encoder_2)
+                installer.status(f"...loading Flux {mode} Pipeline")
+                pipe_controlnet = FluxControlNetPipeline(
+                    scheduler=scheduler,
+                    text_encoder=text_encoder,
+                    tokenizer=tokenizer,
+                    text_encoder_2=None,
+                    tokenizer_2=tokenizer_2,
+                    vae=vae,
+                    transformer=None,
+                )
+            else:
+                pipe_controlnet = FluxControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16)
         elif controlnet_type == "image2image":
             from diffusers import FluxControImg2ImglNetPipeline
             pipe_controlnet = FluxControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
@@ -46275,6 +46392,7 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
         #pipe_controlnet = optimize_FLUX(pipe_controlnet, vae_slicing=True, vae_tiling=True)
         status['loaded_controlnet'] = loaded_controlnet #controlnet_flux_prefs["control_task"]
         status['loaded_controlnet_type'] = controlnet_type
+        status['loaded_controlnet_flux_mode'] = controlnet_flux_prefs['optimization']
     #pipe_controlnet = pipeline_scheduler(pipe_controlnet)
     if controlnet_flux_prefs['use_init_video']:
         from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
@@ -46353,13 +46471,17 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
                 if controlnet_flux_prefs['show_processed_image']:
                     w, h = original_img[-1].size
                     src_base64 = pil_to_base64(original_img[-1])
+                    clear_last()
                     prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(progress)
         elif not controlnet_flux_prefs['use_init_video']:
             original_img = prep_image(controlnet_flux_prefs['control_task'], pr['original_image'])
             if controlnet_flux_prefs['show_processed_image']:
                 w, h = original_img.size
                 src_base64 = pil_to_base64(original_img)
+                clear_last()
                 prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(progress)
         else:
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.bfloat16).repeat(len(video_img), 1, 1, 1)
@@ -60925,12 +61047,24 @@ Shoutouts to the Discord Communities of [Disco Diffusion](https://discord.gg/d5Z
         play_snd(Snd.DELETE, page)
         clear_pipes()
     page.stats = Column([Text("", size=10), Text("", size=10)], tight=True, spacing=4)
+    def icon_click(e):
+        save_settings_file(page, True)
+    def app_icon_save():
+        icon_image.color=colors.GREEN_800
+        icon_image.update()
+        time.sleep(0.6)
+        icon_image.color=None
+        icon_image.update()
+    icon_image = ft.Image(src=asset_dir(os.path.join(root_dir, "favicon.png")), width=20, height=20, border_radius=ft.border_radius.all(4), fit=ft.ImageFit.SCALE_DOWN, color_blend_mode=ft.BlendMode.DARKEN)
+    #icon_button = Container(GestureDetector(content=icon_image, on_tap=icon_click, mouse_cursor=ft.MouseCursor.GRAB), width=24, height=24, margin=7, image_fit=ft.ImageFit.SCALE_DOWN)
+    icon_button = Tooltip(content=GestureDetector(content=Container(content=icon_image, width=24, height=24, margin=7, image_fit=ft.ImageFit.SCALE_DOWN), on_tap=icon_click, mouse_cursor=ft.MouseCursor.GRAB), message="Saving Settings File")
     appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if ((page.width or page.window.width) if page.web else page.window.width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE, overflow=ft.TextOverflow.ELLIPSIS, expand=True))], alignment=MainAxisAlignment.CENTER, expand=True), expand=False), elevation=20,
       center_title=True,
       bgcolor=colors.SURFACE,
       toolbar_height=46,
       leading_width=46,
-      leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
+      leading = icon_button,
+      #leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
       #leading_width=40,
       actions=[ft.GestureDetector(page.stats, on_tap=lambda _:update_stats(page), on_double_tap=lambda _:toggle_stats(page), on_long_press_end=clear_memory), 
         PopupMenuButton(items=[
@@ -60951,7 +61085,7 @@ Shoutouts to the Discord Communities of [Disco Diffusion](https://discord.gg/d5Z
         appbar.actions.append(IconButton(icon=icons.CLOSE, tooltip="❎  Exit Application", on_click=exit_disconnect))
         page.window.title_bar_hidden = True
     page.appbar = appbar
-    def app_icon_save():
+    def app_icon_save2():
         app_icon_color = colors.GREEN_800
         appbar.leading = IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Saving Settings File")
         appbar.update()
