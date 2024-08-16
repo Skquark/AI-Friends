@@ -11963,7 +11963,7 @@ def buildControlNetFLUX(page):
         elif o == "quantize":
             controlnet_flux_prefs['cpu_offload'], controlnet_flux_prefs['quantize'], controlnet_flux_prefs['nf4'] = [True, True, False]
         elif o == "nf4":
-            fluxcontrolnet_flux_prefs_prefs['cpu_offload'], controlnet_flux_prefs['quantize'], controlnet_flux_prefs['nf4'] = [True, False, True]
+            controlnet_flux_prefs['cpu_offload'], controlnet_flux_prefs['quantize'], controlnet_flux_prefs['nf4'] = [True, False, True]
     optimization = ft.RadioGroup(content=Row([Text("Optimization Mode:", weight=ft.FontWeight.BOLD),
         Tooltip(content=ft.Radio(value="bf16", label="BFoat16"), message="Best Quality and Speed if you have more than 24GB VRAM."),
         Tooltip(content=ft.Radio(value="bf16_cpu", label="BF16 CPU Offload"), message="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory."),
@@ -23234,6 +23234,7 @@ pipe_flux = None
 pipe_lumina = None
 pipe_kolors = None
 pipe_auraflow = None
+pipe_aura_sr = None
 pipe_layer_diffusion, ld_text_encoder, ld_text_encoder_2, ld_vae, ld_unet, ld_transparent_decoder, ld_transparent_encoder = [None] * 7
 pipe_differential_diffusion = None
 pipe_magic_mix = None
@@ -25758,7 +25759,7 @@ def get_ESRGAN(page, model=None, installer=None):
     os.chdir(root_dir)
     status['installed_ESRGAN'] = True
 
-pipe_aura_sr = None
+
 def upscale_image(source, target, method=None, scale=4, face_enhance=False, model=None, installer=None, column=None):
     global pipe_aura_sr
     def stat(msg):
@@ -25908,9 +25909,7 @@ def upscale_image(source, target, method=None, scale=4, face_enhance=False, mode
                     column.update()
                 return
         if not prefs['AuraSR_keep_loaded']:
-            del pipe_aura_sr
-            flush()
-            pipe_aura_sr = None
+            clear_aura_sr_pipe()
         else:
             flush()
     elif method=="Pillow LANCZOS":
@@ -26281,6 +26280,12 @@ def clear_auraflow_pipe():
     del pipe_auraflow
     flush()
     pipe_auraflow = None
+def clear_aura_sr_pipe():
+  global pipe_aura_sr
+  if pipe_aura_sr is not None:
+    del pipe_aura_sr
+    flush()
+    pipe_aura_sr = None
 def clear_layer_diffusion_pipe():
   global pipe_layer_diffusion
   if pipe_layer_diffusion is not None:
@@ -45989,6 +45994,8 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
     else:
         installer.status("...clearing pipes")
         clear_pipes()
+    from urllib.error import HTTPError
+    dtype = torch.bfloat16
     import requests
     from io import BytesIO
     from PIL import ImageOps
