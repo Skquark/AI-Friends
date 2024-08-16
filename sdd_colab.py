@@ -11981,7 +11981,7 @@ def buildControlNetFLUX(page):
         Tooltip(content=ft.Radio(value="bf16", label="BFoat16"), message="Best Quality and Speed if you have more than 24GB VRAM."),
         Tooltip(content=ft.Radio(value="bf16_cpu", label="BF16 CPU Offload"), message="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory."),
         Tooltip(content=ft.Radio(value="quantize", label="QF8 Quantize"), message="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision."),
-        Tooltip(content=ft.Radio(value="nf4", label="NF4"),  message="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16."),
+        Tooltip(content=ft.Radio(value="nf4", label="NF4 (almost)"),  message="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16."),
     ]), value=controlnet_flux_prefs['optimization'], on_change=optimization_changed)
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_flux_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     upscaler = UpscaleBlock(controlnet_flux_prefs)
@@ -46014,7 +46014,7 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
     from PIL import ImageOps
     from PIL.PngImagePlugin import PngInfo
     try:
-        pip_install("controlnet-aux", installer=installer)
+        pip_install("mediapipe controlnet-aux", installer=installer)
         from controlnet_aux import MLSDdetector
         from controlnet_aux import OpenposeDetector
         from diffusers.models import FluxControlNetModel#, FluxMultiControlNetModel
@@ -46024,6 +46024,7 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
         alert_msg(page, f"ERROR Installing Required Packages...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         flush()
         return
+    installer.status("...initializing")
     canny_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Canny"
     depth_checkpoint = "diffusers/controlnet-depth-sd3-1.0"
     seg_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
@@ -46386,7 +46387,7 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
                 freeze(transformer)
                 quantize(text_encoder_2, weights=qfloat8)
                 freeze(text_encoder_2)
-                installer.status(f"...loading Flux {mode} Pipeline")
+                installer.status(f"...loading Flux ControlNet Pipeline")
                 pipe_controlnet = FluxControlNetPipeline(
                     scheduler=scheduler,
                     text_encoder=text_encoder,
