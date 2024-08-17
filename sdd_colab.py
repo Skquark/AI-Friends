@@ -12185,7 +12185,7 @@ def buildAuraFlow(page):
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=auraflow_prefs, key='height')
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=16, multiple=64, suffix="px", pref=auraflow_prefs, key='max_size', tooltip="Width & Height are Square Aspect-Ratio, made for 1024x1024")
     model_id = "fal/AuraFlow" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.1" else "cozy-creator/aura-flow-fp16-version" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.1-fp16" else "fal/AuraFlow-v0.2" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.2" else "Vargol/auraflow0.2-fp16-diffusers" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.2-fp16" else auraflow_prefs['custom_model']
-    auraflow_model = Dropdown(label="AuraFlow Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("AuraFlow-0.1"), dropdown.Option("AuraFlow-0.1-fp16"), dropdown.Option("AuraFlow-0.2"), dropdown.Option("AuraFlow-0.2-fp16")], value=auraflow_prefs['auraflow_model'], on_change=changed_model)
+    auraflow_model = Dropdown(label="AuraFlow Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("AuraFlow-0.1"), dropdown.Option("AuraFlow-0.1-fp16"), dropdown.Option("AuraFlow-0.2"), dropdown.Option("AuraFlow-0.2-fp16"), dropdown.Option("AuraFlow-0.3"), dropdown.Option("AuraFlow-0.3-fp16")], value=auraflow_prefs['auraflow_model'], on_change=changed_model)
     auraflow_custom_model = TextField(label="Custom AuraFlow Model (URL or Path)", value=auraflow_prefs['custom_model'], expand=True, visible=auraflow_prefs['auraflow_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=auraflow_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     #distilled_model = Switcher(label="Use Distilled Model", value=auraflow_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
@@ -25895,7 +25895,8 @@ def upscale_image(source, target, method=None, scale=4, face_enhance=False, mode
             pipe_aura_sr = AuraSR.from_pretrained("fal/AuraSR-v2", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         stat(f"Upscaling {method} {scale}X")
         import math
-        x = int(math.ceil(scale))
+        #x = int(math.ceil(scale))
+        x = 4 if scale > 1 else 2
         for i in source:
             try:
                 img = PILImage.open(i)
@@ -25916,7 +25917,7 @@ def upscale_image(source, target, method=None, scale=4, face_enhance=False, mode
                 upscaled_image.save(opath)
             except Exception as e:
                 stat(f"Error running {method}")
-                print(f"Error running {method}: {e}")
+                print(f"Error running {method}: {e}\n{str(traceback.format_exc())}")
                 if column is not None:
                     del column.controls[-1]
                     column.update()
@@ -46321,99 +46322,112 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
     #model = get_model(prefs['model_ckpt'])
     model_path = "black-forest-labs/FLUX.1-dev"
     if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_flux_prefs["control_task"]:
-        #vae = AutoencoderKL.from_pretrained("madebyollin/sd3-vae-fp16-fix", torch_dtype=torch.bfloat16)
-        if controlnet_type == "text2image":
-            from diffusers import FluxControlNetPipeline #, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None
-            if nf4:
-                pip_install("sentencepiece protobuf bitsandbytes", installer=installer)
-                installer.status(f"...downloading sayakpaul/flux.1-dev-nf4")
-                nf4_flux = os.path.join(root_dir, "convert_nf4_flux.py")
-                if not os.path.exists(nf4_flux):
-                    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/convert_nf4_flux.py", to=root_dir, raw=False, replace=True)
-                from huggingface_hub import hf_hub_download
-                from accelerate.utils import set_module_tensor_to_device, compute_module_sizes
-                from accelerate import init_empty_weights
-                from convert_nf4_flux import _replace_with_bnb_linear, create_quantized_param, check_quantized_param
-                from diffusers import FluxTransformer2DModel
-                import safetensors.torch
-                import gc
-                is_torch_e4m3fn_available = hasattr(torch, "float8_e4m3fn")
-                ckpt_path = hf_hub_download("sayakpaul/flux.1-dev-nf4", filename="diffusion_pytorch_model.safetensors", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                original_state_dict = safetensors.torch.load_file(ckpt_path)
-                installer.status(f"...initialize Transformer2D Model")
-                with init_empty_weights():
-                    config = FluxTransformer2DModel.load_config("sayakpaul/flux.1-dev-nf4")
-                    model = FluxTransformer2DModel.from_config(config).to(dtype)
-                    expected_state_dict_keys = list(model.state_dict().keys())
-                _replace_with_bnb_linear(model, "nf4")
-                installer.status(f"...loading parameters")
-                for param_name, param in original_state_dict.items():
-                    if param_name not in expected_state_dict_keys:
-                        continue
-                    is_param_float8_e4m3fn = is_torch_e4m3fn_available and param.dtype == torch.float8_e4m3fn
-                    if torch.is_floating_point(param) and not is_param_float8_e4m3fn:
-                        param = param.to(dtype)
-                    if not check_quantized_param(model, param_name):
-                        set_module_tensor_to_device(model, param_name, device=0, value=param)
-                    else:
-                        create_quantized_param(model, param, param_name, target_device=0, state_dict=original_state_dict, pre_quantized=True)
-                del original_state_dict
-                gc.collect()
-                installer.status(f'...loading flux.1-dev model (module size {compute_module_sizes(model)[""] / 1024 / 1204})')
-                pipe_controlnet = FluxControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, transformer=model, safety_checker=None, torch_dtype=torch.bfloat16)
-                #pipe_controlnet.enable_model_cpu_offload()
-            elif flux_prefs['quantize']:
-                pip_install("optimum-quanto|optimum sentencepiece protobuf", installer=installer)
-                installer.status(f"...quantize qfloat8")
-                from optimum.quanto import freeze, qfloat8, quantize
-                from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
-                from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel
-                from transformers import CLIPTextModel, CLIPTokenizer,T5EncoderModel, T5TokenizerFast
-                scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(model_path, subfolder="scheduler", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                installer.status(f"...quantize text_encoder")
-                text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                installer.status(f"...quantize CLIPTokenizer")
-                tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                installer.status(f"...quantize text_encoder_2")
-                text_encoder_2 = T5EncoderModel.from_pretrained(model_path, subfolder="text_encoder_2", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                installer.status(f"...quantize tokenizer_2")
-                tokenizer_2 = T5TokenizerFast.from_pretrained(model_path, subfolder="tokenizer_2", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                installer.status(f"...quantize vae")
-                vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                installer.status(f"...quantize transformer")
-                transformer = FluxTransformer2DModel.from_pretrained(model_path, subfolder="transformer", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                installer.status(f"...quantize qfloat8")
-                quantize(transformer, weights=qfloat8)
-                freeze(transformer)
-                quantize(text_encoder_2, weights=qfloat8)
-                freeze(text_encoder_2)
-                installer.status(f"...loading Flux ControlNet Pipeline")
-                pipe_controlnet = FluxControlNetPipeline(
-                    scheduler=scheduler,
-                    text_encoder=text_encoder,
-                    tokenizer=tokenizer,
-                    text_encoder_2=None,
-                    tokenizer_2=tokenizer_2,
-                    vae=vae,
-                    transformer=None,
-                )
+        try:
+            #vae = AutoencoderKL.from_pretrained("madebyollin/sd3-vae-fp16-fix", torch_dtype=torch.bfloat16)
+            if controlnet_type == "text2image":
+                from diffusers import FluxControlNetPipeline #, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None
+                if nf4:
+                    pip_install("sentencepiece protobuf bitsandbytes", installer=installer)
+                    installer.status(f"...downloading sayakpaul/flux.1-dev-nf4")
+                    nf4_flux = os.path.join(root_dir, "convert_nf4_flux.py")
+                    if not os.path.exists(nf4_flux):
+                        download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/convert_nf4_flux.py", to=root_dir, raw=False, replace=True)
+                    from huggingface_hub import hf_hub_download
+                    from accelerate.utils import set_module_tensor_to_device, compute_module_sizes
+                    from accelerate import init_empty_weights
+                    from convert_nf4_flux import _replace_with_bnb_linear, create_quantized_param, check_quantized_param
+                    from diffusers import FluxTransformer2DModel
+                    import safetensors.torch
+                    import gc
+                    is_torch_e4m3fn_available = hasattr(torch, "float8_e4m3fn")
+                    ckpt_path = hf_hub_download("sayakpaul/flux.1-dev-nf4", filename="diffusion_pytorch_model.safetensors", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    original_state_dict = safetensors.torch.load_file(ckpt_path)
+                    installer.status(f"...initialize Transformer2D Model")
+                    with init_empty_weights():
+                        config = FluxTransformer2DModel.load_config("sayakpaul/flux.1-dev-nf4")
+                        model = FluxTransformer2DModel.from_config(config).to(dtype)
+                        expected_state_dict_keys = list(model.state_dict().keys())
+                    _replace_with_bnb_linear(model, "nf4")
+                    installer.status(f"...loading parameters")
+                    for param_name, param in original_state_dict.items():
+                        if param_name not in expected_state_dict_keys:
+                            continue
+                        is_param_float8_e4m3fn = is_torch_e4m3fn_available and param.dtype == torch.float8_e4m3fn
+                        if torch.is_floating_point(param) and not is_param_float8_e4m3fn:
+                            param = param.to(dtype)
+                        if not check_quantized_param(model, param_name):
+                            set_module_tensor_to_device(model, param_name, device=0, value=param)
+                        else:
+                            create_quantized_param(model, param, param_name, target_device=0, state_dict=original_state_dict, pre_quantized=True)
+                    del original_state_dict
+                    gc.collect()
+                    installer.status(f'...loading flux.1-dev model (module size {compute_module_sizes(model)[""] / 1024 / 1204})')
+                    pipe_controlnet = FluxControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, transformer=model, safety_checker=None, torch_dtype=torch.bfloat16)
+                    #pipe_controlnet.enable_model_cpu_offload()
+                elif flux_prefs['quantize']:
+                    pip_install("optimum-quanto|optimum sentencepiece protobuf", installer=installer)
+                    installer.status(f"...quantize qfloat8")
+                    from optimum.quanto import freeze, qfloat8, quantize
+                    from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
+                    from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel
+                    from transformers import CLIPTextModel, CLIPTokenizer,T5EncoderModel, T5TokenizerFast
+                    scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(model_path, subfolder="scheduler", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    installer.status(f"...quantize text_encoder")
+                    text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    installer.status(f"...quantize CLIPTokenizer")
+                    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    installer.status(f"...quantize text_encoder_2")
+                    text_encoder_2 = T5EncoderModel.from_pretrained(model_path, subfolder="text_encoder_2", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    installer.status(f"...quantize tokenizer_2")
+                    tokenizer_2 = T5TokenizerFast.from_pretrained(model_path, subfolder="tokenizer_2", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    installer.status(f"...quantize vae")
+                    vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    installer.status(f"...quantize transformer")
+                    transformer = FluxTransformer2DModel.from_pretrained(model_path, subfolder="transformer", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    installer.status(f"...quantize qfloat8")
+                    quantize(transformer, weights=qfloat8)
+                    freeze(transformer)
+                    installer.status(f"...quantize text_encoder_2")
+                    quantize(text_encoder_2, weights=qfloat8)
+                    freeze(text_encoder_2)
+                    installer.status(f"...loading Flux ControlNet Pipeline")
+                    pipe_controlnet = FluxControlNetPipeline(
+                        scheduler=scheduler,
+                        text_encoder=text_encoder,
+                        tokenizer=tokenizer,
+                        text_encoder_2=None,
+                        tokenizer_2=tokenizer_2,
+                        vae=vae,
+                        transformer=None,
+                    )
+                    pipe_controlnet.text_encoder_2 = text_encoder_2
+                    pipe_controlnet.transformer = transformer
+                else:
+                    pipe_controlnet = FluxControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16)
+            elif controlnet_type == "image2image":
+                from diffusers import FluxControImg2ImglNetPipeline
+                pipe_controlnet = FluxControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            elif controlnet_type == "inpaint":
+                from diffusers import FluxControlNetInpaintPipeline
+                pipe_controlnet = FluxControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if prefs['vae_slicing']:
+                pipe_controlnet.vae.enable_slicing()
+            if prefs['vae_tiling']:
+                pipe_controlnet.vae.enable_tiling()
+            if controlnet_flux_prefs['cpu_offload']:
+                pipe_controlnet.enable_model_cpu_offload()
             else:
-                pipe_controlnet = FluxControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16)
-        elif controlnet_type == "image2image":
-            from diffusers import FluxControImg2ImglNetPipeline
-            pipe_controlnet = FluxControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-        elif controlnet_type == "inpaint":
-            from diffusers import FluxControlNetInpaintPipeline
-            pipe_controlnet = FluxControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-        if controlnet_flux_prefs['cpu_offload']:
-            pipe_controlnet.enable_model_cpu_offload()
-        else:
-            pipe_controlnet.to("cuda")
-        #pipe_controlnet.enable_model_cpu_offload()
-        #pipe_controlnet = optimize_FLUX(pipe_controlnet, vae_slicing=True, vae_tiling=True)
-        status['loaded_controlnet'] = loaded_controlnet #controlnet_flux_prefs["control_task"]
-        status['loaded_controlnet_type'] = controlnet_type
-        status['loaded_controlnet_flux_mode'] = controlnet_flux_prefs['optimization']
+                pipe_controlnet.to("cuda")
+            #pipe_controlnet.enable_model_cpu_offload()
+            #pipe_controlnet = optimize_FLUX(pipe_controlnet, vae_slicing=True, vae_tiling=True)
+            status['loaded_controlnet'] = controlnet_flux_prefs["control_task"] #loaded_controlnet
+            status['loaded_controlnet_type'] = controlnet_type
+            status['loaded_controlnet_flux_mode'] = controlnet_flux_prefs['optimization']
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Installing ControlNet Flux Pipeline...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            flush()
+            return
     #pipe_controlnet = pipeline_scheduler(pipe_controlnet)
     if controlnet_flux_prefs['use_init_video']:
         from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
@@ -46925,7 +46939,7 @@ def run_auraflow(page, from_list=False, with_params=False):
       page.tabs.update()
     clear_list()
     autoscroll(True)
-    model_id = "fal/AuraFlow" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.1" else "cozy-creator/aura-flow-fp16-version" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.1-fp16" else "fal/AuraFlow-v0.2" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.2" else "Vargol/auraflow0.2-fp16-diffusers" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.2-fp16" else auraflow_prefs['custom_model']
+    model_id = "fal/AuraFlow" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.1" else "cozy-creator/aura-flow-fp16-version" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.1-fp16" else "fal/AuraFlow-v0.2" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.2" else "Vargol/auraflow0.2-fp16-diffusers" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.2-fp16" else" fal/AuraFlow-v0.3" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.3" else "fal/AuraFlow-v0.3" if auraflow_prefs['auraflow_model'] == "AuraFlow-0.3-fp16" else  auraflow_prefs['custom_model']
     pipe_extra = {'variant': 'fp16'} if 'fp16' in auraflow_prefs['auraflow_model'] else {}
     if 'loaded_auraflow_model' not in status: status['loaded_auraflow_model'] = ''
     installer = Installing(f"Installing AuraFlow Engine & Models... See console log for progress.")
