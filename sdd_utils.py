@@ -510,17 +510,27 @@ SD3_LoRA_models = [
     {"name": "sd3-lora-test", "path": "ptx0/sd3-lora-test", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
 ]
 Flux_LoRA_models = [
+    {"name": "Anime CG", "path": "nyanko7/flux-dev-anime-cg", "weights": "ema_model.safetensors", "prefix": ""},
+    {"name": "Aquarel Watercolor", "path": "SebastianBodza/flux_lora_aquarel_watercolor", "weights": "lora.safetensors", "prefix": "AQUACOLTOK"},
     {"name": "XLabs Anime", "path": "XLabs-AI/flux-lora-collection", "weights": "anime_lora.safetensors", "prefix": ""},
     {"name": "XLabs Art", "path": "XLabs-AI/flux-lora-collection", "weights": "art_lora.safetensors", "prefix": ""},
     {"name": "XLabs Disney", "path": "XLabs-AI/flux-lora-collection", "weights": "disney_lora.safetensors", "prefix": ""},
+    {"name": "XLabs Furry", "path": "XLabs-AI/flux-lora-collection", "weights": "furry_lora.safetensors", "prefix": ""},
     {"name": "XLabs MJ v6", "path": "XLabs-AI/flux-lora-collection", "weights": "mjv6_lora.safetensors", "prefix": ""},
     {"name": "XLabs Realism", "path": "XLabs-AI/flux-lora-collection", "weights": "realism_lora.safetensors", "prefix": ""},
     {"name": "XLabs Scenery", "path": "XLabs-AI/flux-lora-collection", "weights": "scenery_lora.safetensors", "prefix": ""},
     {"name": "Aesthetic 10k", "path": "advokat/aesthetic-flux-lora-10k", "weights": "aesthetic10k.safetensors", "prefix": ""},
     {"name": "Gegants", "path": "xaviviro/Flux-Gegants-Lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     {"name": "LittleTinies", "path": "pzc163/LittleTinies-FLUX-lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
+    {"name": "Monochrome Manga", "path": "dataautogpt3/FLUX-MonochromeManga", "weights": "FLUX-DEV_MonochromeManga.safetensors", "prefix": "monochrome manga"},
+    {"name": "New Emoji Model M", "path": "PTtuts/flux-new-emoji-model-m", "weights": "lora.safetensors", "prefix": "TOK"},
+    {"name": "Plushy World", "path": "alvdansen/plushy-world-flux", "weights": "plushy_world_flux_araminta_k.safetensors", "prefix": "3dcndylnd style"},
     {"name": "Sanna-Marin", "path": "mikaelh/flux-sanna-marin-lora-v0.1", "weights": "pytorch_lora_weights.safetensors", "subfolder": "checkpoint-1950", "prefix": "sanna marin"},
     {"name": "SimpleTuner Test", "path": "markury/FLUX-dev-LoRA-test", "weights": "pytorch_lora_weights.safetensors", "prefix": "a photo of man"},
+    {"name": "Simpsons Style", "path": "Norod78/Flux_1_Dev_LoRA_Simpsons-Style", "weights": "Flux_1_Dev_LoRA_Simpsons-Style.safetensors", "prefix": "Simpsons Style"},
+    {"name": "The Point", "path": "alvdansen/the-point-flux", "weights": "thepoint_flux_araminta_k.safetensors", "prefix": "pnt style"},
+    {"name": "unDraw", "path": "AlloReview/flux-lora-undraw", "weights": "lora.safetensors", "prefix": "in the style of UndrawPurple"},
+    {"name": "Victorian Satire", "path": "dvyio/flux-lora-victorian-satire", "weights": "lora.safetensors", "prefix": "in the style of a Victorian-era TOK cartoon illustration"},
 ]
 ip_adapter_models = [
     {'name': 'SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter_sd15.bin'},

@@ -423,6 +423,7 @@ def load_settings_file():
       'precision': 'autocast',
       'use_inpaint_model': False,
       'centipede_prompts_as_init_images': False,
+      'multi_schedulers': False,
       'use_depth2img': False,
       'use_LoRA_model': False,
       'LoRA_model': 'Von Platen LoRA',
@@ -434,9 +435,11 @@ def load_settings_file():
       'SDXL_LoRA_model': 'Papercut SDXL',
       'custom_SDXL_LoRA_models': [],
       'custom_SDXL_LoRA_model': "",
-      'SD3_LoRA_model': '',
+      'SD3_LoRA_model': 'Celebrities',
       'custom_SD3_LoRA_models': [],
       'custom_SD3_LoRA_model': "",
+      'custom_Flux_LoRA_models': [],
+      'custom_Flux_LoRA_model': "",
       'use_interpolation': False,
       'num_interpolation_steps': 22,
       'use_clip_guided_model': False,
@@ -466,7 +469,8 @@ def load_settings_file():
           'permutate_artists': False,
           'request_mode': 3,
           'AI_temperature': 0.8,
-          'AI_engine': "ChatGPT-3.5 Turbo",
+          'AI_engine': "OpenAI ChatGPT",
+          'OpenAI_model': 'GPT-4 Turbo',
           'AIHorde_model': "LLaMA-13B-Psyfighter2",
           'Perplexity_model': "llama-3-sonar-small-32k-chat",
           'economy_mode': True,
@@ -480,15 +484,17 @@ def load_settings_file():
           'permutate_artists': False,
           'request_mode': 3,
           'AI_temperature': 0.8,
-          'AI_engine': "ChatGPT-3.5 Turbo",
+          'AI_engine': "OpenAI ChatGPT",
+          'OpenAI_model': 'GPT-4 Turbo',
           'AIHorde_model': "LLaMA-13B-Psyfighter2",
           'Perplexity_model': "llama-3-sonar-small-32k-chat",
       },
       'prompt_brainstormer': {
-          'AI_engine': 'ChatGPT-3.5 Turbo',
+          'AI_engine': 'OpenAI ChatGPT',
           'about_prompt': '',
           'request_mode': 'Brainstorm',
           'AI_temperature': 0.8,
+          'OpenAI_model': 'GPT-4 Turbo',
           'AIHorde_model': "LLaMA-13B-Psyfighter2",
           'Perplexity_model': "llama-3-sonar-small-32k-chat",
       },
@@ -643,7 +649,7 @@ except ModuleNotFoundError: #Also flexible_slider, vertical_splitter, shimmer
     pass
 #sys.path.append(sdd_utils_py)
 import sdd_utils
-from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS, AIHorde_models, CivitAI_LoRAs, SD3_models
+from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, SD3_LoRA_models, Flux_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS, AIHorde_models, CivitAI_LoRAs, SD3_models
 from sdd_components import PanZoom, VideoContainer
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="pip._vendor.packaging.specifiers")
@@ -937,12 +943,14 @@ def buildTrainers(page):
     page.TexualInversion = buildTextualInversion(page)
     page.LoRA_Dreambooth = buildLoRA_Dreambooth(page)
     page.LoRA = buildLoRA(page)
+    page.Flux_LoRA = buildFluxLoRA(page)
     page.Converter = buildConverter(page)
     page.CheckpointMerger = buildCheckpointMerger(page)
     trainersTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="LoRA DreamBooth", content=page.LoRA_Dreambooth, icon=icons.SETTINGS_BRIGHTNESS),
             Tab(text="LoRA", content=page.LoRA, icon=icons.SETTINGS_SYSTEM_DAYDREAM),
+            Tab(text="FLUX LoRA", content=page.Flux_LoRA, icon=icons.SENSOR_WINDOW),
             Tab(text="DreamBooth", content=page.DreamBooth, icon=icons.PHOTO),
             Tab(text="Texual-Inversion", content=page.TexualInversion, icon=icons.PHOTO_ALBUM),
             Tab(text="Model Converter", content=page.Converter, icon=icons.PUBLISHED_WITH_CHANGES),
@@ -1187,6 +1195,7 @@ prefs.setdefault('alpha_mask', False)
 prefs.setdefault('invert_mask', False)
 prefs.setdefault('clip_guidance_preset', "FAST_BLUE")
 prefs.setdefault('tortoise_custom_voices', [])
+prefs.setdefault('multi_schedulers', False)
 prefs.setdefault('use_LoRA_model', False)
 prefs.setdefault('LoRA_model', "Von Platen LoRA")
 prefs.setdefault('active_LoRA_layers', [])
@@ -1197,9 +1206,11 @@ prefs.setdefault('custom_LoRA_model', '')
 prefs.setdefault('SDXL_LoRA_model', "Papercut SDXL")
 prefs.setdefault('custom_SDXL_LoRA_models', [])
 prefs.setdefault('custom_SDXL_LoRA_model', '')
-prefs.setdefault('SD3_LoRA_model', "")
+prefs.setdefault('SD3_LoRA_model', "Celebrities")
 prefs.setdefault('custom_SD3_LoRA_models', [])
 prefs.setdefault('custom_SD3_LoRA_model', '')
+prefs.setdefault('custom_Flux_LoRA_models', [])
+prefs.setdefault('custom_Flux_LoRA_model', '')
 prefs.setdefault('custom_dance_diffusion_models', [])
 prefs['prompt_writer'].setdefault('negative_prompt', '')
 prefs.setdefault('install_attend_and_excite', False)
@@ -1690,6 +1701,10 @@ def refresh_installers(controls):
     if isinstance(c, Switch):
       c.update()
 
+schedulers = ["DDIM", "LMS Discrete", "PNDM", "IPNDM", "DPM Solver", "DPM Solver++", "DPM Solver Inverse", 
+            "SDE-DPM Solver++", "K-Euler Discrete", "K-Euler Ancestral", "EDM Euler", "DEIS Multistep", 
+            "UniPC Multistep", "Heun Discrete", "Karras Heun Discrete", "K-DPM2 Ancestral", "K-DPM2 Discrete", "Karras-LMS", "TCD", "LCM"] #"Flow Match Euler Discrete","DPM Stochastic"
+
 def buildInstallers(page):
   global prefs, status, model_path
   def changed(e, pref=None):
@@ -1718,30 +1733,7 @@ def buildInstallers(page):
               eta.visible = show
               eta.update()
   scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the generated noise", width=230,
-            options=[
-                dropdown.Option("DDIM"),
-                dropdown.Option("LMS Discrete"),
-                dropdown.Option("PNDM"),
-                dropdown.Option("IPNDM"),
-                dropdown.Option("DPM Solver"),
-                dropdown.Option("DPM Solver++"),
-                dropdown.Option("DPM Solver Inverse"),
-                dropdown.Option("SDE-DPM Solver++"),
-                #dropdown.Option("DPM Stochastic"),
-                dropdown.Option("K-Euler Discrete"),
-                dropdown.Option("K-Euler Ancestral"),
-                #dropdown.Option("Flow Match Euler Discrete"),
-                dropdown.Option("EDM Euler"),
-                dropdown.Option("DEIS Multistep"),
-                dropdown.Option("UniPC Multistep"),
-                dropdown.Option("Heun Discrete"),
-                dropdown.Option("Karras Heun Discrete"),
-                dropdown.Option("K-DPM2 Ancestral"),
-                dropdown.Option("K-DPM2 Discrete"),
-                dropdown.Option("Karras-LMS"),
-                dropdown.Option("TCD"),
-                dropdown.Option("LCM"),
-            ], value=prefs['scheduler_mode'], autofocus=False, on_change=change_scheduler,
+            options=[dropdown.Option(s) for s in schedulers], value=prefs['scheduler_mode'], autofocus=False, on_change=change_scheduler,
         )
   def model_card_update():
       time.sleep(0.4)
@@ -2768,6 +2760,10 @@ def buildParameters(page):
       changed(e, 'SDXL_LoRA_model', apply=False)
       custom_SDXL_LoRA_model.visible = True if prefs['SDXL_LoRA_model'] == "Custom SDXL LoRA Path" else False
       custom_SDXL_LoRA_model.update()
+  def changed_SD3_LoRA(e):
+      changed(e, 'SD3_LoRA_model', apply=False)
+      custom_SD3_LoRA_model.visible = True if prefs['SD3_LoRA_model'] == "Custom SD3 LoRA Path" else False
+      custom_SD3_LoRA_model.update()
   batch_folder_name = TextField(label="Batch Folder Name", value=prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name', apply=False))
   #batch_size = TextField(label="Batch Size", value=prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'batch_size'))
   #n_iterations = TextField(label="Number of Iterations", value=prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations'))
@@ -2911,6 +2907,56 @@ def buildParameters(page):
         ]), data=lora_layer))
       if LoRA_map == None:
         active_SDXL_LoRA_layers.update()
+  def delete_SD3_lora_layer(e):
+      for l in prefs['active_SD3_LoRA_layers']:
+        if l['name'] == e.control.data['name']:
+          prefs['active_SD3_LoRA_layers'].remove(l)
+      for c in active_SD3_LoRA_layers.controls:
+        if c.data['name'] == e.control.data['name']:
+            active_SD3_LoRA_layers.controls.remove(c)
+            break
+      active_SD3_LoRA_layers.update()
+  def delete_all_SD3_lora_layers(e):
+      prefs['active_SD3_LoRA_layers'].clear()
+      active_SD3_LoRA_layers.controls.clear()
+      active_SD3_LoRA_layers.update()
+  def change_SD3_LoRA(e):
+      for l in prefs['active_SD3_LoRA_layers']:
+        if l['name'] == e.control.data['name']:
+          l['scale'] = e.control.value
+  def add_SD3_LoRA(e, LoRA_map=None):
+      if LoRA_map != None:
+        lora = LoRA_map['name']
+        lora_scale = LoRA_map['scale']
+        lora_layer = LoRA_map
+      else:
+        lora = prefs['SD3_LoRA_model']
+        lora_scale = 1.
+        lora_layer = {}
+        if lora.startswith("Custom"):
+          num = 1
+          for c in prefs['active_SD3_LoRA_layers']:
+              if c['name'].startswith("Custom"):
+                  if num == int(c['name'].rpartition('-')[2]):
+                      num += 1
+          lora_layer = {'name': f'Custom-{num}', 'file':'', 'path':prefs['custom_SD3_LoRA_model'], 'scale': lora_scale}
+        else:
+          for l in prefs['active_SD3_LoRA_layers']:
+            if l['name'] == lora:
+              return
+          lora_layer = get_SD3_LoRA_model(lora)
+          lora_layer['scale'] = lora_scale
+        prefs['active_SD3_LoRA_layers'].append(lora_layer)
+      lora_scaler = SliderRow(label="Scale", min=-3, max=3, divisions=12, round=1, pref=lora_layer, key='scale', tooltip="", expand=True, data=lora_layer, on_change=change_SD3_LoRA)
+      title_link = Markdown(f"[**{lora_layer['name']}**](https://huggingface.co/{lora_layer['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
+      title = Row([title_link, lora_scaler])
+      active_SD3_LoRA_layers.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        items=[
+            PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_SD3_lora_layer, data=lora_layer),
+            PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_SD3_lora_layers, data=lora_layer),
+        ]), data=lora_layer))
+      if LoRA_map == None:
+        active_SD3_LoRA_layers.update()
   page.LoRA_model = Dropdown(label="LoRA Model Weights", width=235, options=[], value=prefs['LoRA_model'], on_change=changed_LoRA)
   if len(prefs['custom_LoRA_models']) > 0:
     for l in prefs['custom_LoRA_models']:
@@ -2930,16 +2976,29 @@ def buildParameters(page):
   page.SDXL_LoRA_model.options.append(dropdown.Option("Custom SDXL LoRA Path"))
   custom_SDXL_LoRA_model = TextField(label="Custom SDXL LoRA Model Path", value=prefs['custom_SDXL_LoRA_model'], expand=True, on_change=lambda e:changed(e, 'custom_SDXL_LoRA_model', apply=False))
   custom_SDXL_LoRA_model.visible = True if prefs['SDXL_LoRA_model'] == "Custom SDXL LoRA Path" else False
+  page.SD3_LoRA_model = Dropdown(label="SD3 LoRA Model Weights", width=235, options=[], value=prefs['SD3_LoRA_model'], on_change=changed_SD3_LoRA)
+  if len(prefs['custom_SD3_LoRA_models']) > 0:
+    for l in prefs['custom_SD3_LoRA_models']:
+      page.SD3_LoRA_model.options.append(dropdown.Option(l['name']))
+  for m in SD3_LoRA_models:
+      page.SD3_LoRA_model.options.append(dropdown.Option(m['name']))
+  page.SD3_LoRA_model.options.append(dropdown.Option("Custom SD3 LoRA Path"))
+  custom_SD3_LoRA_model = TextField(label="Custom SD3 LoRA Model Path", value=prefs['custom_SD3_LoRA_model'], expand=True, on_change=lambda e:changed(e, 'custom_SD3_LoRA_model', apply=False))
+  custom_SD3_LoRA_model.visible = True if prefs['SD3_LoRA_model'] == "Custom SD3 LoRA Path" else False
   active_LoRA_layers = Column([], spacing=0, tight=True)
   active_SDXL_LoRA_layers = Column([], spacing=0, tight=True)
+  active_SD3_LoRA_layers = Column([], spacing=0, tight=True)
   add_LoRA_layer = ft.FilledButton("➕ Add LoRA", on_click=add_LoRA)
   add_SDXL_LoRA_layer = ft.FilledButton("➕ Add SDXL LoRA", on_click=add_SDXL_LoRA)
+  add_SD3_LoRA_layer = ft.FilledButton("➕ Add SD3 LoRA", on_click=add_SD3_LoRA)
   for l in prefs['active_LoRA_layers']:
       add_LoRA(None, l)
   for l in prefs['active_SDXL_LoRA_layers']:
       add_SDXL_LoRA(None, l)
-  LoRA_block = Container(ResponsiveRow([Column([Row([page.LoRA_model, custom_LoRA_model, add_LoRA_layer]), active_LoRA_layers], col={'lg': 6}), 
-                                        Column([Row([page.SDXL_LoRA_model, custom_SDXL_LoRA_model, add_SDXL_LoRA_layer]), active_SDXL_LoRA_layers], col={'lg': 6})]), padding=padding.only(top=6, left=10), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  LoRA_block = Container(ResponsiveRow([Column([Row([page.LoRA_model, custom_LoRA_model, add_LoRA_layer]), active_LoRA_layers], col={'lg': 6, 'xl': 4}), 
+                                        Column([Row([page.SDXL_LoRA_model, custom_SDXL_LoRA_model, add_SDXL_LoRA_layer]), active_SDXL_LoRA_layers], col={'lg': 6, 'xl': 4}),
+                                        Column([Row([page.SD3_LoRA_model, custom_SD3_LoRA_model, add_SD3_LoRA_layer]), active_SD3_LoRA_layers], col={'lg': 6, 'xl': 4}),
+                                        ]), padding=padding.only(top=6, left=10), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   LoRA_block.height = None if prefs['use_LoRA_model'] else 0
   def toggle_ip_adapter(e):
       prefs['use_ip_adapter'] = e.control.value
@@ -2961,6 +3020,7 @@ def buildParameters(page):
   ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
 
   centipede_prompts_as_init_images = Switcher(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line. Gives interesting results..", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede)
+  multi_schedulers = Switcher(label="Cycle Multiple Schedulers", value=prefs['multi_schedulers'], on_change=lambda e:changed(e,'multi_schedulers', apply=False), tooltip="Generate test images using all schedulers (~20) on each prompt with same seed to find best sampler.")
   use_interpolation = Switcher(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], on_change=toggle_interpolation)
   interpolation_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=prefs['num_interpolation_steps'], on_change=change_interpolation_steps, expand=True)
   interpolation_steps_value = Text(f" {int(prefs['num_interpolation_steps'])} steps", weight=FontWeight.BOLD)
@@ -11427,6 +11487,8 @@ def buildLuminaNext(page):
     return c
 
 Flux_LoRA_models = [
+    {"name": "Anime CG", "path": "nyanko7/flux-dev-anime-cg", "weights": "ema_model.safetensors", "prefix": ""},
+    {"name": "Aquarel Watercolor", "path": "SebastianBodza/flux_lora_aquarel_watercolor", "weights": "lora.safetensors", "prefix": "AQUACOLTOK"},
     {"name": "XLabs Anime", "path": "XLabs-AI/flux-lora-collection", "weights": "anime_lora.safetensors", "prefix": ""},
     {"name": "XLabs Art", "path": "XLabs-AI/flux-lora-collection", "weights": "art_lora.safetensors", "prefix": ""},
     {"name": "XLabs Disney", "path": "XLabs-AI/flux-lora-collection", "weights": "disney_lora.safetensors", "prefix": ""},
@@ -11437,8 +11499,15 @@ Flux_LoRA_models = [
     {"name": "Aesthetic 10k", "path": "advokat/aesthetic-flux-lora-10k", "weights": "aesthetic10k.safetensors", "prefix": ""},
     {"name": "Gegants", "path": "xaviviro/Flux-Gegants-Lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     {"name": "LittleTinies", "path": "pzc163/LittleTinies-FLUX-lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
+    {"name": "Monochrome Manga", "path": "dataautogpt3/FLUX-MonochromeManga", "weights": "FLUX-DEV_MonochromeManga.safetensors", "prefix": "monochrome manga"},
+    {"name": "New Emoji Model M", "path": "PTtuts/flux-new-emoji-model-m", "weights": "lora.safetensors", "prefix": "TOK"},
+    {"name": "Plushy World", "path": "alvdansen/plushy-world-flux", "weights": "plushy_world_flux_araminta_k.safetensors", "prefix": "3dcndylnd style"},
     {"name": "Sanna-Marin", "path": "mikaelh/flux-sanna-marin-lora-v0.1", "weights": "pytorch_lora_weights.safetensors", "subfolder": "checkpoint-1950", "prefix": "sanna marin"},
     {"name": "SimpleTuner Test", "path": "markury/FLUX-dev-LoRA-test", "weights": "pytorch_lora_weights.safetensors", "prefix": "a photo of man"},
+    {"name": "Simpsons Style", "path": "Norod78/Flux_1_Dev_LoRA_Simpsons-Style", "weights": "Flux_1_Dev_LoRA_Simpsons-Style.safetensors", "prefix": "Simpsons Style"},
+    {"name": "The Point", "path": "alvdansen/the-point-flux", "weights": "thepoint_flux_araminta_k.safetensors", "prefix": "pnt style"},
+    {"name": "unDraw", "path": "AlloReview/flux-lora-undraw", "weights": "lora.safetensors", "prefix": "in the style of UndrawPurple"},
+    {"name": "Victorian Satire", "path": "dvyio/flux-lora-victorian-satire", "weights": "lora.safetensors", "prefix": "in the style of a Victorian-era TOK cartoon illustration"},
 ]
 flux_prefs = {
     "prompt": '',
@@ -11528,6 +11597,11 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
           if l['name'] == lora:
             lora_layer = l.copy()
             lora_layer['scale'] = lora_scale
+        if not lora_layer:
+          for l in prefs['custom_Flux_LoRA_models']:
+            if l['name'] == lora:
+              lora_layer = l.copy()
+              lora_layer['scale'] = lora_scale
         for l in flux_prefs['lora_map']:
           if l['name'] == lora:
             return
@@ -11580,11 +11654,12 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     lora_layer = Dropdown(label="LoRA Layer Map", width=256, options=[dropdown.Option("Custom")], value=flux_prefs['lora_layer'], on_change=changed_lora_layer)
     custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=flux_prefs['custom_lora_layer'], expand=True, visible=flux_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
-    '''if len(prefs['custom_Flux_LoRA_models']) > 0:
+    if len(prefs['custom_Flux_LoRA_models']) > 0:
         for l in prefs['custom_Flux_LoRA_models']:
-            lora_layer.options.append(dropdown.Option(l['name']))'''
+            lora_layer.options.append(dropdown.Option(l['name']))
     for m in Flux_LoRA_models:
         lora_layer.options.append(dropdown.Option(m['name']))
+    page.Flux_LoRA_model = lora_layer
     lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
     lora_layer_map = Column([], spacing=0)
@@ -16326,6 +16401,11 @@ def buildAnimateDiffSDXL(page):
           if l['name'] == lora:
             lora_layer = l.copy()
             lora_layer['scale'] = lora_scale
+        if not lora_layer:
+          for l in prefs['custom_SDXL_LoRA_models']:
+            if l['name'] == lora:
+              lora_layer = l.copy()
+              lora_layer['scale'] = lora_scale
         for l in animatediff_sdxl_prefs['lora_map']:
           if l['name'] == lora:
             return
@@ -16695,6 +16775,11 @@ def buildPIA(page):
           if l['name'] == lora:
             lora_layer = l.copy()
             lora_layer['scale'] = lora_scale
+        if not lora_layer:
+          for l in prefs['custom_LoRA_models']:
+            if l['name'] == lora:
+              lora_layer = l.copy()
+              lora_layer['scale'] = lora_scale
         for l in pia_prefs['lora_map']:
           if l['name'] == lora:
             return
@@ -16879,6 +16964,11 @@ def buildEasyAnimate(page):
           if l['name'] == lora:
             lora_layer = l.copy()
             lora_layer['scale'] = lora_scale
+        if not lora_layer:
+          for l in prefs['custom_SDXL_LoRA_models']:
+            if l['name'] == lora:
+              lora_layer = l.copy()
+              lora_layer['scale'] = lora_scale
         for l in easyanimate_prefs['lora_map']:
           if l['name'] == lora:
             return
@@ -17042,6 +17132,11 @@ def buildI2VGenXL(page):
           if l['name'] == lora:
             lora_layer = l.copy()
             lora_layer['scale'] = lora_scale
+        if not lora_layer:
+          for l in prefs['custom_SDXL_LoRA_models']:
+            if l['name'] == lora:
+              lora_layer = l.copy()
+              lora_layer['scale'] = lora_scale
         for l in i2vgen_xl_prefs['lora_map']:
           if l['name'] == lora:
             return
@@ -21302,6 +21397,270 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     ))], scroll=ScrollMode.AUTO)
     return c
 
+flux_LoRA_prefs = {
+    'instance_prompt': '', #The prompt with identifier specifying the instance
+    'class_prompt': '',
+    'prior_preservation': False, #Flag to add prior preservation loss.
+    'num_class_images': 100, #Minimal class images for prior preservation loss. If there are not enough images already present in class_data_dir, additional images will be sampled with class_prompt.
+    #'sample_batch_size': 4, #Batch size (per device) for sampling images.
+    'train_batch_size': 1, #"Batch size (per device) for the training dataloader.
+    'gradient_accumulation_steps': 4, #Number of updates steps to accumulate before performing a backward/update pass.
+    'gradient_checkpointing': True, #Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.
+    'checkpointing_steps': 100,#Number of training steps between saving model checkpoints
+    'resume_from_checkpoint': '', #Whether training should be resumed from a previous checkpoint. Use a path saved by" `--checkpointing_steps`, or `latest` to automatically select the last available checkpoint.
+    'lr_scheduler': 'constant', #["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"]
+    'lr_warmup_steps': 500, #Number of steps for the warmup in the lr scheduler.
+    #'lr_num_cycles': 1, #Number of hard resets of the lr in cosine_with_restarts scheduler.
+    #'lr_power': 1, #Power factor of the polynomial scheduler.
+    #'prior_loss_weight': 1.0, #The weight of prior preservation loss.
+    'class_data_dir': os.path.join(root_dir, "class_images"),
+    'learning_rate': 1e-5, #Initial learning rate (after the potential warmup period) to use.
+    'scale_lr': False, #Scale the learning rate by the number of GPUs, gradient accumulation steps, and batch size.
+    'max_train_steps': 500, #Total number of training steps to perform.  If provided, overrides num_train_epochs.
+    'seed': 0,
+    'validation_prompt': '', #A prompt that is sampled during training for inference.
+    'num_validation_images': 4, #Number of images that should be generated during validation with `validation_prompt`.
+    'validation_epochs': 1, #Run fine-tuning validation every X epochs. The validation process consists of running the prompt
+    'guidance_scale': 3.5,
+    'name_of_your_model': '',
+    'save_model': True,
+    'where_to_save_model': 'Public HuggingFace',
+    'resolution': 512,
+    'image_path': '',
+    'readme_description': '',
+    'urls': [],
+    'train_text_encoder': False,
+    'dream_detail_preservation': 1.0,
+}
+
+def buildFluxLoRA(page):
+    global prefs, flux_LoRA_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            flux_LoRA_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def add_to_flux_LoRA_output(o):
+        page.flux_LoRA_output.controls.append(o)
+        page.flux_LoRA_output.update()
+    def clear_output(e):
+        play_snd(Snd.DELETE, page)
+        page.flux_LoRA_output.controls = []
+        page.flux_LoRA_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def lora_help(e):
+        def close_lora_dlg(e):
+          nonlocal lora_help_dlg
+          lora_help_dlg.open = False
+          page.update()
+        lora_help_dlg = AlertDialog(title=Text("💁   Help with FLUX.1 LoRA DreamBooth"), content=Column([
+            Text("First thing is to collect all your own images that you want to teach it to dream.  Feed it at least 5 square pictures of the object or style to learn, and it'll save your Custom Model Checkpoint."),
+            Markdown("""Low-Rank Adaption of Large Language Models was first introduced by Microsoft in [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685) by *Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen*
+In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-decomposition matrices to existing weights and **only** training those newly added weights. This has a couple of advantages:
+- Previous pretrained weights are kept frozen so that the model is not prone to [catastrophic forgetting](https://www.pnas.org/doi/10.1073/pnas.1611835114)
+- Rank-decomposition matrices have significantly fewer parameters than the original model, which means that trained LoRA weights are easily portable.
+- LoRA attention layers allow to control to which extent the model is adapted torwards new training images via a `scale` parameter.""", on_tap_link=lambda e: e.page.launch_url(e.data)),
+            Text("Fine-tune your perameters, but be aware that the training process takes a long time to run, so careful with the settings if you don't have the patience or processor. Dream at your own risk."),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton(emojize(':sun_with_face:') + "  Extra Neat... ", on_click=close_lora_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.overlay.append(lora_help_dlg)
+        lora_help_dlg.open = True
+        page.update()
+    def delete_image(e):
+        f = e.control.data
+        if os.path.isfile(f):
+          os.remove(f)
+          for i, fl in enumerate(page.lora_file_list.controls):
+            if fl.title.value == f:
+              del page.lora_file_list.controls[i]
+              page.lora_file_list.update()
+              continue
+    def delete_all_images(e):
+        for fl in page.lora_file_list.controls:
+          f = fl.title.value
+          if os.path.isfile(f):
+            os.remove(f)
+        page.lora_file_list.controls.clear()
+        page.lora_file_list.update()
+    def image_details(e):
+        img = e.control.data
+        #TODO: Get file size & resolution
+        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=asset_dir(img), gapless_playback=True)]), sound=False)
+    def add_file(fpath, update=True):
+        page.lora_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[#TODO: View Image
+              PopupMenuItem(icon=icons.INFO, text="Image Details", on_click=image_details, data=fpath),
+              PopupMenuItem(icon=icons.DELETE, text="Delete Image", on_click=delete_image, data=fpath),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All", on_click=delete_all_images, data=fpath),
+          ]), subtitle=TextField(label="Caption Image Description", height=55, filled=True, content_padding=padding.only(top=12, left=12)), data=fpath, on_click=image_details))
+        if update: page.lora_file_list.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    save_dir = os.path.join(root_dir, 'my_model')
+    def on_upload_progress(e: FilePickerUploadEvent):
+        if e.progress == 1:
+          save_file(e.file_name)
+    def save_file(file_name):
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if not slash in file_name:
+          fname = os.path.join(root_dir, file_name)
+          fpath = os.path.join(save_dir, file_name)
+        else:
+          fname = file_name
+          fpath = os.path.join(save_dir, file_name.rpartition(slash)[2])
+        original_img = PILImage.open(fname)
+        width, height = original_img.size
+        width, height = scale_dimensions(width, height, flux_LoRA_prefs['resolution'])
+        original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+        original_img.save(fpath)
+        if page.web: os.remove(fname)
+        #shutil.move(fname, fpath)
+        add_file(fpath)
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def pick_path(e):
+        file_picker.pick_files(allow_multiple=True, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Image File to Enlarge")
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                save_file(f.path)
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def add_image(e):
+        save_dir = os.path.join(root_dir, 'my_model')
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if image_path.value.startswith('http'):
+          import requests
+          from io import BytesIO
+          response = requests.get(image_path.value)
+          fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
+          model_image = PILImage.open(BytesIO(response.content)).convert("RGB")
+          width, height = model_image.size
+          width, height = scale_dimensions(width, height, flux_LoRA_prefs['resolution'])
+          model_image = model_image.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+          model_image.save(fpath)
+          add_file(fpath)
+        elif os.path.isfile(image_path.value):
+          fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
+          original_img = PILImage.open(image_path.value)
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, flux_LoRA_prefs['resolution'])
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+          original_img.save(fpath)
+          #shutil.copy(image_path.value, fpath)
+          add_file(fpath)
+        elif os.path.isdir(image_path.value):
+          for f in os.listdir(image_path.value):
+            file_path = os.path.join(image_path.value, f)
+            if os.path.isdir(file_path): continue
+            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+              fpath = os.path.join(save_dir, f)
+              original_img = PILImage.open(file_path)
+              width, height = original_img.size
+              width, height = scale_dimensions(width, height, flux_LoRA_prefs['resolution'])
+              original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+              original_img.save(fpath)
+              #shutil.copy(file_path, fpath)
+              add_file(fpath)
+        else:
+          if bool(image_path.value):
+            alert_msg(page, "Couldn't find a valid File, Path or URL...")
+          else:
+            pick_path(e)
+          return
+        image_path.value = ""
+        image_path.update()
+    def load_images():
+        if os.path.exists(save_dir):
+          for f in os.listdir(save_dir):
+            existing = os.path.join(save_dir, f)
+            if os.path.isdir(existing): continue
+            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+              add_file(existing, update=False)
+    def toggle_save(e):
+        changed(e, 'save_model')
+        where_to_save_model.visible = flux_LoRA_prefs['save_model']
+        where_to_save_model.update()
+        readme_description.visible = flux_LoRA_prefs['save_model']
+        readme_description.update()
+    def toggle_dream(e):
+        changed(e, 'train_text_encoder')
+        #dream_detail_preservation.visible = flux_LoRA_prefs['train_text_encoder']
+        #dream_detail_preservation.update()
+    instance_prompt = TextField(label="Instance Prompt Token Text", value=flux_LoRA_prefs['instance_prompt'], on_change=lambda e:changed(e,'instance_prompt'), col={'md':9})
+    validation_prompt = Container(content=Tooltip(message="A prompt that is sampled during training for inference.", content=TextField(label="Validation Prompt Text", value=flux_LoRA_prefs['validation_prompt'], on_change=lambda e:changed(e,'validation_prompt'))), col={'md':9})
+    name_of_your_model = TextField(label="Name of your Model", value=flux_LoRA_prefs['name_of_your_model'], on_change=lambda e:changed(e,'name_of_your_model'), col={'md':3})
+    #class_prompt = TextField(label="Class Prompt", value=flux_LoRA_prefs['class_prompt'], on_change=lambda e:changed(e,'class_prompt'))
+    #'num_validation_images': 4, #Number of images that should be generated during validation with `validation_prompt`.
+    #'validation_epochs': 1, #Run fine-tuning validation every X epochs. The validation process consists of running the prompt
+    num_validation_images = Tooltip(message="Number of images that should be generated during validation with `validation_prompt`", content=TextField(label="# of Validation Images", value=flux_LoRA_prefs['num_validation_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'num_validation_images', ptype='int'), width = 160))
+    validation_epochs = Tooltip(message="Run fine-tuning validation every X epochs. The validation process consists of running the prompt", content=TextField(label="Validation Epochs", value=flux_LoRA_prefs['validation_epochs'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'validation_epochs', ptype='int'), width = 160))
+    lr_scheduler = Dropdown(label="Learning Rate Scheduler", width=250, options=[dropdown.Option("constant"), dropdown.Option("constant_with_warmup"), dropdown.Option("linear"), dropdown.Option("cosine"), dropdown.Option("cosine_with_restarts"), dropdown.Option("polynomial")], value=flux_LoRA_prefs['lr_scheduler'], on_change=lambda e: changed(e, 'lr_scheduler'))
+    prior_preservation = Checkbox(label="Prior Preservation", tooltip="If you'd like class of the model (e.g.: toy, dog, painting) is guaranteed to be preserved. This increases the quality and helps with generalization at the cost of training time", value=flux_LoRA_prefs['prior_preservation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'prior_preservation'))
+    gradient_checkpointing = Checkbox(label="Gradient Checkpointing   ", tooltip="Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.", value=flux_LoRA_prefs['gradient_checkpointing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'gradient_checkpointing'))
+    train_text_encoder = Switcher(label="Train Text-Encoder", value=flux_LoRA_prefs['train_text_encoder'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_dream, tooltip="Fine-tuning of the **CLIP encoder** is performed. At the moment, T5 fine-tuning is not supported and weights remain frozen when text encoder training is enabled.")
+    guidance_scale = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=flux_LoRA_prefs, key='guidance_scale', expand=True)
+    #dream_detail_preservation = SliderRow(label="DREAM Detail Preservation", min=0, max=2, divisions=40, round=2, pref=flux_LoRA_prefs, key='dream_detail_preservation', tooltip="Controls the Dream detail preservation variable p.", visible=flux_LoRA_prefs['train_text_encoder'])
+    num_class_images = Tooltip(message="Minimal class images for prior preservation loss. If there are not enough images already present in class_data_dir, additional images will be sampled with class_prompt.", content=TextField(label="Number of Class Images", value=flux_LoRA_prefs['num_class_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'num_class_images', ptype='int'), width = 160))
+    #sample_batch_size = Tooltip(message="Batch size (per device) for sampling images.", content=TextField(label="Sample Batch Size", value=flux_LoRA_prefs['sample_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'sample_batch_size', ptype='int'), width = 160))
+    train_batch_size = Tooltip(message="Batch size (per device) for the training dataloader.", content=TextField(label="Train Batch Size", value=flux_LoRA_prefs['train_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'train_batch_size', ptype='int'), width = 160))
+    #prior_loss_weight = Tooltip(message="The weight of prior preservation loss.", content=TextField(label="Prior Loss Weight", value=flux_LoRA_prefs['prior_loss_weight'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'prior_loss_weight', ptype='float'), width = 160))
+    max_train_steps = Tooltip(message="Total number of training steps to perform.  If provided, overrides num_train_epochs.", content=TextField(label="Max Training Steps", value=flux_LoRA_prefs['max_train_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_train_steps', ptype='int'), width = 160))
+    gradient_accumulation_steps = Tooltip(message="Number of updates steps to accumulate before performing a backward/update pass.", content=TextField(label="Gradient Accumulation Steps", value=flux_LoRA_prefs['gradient_accumulation_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'gradient_accumulation_steps', ptype='int'), width = 160))
+    learning_rate = Tooltip(message="Initial learning rate (after the potential warmup period) to use.", content=TextField(label="Learning Rate", value=flux_LoRA_prefs['learning_rate'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160))
+    lr_warmup_steps = Tooltip(message="Number of steps for the warmup in the lr scheduler.", content=TextField(label="LR Warmup Steps", value=flux_LoRA_prefs['lr_warmup_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_warmup_steps', ptype='int'), width = 160))
+    #lr_num_cycles = Tooltip(message="Number of hard resets of the lr in cosine_with_restarts scheduler.", content=TextField(label="LR Number of Cycles", value=flux_LoRA_prefs['lr_num_cycles'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_num_cycles', ptype='int'), width = 160))
+    #lr_power = Tooltip(message="Power factor of the polynomial scheduler.", content=TextField(label="LR Power", value=flux_LoRA_prefs['lr_power'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_power', ptype='int'), width = 160))
+    seed = Tooltip(message="0 or -1 for Random. Pick any number.", content=TextField(label="Seed", value=flux_LoRA_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160))
+    #save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=flux_LoRA_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
+    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switcher(label="Save Model to HuggingFace    ", value=flux_LoRA_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=flux_LoRA_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
+    #class_data_dir = TextField(label="Prior Preservation Class Folder", value=flux_LoRA_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
+    readme_description = TextField(label="Extra README Description", value=flux_LoRA_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=64, suffix="px", pref=flux_LoRA_prefs, key='resolution')
+    image_path = TextField(label="Image File or Folder Path or URL to Train", value=flux_LoRA_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
+    add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
+    page.lora_file_list = Column([], tight=True, spacing=0)
+    load_images()
+    where_to_save_model.visible = flux_LoRA_prefs['save_model']
+    readme_description.visible = flux_LoRA_prefs['save_model']
+    #lambda_entropy = TextField(label="Lambda Entropy", value=dreamfusflux_LoRA_prefsion_prefs['lambda_entropy'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
+    #max_steps = TextField(label="Max Steps", value=flux_LoRA_prefs['max_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
+    page.flux_LoRA_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.flux_LoRA_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🌫️   FLUX.1 DreamBooth Low-Rank Adaptation of Large Language Models (LoRA)", "Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint... Needs A LOT of VRAM.", actions=[save_default(flux_LoRA_prefs, ['image_path', 'urls']), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)]),
+        ResponsiveRow([instance_prompt, name_of_your_model]),
+        validation_prompt,
+        Row([num_validation_images, validation_epochs, train_batch_size]),
+        Row([prior_preservation, gradient_checkpointing]),
+        Row([learning_rate, lr_warmup_steps, lr_scheduler]),
+        Row([max_train_steps, gradient_accumulation_steps, seed]),
+        Row([train_text_encoder, guidance_scale]),
+        Row([save_model, where_to_save_model]),
+        readme_description,
+        #Row([class_data_dir]),
+        max_row,
+        Row([image_path, add_image_button]),
+        page.lora_file_list,
+        Row([ElevatedButton(content=Text("🏄  Run FLUX.1 LoRA Training", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_LoRA(page))]),
+        page.flux_LoRA_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 converter_prefs = {
     'from_format': 'ckpt',
     'to_format': 'pytorch',
@@ -22814,6 +23173,14 @@ def buildCustomModelManager(page):
             token = mod['prefix'] if 'prefix' in mod else ""
             weights = mod['weights'] if 'weights' in mod else ""
             custom_SDXL_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], token, "SDXL LoRA", weights=weights))
+        for mod in prefs['custom_SD3_LoRA_models']:
+            token = mod['prefix'] if 'prefix' in mod else ""
+            weights = mod['weights'] if 'weights' in mod else ""
+            custom_SD3_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], token, "SD3 LoRA", weights=weights))
+        for mod in prefs['custom_Flux_LoRA_models']:
+            token = mod['prefix'] if 'prefix' in mod else ""
+            weights = mod['weights'] if 'weights' in mod else ""
+            custom_Flux_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], token, "FLUX LoRA", weights=weights))
         for mod in prefs['custom_CivitAI_LoRA_models']:
             token = mod['inject_trigger'] if 'inject_trigger' in mod else ""
             clip = mod['clip'] if 'clip' in mod else 1
@@ -22833,6 +23200,10 @@ def buildCustomModelManager(page):
             return prefs["custom_LoRA_models"]
         elif type == "SDXL LoRA":
             return prefs["custom_SDXL_LoRA_models"]
+        elif type == "SD3 LoRA":
+            return prefs["custom_SD3_LoRA_models"]
+        elif type == "FLUX LoRA":
+            return prefs["custom_Flux_LoRA_models"]
         elif type == "CivitAI LoRA":
             return prefs["custom_CivitAI_LoRA_models"]
         elif type == "DanceDiffusion":
@@ -22876,6 +23247,20 @@ def buildCustomModelManager(page):
                         m.update()
             elif type == "SDXL LoRA":
                 for m in custom_SDXL_LoRA_models.controls:
+                    if m.title.controls[0].value == name:
+                        m.title.controls[0].value = model_name.value
+                        m.title.controls[1].value = model_path.value
+                        m.title.controls[2].value = model_weights.value
+                        m.update()
+            elif type == "SD3 LoRA":
+                for m in custom_SD3_LoRA_models.controls:
+                    if m.title.controls[0].value == name:
+                        m.title.controls[0].value = model_name.value
+                        m.title.controls[1].value = model_path.value
+                        m.title.controls[2].value = model_weights.value
+                        m.update()
+            elif type == "FLUX LoRA":
+                for m in custom_Flux_LoRA_models.controls:
                     if m.title.controls[0].value == name:
                         m.title.controls[0].value = model_name.value
                         m.title.controls[1].value = model_path.value
@@ -22942,6 +23327,14 @@ def buildCustomModelManager(page):
                 weights = mod['weights'] if 'weights' in mod else ""
                 custom_SDXL_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], "", "SDXL LoRA", weights=weights))
                 custom_SDXL_LoRA_models.update()
+            elif type == "SD3 LoRA":
+                weights = mod['weights'] if 'weights' in mod else ""
+                custom_SD3_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], "", "SD3 LoRA", weights=weights))
+                custom_SD3_LoRA_models.update()
+            elif type == "FLUX LoRA":
+                weights = mod['weights'] if 'weights' in mod else ""
+                custom_Flux_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], "", "FLUX LoRA", weights=weights))
+                custom_Flux_LoRA_models.update()
             elif type == "CivitAI LoRA":
                 weights = mod['clip'] if 'clip' in mod else "1"
                 custom_CivitAI_LoRA_models.controls.append(model_tile(mod['name'], mod['model'], "", "CivitAI LoRA", weights="Clip: "+weights))
@@ -22992,6 +23385,18 @@ def buildCustomModelManager(page):
                     del custom_SDXL_LoRA_models.controls[i]
                     custom_SDXL_LoRA_models.update()
                     break
+        elif type == "SD3 LoRA":
+            for i, l in enumerate(custom_SD3_LoRA_models.controls):
+                if l.title.controls[0].value == name:
+                    del custom_SD3_LoRA_models.controls[i]
+                    custom_SD3_LoRA_models.update()
+                    break
+        elif type == "FLUX LoRA":
+            for i, l in enumerate(custom_Flux_LoRA_models.controls):
+                if l.title.controls[0].value == name:
+                    del custom_Flux_LoRA_models.controls[i]
+                    custom_Flux_LoRA_models.update()
+                    break
         elif type == "CivitAI LoRA":
             for i, l in enumerate(custom_CivitAI_LoRA_models.controls):
                 if l.title.controls[0].value == name:
@@ -23035,6 +23440,23 @@ def buildCustomModelManager(page):
         page.SDXL_LoRA_model.options.append(dropdown.Option("Custom SDXL LoRA Path"))
         try: page.SDXL_LoRA_model.update()
         except: pass
+        
+        page.SD3_LoRA_model.options.clear()
+        for cust in model_list("SD3 LoRA"):
+            page.SD3_LoRA_model.options.append(dropdown.Option(cust["name"]))
+        for mod in SD3_LoRA_models:
+            page.SD3_LoRA_model.options.append(dropdown.Option(mod["name"]))
+        page.SD3_LoRA_model.options.append(dropdown.Option("Custom SD3 LoRA Path"))
+        try: page.SD3_LoRA_model.update()
+        except: pass
+        page.Flux_LoRA_model.options.clear()
+        for cust in model_list("FLUX LoRA"):
+            page.Flux_LoRA_model.options.append(dropdown.Option(cust["name"]))
+        for mod in Flux_LoRA_models:
+            page.Flux_LoRA_model.options.append(dropdown.Option(mod["name"]))
+        page.Flux_LoRA_model.options.append(dropdown.Option("Custom FLUX LoRA Path"))
+        try: page.Flux_LoRA_model.update()
+        except: pass
         page.AIHorde_lora_layer.options.clear()
         page.AIHorde_lora_layer.options.append(dropdown.Option("Custom"))
         for cust in model_list("CivitAI LoRA"):
@@ -23063,6 +23485,8 @@ def buildCustomModelManager(page):
     custom_models = Column([], spacing=0)
     custom_LoRA_models = Column([], spacing=0)
     custom_SDXL_LoRA_models = Column([], spacing=0)
+    custom_SD3_LoRA_models = Column([], spacing=0)
+    custom_Flux_LoRA_models = Column([], spacing=0)
     custom_CivitAI_LoRA_models = Column([], spacing=0)
     custom_dance_diffusion_models = Column([], spacing=0)
     tortoise_custom_voices = Column([], spacing=0)
@@ -23077,6 +23501,10 @@ def buildCustomModelManager(page):
         custom_LoRA_models,
         title_header("Custom SDXL LoRA Models", "SDXL LoRA"),
         custom_SDXL_LoRA_models,
+        title_header("Custom SD3 LoRA Models", "SD3 LoRA"),
+        custom_SD3_LoRA_models,
+        title_header("Custom FLUX LoRA Models", "Flux LoRA"),
+        custom_Flux_LoRA_models,
         title_header("Custom CivitAI LoRA Models", "CivitAI LoRA"),
         custom_CivitAI_LoRA_models,
         title_header("Custom Tortoise Voice Models", "Tortoise"),
@@ -23428,7 +23856,28 @@ def get_SD3_model(name):
       if mod['name'] == name:
         extra = {key: mod.get(key) for key in ['variant', 'revision', 'vae'] if key in mod}
         return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'] if 'prefix' in mod else '', 'use_safetensors': safetensors, **extra}
-
+def get_SD3_LoRA_model(name):
+  if name == "Custom SD3 LoRA Path":
+      return {'name':"Custom SD3 LoRA Model", 'path':prefs['custom_SD3_LoRA_model'], 'weights':None}
+  for mod in SD3_LoRA_models:
+      if mod['name'] == name:
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' not in mod else mod['weights']}
+  if len(prefs['custom_SD3_LoRA_models']) > 0:
+    for mod in prefs['custom_SD3_LoRA_models']:
+      if mod['name'] == name:
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' not in mod else mod['weights']}
+  return {'name':'', 'path':''}
+def get_Flux_LoRA_model(name):
+  if name == "Custom FLUX LoRA Path":
+      return {'name':"Custom FLUX LoRA Model", 'path':prefs['custom_Flux_LoRA_model'], 'weights':None}
+  for mod in Flux_LoRA_models:
+      if mod['name'] == name:
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' not in mod else mod['weights']}
+  if len(prefs['custom_Flux_LoRA_models']) > 0:
+    for mod in prefs['custom_Flux_LoRA_models']:
+      if mod['name'] == name:
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' not in mod else mod['weights']}
+  return {'name':'', 'path':''}
 def get_seed(seed, min=0, max=4294967295):
     return int(seed) if int(seed) > 0 else rnd.randint(min, max)
 
@@ -27142,10 +27591,10 @@ def start_diffusion(page):
             if 'LCM' in l['name']:
               lcm_lora = True
           if 'prefix' in l:
-           if bool(l['prefix']):
-              prefix += l['prefix']
-              if prefix[-1] != ' ':
-                prefix += ' '
+            if bool(l['prefix']):
+                prefix += l['prefix']
+                if prefix[-1] != ' ':
+                  prefix += ' '
         #lora = get_SDXL_LoRA_model(prefs['SDXL_LoRA_model'])
       #TODO: Add SD3 LoRA
       else:
@@ -27154,10 +27603,10 @@ def start_diffusion(page):
             if 'LCM' in l['name']:
               lcm_lora = True
           if 'prefix' in l:
-           if bool(l['prefix']):
-              prefix += l['prefix']
-              if prefix[-1] != ' ':
-                prefix += ' '
+            if bool(l['prefix']):
+                prefix += l['prefix']
+                if prefix[-1] != ' ':
+                  prefix += ' '
         #lora = get_LoRA_model(prefs['LoRA_model'])
     ip_adapter_arg = {}
     if prefs['use_ip_adapter']:
@@ -27197,6 +27646,7 @@ def start_diffusion(page):
         pr = [pr] * arg['batch_size']
         #if bool(arg['negative_prompt']):
         arg['negative_prompt'] = [arg['negative_prompt']] * arg['batch_size']
+      #for scheduler in [pref['scheduler']] if not pref['multi_schedulers'] else schedulers:
       if last_seed != arg['seed']:
         if arg['seed'] < 1 or arg['seed'] is None:
           rand_seed = random.randint(0,2147483647)
@@ -28132,10 +28582,10 @@ def start_diffusion(page):
                 if prefs['SD3_compel']:
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly")
-                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength= 1 - arg['init_image_strength'], output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength= 1 - arg['init_image_strength'], output_type="pil", num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
                   del pooled, negative_pooled
                 else:
-                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", image=init_img, strength= 1 - arg['init_image_strength'], output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", image=init_img, strength= 1 - arg['init_image_strength'], output_type="pil", num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
                 flush()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Image-to-Image"
@@ -36509,6 +36959,253 @@ Images used for training this model:
       prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.\n[Click here to access it](https://huggingface.co/{repo_id}). Use it in _Parameters->Use LaRA Model_ dropdown on top of any other Model loaded.", on_tap_link=lambda e: e.page.launch_url(e.data)))
     play_snd(Snd.ALERT, page)
 
+def run_flux_LoRA(page):
+    global flux_LoRA_prefs, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.flux_LoRA_output.controls.append(line)
+      page.flux_LoRA_output.update()
+    def clear_last(lines=1):
+      clear_line(page.flux_LoRA_output, lines=lines)
+    if not check_diffusers(page): return
+    save_path = os.path.join(root_dir, "my_model")
+    error = False
+    if not os.path.exists(save_path):
+      error = True
+    elif len(os.listdir(save_path)) == 0:
+      error = True
+    if len(page.lora_file_list.controls) == 0:
+      error = True
+    if error:
+      alert_msg(page, "Couldn't find a list of images to train model. Add image files to the list...")
+      return
+    page.flux_LoRA_output.controls.clear()
+    page.flux_LoRA_output.update()
+    installer = Installing("Downloading LoRA Conceptualizers")
+    prt(installer)
+    diffusers_dir = os.path.join(root_dir, "diffusers")
+    if not os.path.exists(diffusers_dir):
+      os.chdir(root_dir)
+      installer.status("...clone Skquar/diffusers")
+      force_update("diffusers_clone")
+      run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
+    elif force_update("diffusers_clone"):
+      installer.status("...updating Skquark/diffusers")
+      run_sp("git pull origin main", cwd=diffusers_dir)
+    run_process('pip install git+https://github.com/Skquark/diffusers.git#egg=diffusers[training]', cwd=root_dir, realtime=False)
+    os.chdir(diffusers_dir)
+    installer.status("...install training")
+    run_sp('pip install -e ".[training]"', cwd=diffusers_dir, realtime=False)
+    #LoRA_dir = os.path.join(diffusers_dir, "examples", "dreambooth")
+    LoRA_dir = os.path.join(diffusers_dir, "examples", "text_to_image")
+    os.chdir(LoRA_dir)
+    installer.status("...installing requirements")
+    run_sp("pip install -r requirements.txt", cwd=LoRA_dir, realtime=False)
+    pip_install("bitsandbytes ftfy tensorboard Jinja2 peft>=0.11.1 sentencepiece", installer=installer)
+    installer.status("...accelerate config")
+    run_sp("accelerate config default", realtime=False)
+    #from accelerate.utils import write_basic_config
+    #write_basic_config()
+    import argparse
+    from io import BytesIO
+    from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
+    from huggingface_hub import Repository, create_repo, whoami
+    #from diffusers import StableDiffusionPipeline
+    api = HfApi()
+    your_username = api.whoami()["name"]
+    hf_token = prefs['HuggingFace_api_key']
+    metadata_jsonl = []
+    for fl in page.lora_file_list.controls:
+        f = fl.title.value
+        fn = f.rpartition(slash)[2]
+        text = fl.subtitle.value
+        metadata_jsonl.append({'image':fn, 'text':text})
+    with open(os.path.join(save_path, "metadata.jsonl"), "w") as f:
+        for meta in metadata_jsonl:
+          print(json.dumps(meta), file=f)
+        #json.dump(metadata_jsonl, f, ensure_ascii=False, indent=4)
+    clear_pipes()
+    clear_last()
+    #num_new_images = None
+    model_path = "black-forest-labs/FLUX.1-dev"
+    random_seed = get_seed(flux_LoRA_prefs['seed'])
+    name_of_your_model = flux_LoRA_prefs['name_of_your_model']
+    repo_id = f"{your_username}/{format_filename(name_of_your_model, use_dash=True)}"
+    instance_prompt = flux_LoRA_prefs['instance_prompt'].strip()
+    from argparse import Namespace
+    #--lr_num_cycles=1 --lr_power=1 --prior_loss_weight=1.0 --sample_batch_size=4 --num_class_images=100
+    LoRA_args = Namespace(
+        pretrained_model_name_or_path=model_path,
+        #dataset_name=repo_id,
+        #train_data_dir=save_path,
+        resolution=flux_LoRA_prefs['resolution'],
+        center_crop=True,
+        image_column="image",
+        caption_column="text",
+        instance_prompt=instance_prompt,
+        instance_data_dir=save_path,
+        validation_prompt=flux_LoRA_prefs['validation_prompt'].strip(),
+        num_validation_images = flux_LoRA_prefs['num_validation_images'],
+        validation_epochs=flux_LoRA_prefs['validation_epochs'],
+        learning_rate=flux_LoRA_prefs['learning_rate'],#5e-06,'
+        lr_scheduler=flux_LoRA_prefs['lr_scheduler'],
+        lr_warmup_steps=flux_LoRA_prefs['lr_warmup_steps'],
+        #lr_num_cycles=flux_LoRA_prefs['lr_num_cycles'],
+        #lr_power=flux_LoRA_prefs['lr_power'],
+        scale_lr=flux_LoRA_prefs['scale_lr'],
+        max_train_steps=flux_LoRA_prefs['max_train_steps'],#450,
+        train_batch_size=flux_LoRA_prefs['train_batch_size'],
+        checkpointing_steps=flux_LoRA_prefs['checkpointing_steps'],
+        gradient_accumulation_steps=flux_LoRA_prefs['gradient_accumulation_steps'],
+        guidance_scale=flux_LoRA_prefs['guidance_scale'],
+        max_grad_norm=1.0,
+        mixed_precision="bf16", # set to "fp16" for mixed-precision training.
+        gradient_checkpointing=flux_LoRA_prefs['gradient_checkpointing'], # set this to True to lower the memory usage.
+        use_8bit_adam=not prefs['higher_vram_mode'], # use 8bit optimizer from bitsandbytes
+        #enable_xformers_memory_efficient_attention = status['installed_xformers'],
+        seed=random_seed,
+        with_prior_preservation=flux_LoRA_prefs['prior_preservation'],
+        #prior_loss_weight=flux_LoRA_prefs['prior_loss_weight'],
+        #sample_batch_size=flux_LoRA_prefs['sample_batch_size'],
+        rank=4,#LoRA_dreambooth_prefs['rank'],
+        #class_data_dir=flux_LoRA_prefs['class_data_dir'],
+        #class_prompt=flux_LoRA_prefs['class_prompt'],
+        num_class_images=flux_LoRA_prefs['num_class_images'],
+        train_text_encoder=flux_LoRA_prefs['train_text_encoder'],
+        #dream_detail_preservation=flux_LoRA_prefs['dream_detail_preservation'],
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        hub_model_id=repo_id,
+        output_dir=os.path.join(root_dir, "LoRA-model", format_filename(flux_LoRA_prefs['name_of_your_model'], use_dash=True)),
+    )
+    output_dir = LoRA_args.output_dir
+    if not os.path.exists(os.path.join(root_dir, "LoRA-model")): os.makedirs(os.path.join(root_dir, "LoRA-model"))
+    arg_str = 'accelerate launch train_dreambooth_lora_flux.py'
+    for k, v in vars(LoRA_args).items():
+      if isinstance(v, str):
+        if ' ' in v:
+          v = f'"{v}"'
+      if isinstance(v, bool) or v == None:
+        if bool(v):
+          arg_str += f" --{k}"
+      else:
+        arg_str += f" --{k}={v}"
+    prt(Text("*** Running training ***", weight=FontWeight.BOLD))
+    #if num_new_images != None: prt(f"  Number of class images to sample: {num_new_images}.")
+    #prt(f"  Instantaneous batch size per device = {LoRA_args.train_batch_size}")
+    #prt(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
+    #prt(f"  Gradient Accumulation steps = {LoRA_args.gradient_accumulation_steps}")
+    #prt(f"  Total optimization steps = {LoRA_args.max_train_steps}")
+    prt(arg_str)
+    progress = ProgressBar(bar_height=8)
+    prt(progress)
+    if(flux_LoRA_prefs['save_model']):
+      private = False if flux_LoRA_prefs['where_to_save_model'] == "Public HuggingFace" else True
+      output_dir = LoRA_args.output_dir
+      if(not prefs['HuggingFace_api_key']):
+        with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
+      else:
+        hf_token = prefs['HuggingFace_api_key']
+      try:
+        create_repo(repo_id, private=private, exist_ok=True, token=hf_token)
+        repo = Repository(output_dir, clone_from=repo_id, token=hf_token)
+      except Exception as e:
+        alert_msg(page, f"ERROR Creating repo {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+        return
+    else:
+      if not os.path.exists(output_dir): os.makedirs(output_dir, exist_ok=True)
+
+    try:
+      #run_sp("accelerate " + arg_str, cwd=LoRA_dir, realtime=True)
+      #run_sp(arg_str, cwd=LoRA_dir)
+      #%cd $LoRA_dir # type: ignore
+      #!accelerate $arg_str # type: ignore
+      os.chdir(LoRA_dir)
+      os.system("accelerate" + arg_str)
+    except Exception as e:
+      clear_last()
+      alert_msg(page, f"ERROR: Out of Memory (or something else). Try reducing parameters and try again...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+      with torch.no_grad():
+        torch.cuda.empty_cache()
+      return
+    clear_last()
+    if(flux_LoRA_prefs['save_model']):
+      model_images = os.path.join(output_dir, 'model_images')
+      if not os.path.exists(model_images): os.makedirs(model_images, exist_ok=True)
+      images_upload = os.listdir(save_path)
+      image_string = ""
+      #repo_id = f"sd-LoRA-library/{slugify(name_of_your_model)}"
+      for i, image in enumerate(images_upload):
+          if image.endswith("jsonl"): continue
+          img_name = f"image_{i}.png"
+          shutil.copy(os.path.join(save_path, image), os.path.join(model_images, image))
+          #image.save(os.path.join(repo_folder, f"image_{i}.png"))
+          #img_str += f"![img_{i}](./image_{i}.png)\n"
+          image_string = f'''{image_string}![img_{i}-{image}](https://huggingface.co/{repo_id}/resolve/main/model_images/{image})
+'''
+      shutil.copy(os.path.join(save_path, "metadata.jsonl"), os.path.join(model_images, "metadata.jsonl"))
+      description = flux_LoRA_prefs['readme_description']
+      if bool(description.strip()):
+        description = flux_LoRA_prefs['readme_description'] + '\n\n'
+      yaml = f"""
+---
+license: other
+base_model: {model_path}
+prompt: {instance_prompt}
+model_description: {description}
+tags:
+- text-to-image
+- diffusers
+- diffusers-training
+- stable-diffusion-deluxe
+- lora
+- flux
+- flux-diffusers
+- template:sd-lora
+from_training: true
+---
+      """
+      model_card = f"""
+# FLUX LoRA Model - {name_of_your_model}
+### {name_of_your_model} on FLUX.1-Dev model via LoRA Dreambooth using [Diffusion Deluxe](https://DiffusionDeluxe.com).\n
+### These are {repo_id} DreamBooth LoRA weights for {model_path}.\n
+#### Model by {your_username}\n
+## Trigger words
+
+You should use `{instance_prompt}` to trigger the image generation.
+{description}The weights were trained using [DreamBooth](https://dreambooth.github.io/) with the [Flux diffusers trainer](https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/README_flux.md).
+It can be used by modifying the `validation_prompt`: **{flux_LoRA_prefs['validation_prompt']}**
+
+Images used for training this model:
+{image_string}
+"""
+      readme_file = open(os.path.join(output_dir, "README.md"), "w")
+      readme_file.write(yaml + model_card)#(readme_text)
+      readme_file.close()
+      print(repo_id)
+      print(model_card)
+
+      with open(os.path.join(output_dir, ".gitignore"), "w+") as gitignore:
+        if "step_*" not in gitignore:
+            gitignore.write("step_*\n")
+        if "epoch_*" not in gitignore:
+            gitignore.write("epoch_*\n")
+      try:
+        repo.push_to_hub(commit_message=f"Upload the LoRA model {name_of_your_model} embeds and weights", blocking=False, auto_lfs_prune=True)
+      except Exception as e:
+        alert_msg(page, f"ERROR Pushing {name_of_your_model} Repository {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+        return
+      #api.create_commit(repo_id=repo_id, operations=operations, commit_message=f"Upload the model {name_of_your_model} embeds and token",token=hf_token)
+      #api.upload_folder(folder_path="fp16_model", path_in_repo="", repo_id=repo_id,token=hf_token)
+      #prefs['LoRA_model'] = name_of_your_model
+      prefs['custom_Flux_LoRA_models'].append({'name': name_of_your_model, 'path':repo_id})
+      page.Flux_LoRA_model.options.insert(0, dropdown.Option(name_of_your_model))
+      page.Flux_LoRA_model.value = name_of_your_model
+      page.Flux_LoRA_model.update()
+      save_settings_file(page)
+      prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.\n[Click here to access it](https://huggingface.co/{repo_id}). Use it in _Imaage AIs->FLUX.1->LoRA Model->Custom_ dropdown on top of any other Model loaded.", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    play_snd(Snd.ALERT, page)
+
 
 def run_converter(page):
     global converter_prefs, prefs
@@ -40950,17 +41647,21 @@ def run_controlnet(page, from_list=False):
             for c in controlnet_prefs['multi_controlnets']:
                 original_img.append(prep_image(c['control_task'], c['original_image']))
                 if controlnet_prefs['show_processed_image']:
+                    clear_last()
                     processed_img = available_file(batch_output, f"{filename}-{c['control_task'].partition(' ')[0]}", 0, no_num=True)
                     w, h = original_img[-1].size
                     original_img[-1].save(processed_img)
                     prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(progress)
         elif not controlnet_prefs['use_init_video']:
             original_img = prep_image(controlnet_prefs['control_task'], pr['original_image'])
             if controlnet_prefs['show_processed_image']:
+                clear_last()
                 processed_img = available_file(batch_output, f"{filename}-{controlnet_prefs['control_task'].partition(' ')[0]}", 0, no_num=True)
                 w, h = original_img.size
                 original_img.save(processed_img)
                 prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(progress)
         else:
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
@@ -41011,9 +41712,6 @@ def run_controlnet(page, from_list=False):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             new_file = available_file(batch_output, fname, num)
-            if not controlnet_prefs['display_upscaled_image'] or not controlnet_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
-                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if controlnet_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=controlnet_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNet)
                 image_path = upscaled_path
@@ -41049,7 +41747,10 @@ def run_controlnet(page, from_list=False):
                 #new_file = available_file(output_path, fname, num)
                 #out_path = new_file
                 shutil.copy(image_path, new_file)
-            if controlnet_prefs['display_upscaled_image']:
+            if not controlnet_prefs['display_upscaled_image'] or not controlnet_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            elif controlnet_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=new_file, data=new_file, width=width * float(controlnet_prefs["enlarge_scale"]), height=height * float(controlnet_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -41600,17 +42301,21 @@ def run_controlnet_xl(page, from_list=False):
             for c in controlnet_xl_prefs['multi_controlnets']:
                 original_img.append(prep_image(c['control_task'], c['original_image']))
                 if controlnet_xl_prefs['show_processed_image']:
+                    clear_last()
                     processed_img = available_file(batch_output, f"{filename}-{c['control_task'].partition(' ')[0]}", 0, no_num=True)
                     w, h = original_img[-1].size
                     original_img[-1].save(processed_img)
                     prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(progress)
         elif not controlnet_xl_prefs['use_init_video']:
             original_img = prep_image(controlnet_xl_prefs['control_task'], pr['original_image'])
             if controlnet_xl_prefs['show_processed_image']:
+                clear_last()
                 processed_img = available_file(batch_output, f"{filename}-{controlnet_xl_prefs['control_task'].partition(' ')[0]}", 0, no_num=True)
                 w, h = original_img.size
                 original_img.save(processed_img)
                 prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(progress)
         else:
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
@@ -41657,9 +42362,6 @@ def run_controlnet_xl(page, from_list=False):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             new_file = available_file(batch_output, fname, num)
-            if not controlnet_xl_prefs['display_upscaled_image'] or not controlnet_xl_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
-                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if controlnet_xl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=controlnet_xl_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNetXL)
                 image_path = upscaled_path
@@ -41695,7 +42397,10 @@ def run_controlnet_xl(page, from_list=False):
                 #new_file = available_file(output_path, fname, num)
                 #out_path = new_file
                 shutil.copy(image_path, new_file)
-            if controlnet_xl_prefs['display_upscaled_image']:
+            if not controlnet_xl_prefs['display_upscaled_image'] or not controlnet_xl_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            elif controlnet_xl_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=new_file, data=new_file, width=width * float(controlnet_xl_prefs["enlarge_scale"]), height=height * float(controlnet_xl_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -42213,15 +42918,19 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
             for c in controlnet_sd3_prefs['multi_controlnets']:
                 original_img.append(prep_image(c['control_task'], c['original_image']))
                 if controlnet_sd3_prefs['show_processed_image']:
+                    clear_last()
                     w, h = original_img[-1].size
                     src_base64 = pil_to_base64(original_img[-1])
                     prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(progress)
         elif not controlnet_sd3_prefs['use_init_video']:
             original_img = prep_image(controlnet_sd3_prefs['control_task'], pr['original_image'])
             if controlnet_sd3_prefs['show_processed_image']:
+                clear_last()
                 w, h = original_img.size
                 src_base64 = pil_to_base64(original_img)
                 prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(progress)
         else:
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
@@ -42267,9 +42976,7 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             new_file = available_file(batch_output, fname, num)
-            if not controlnet_sd3_prefs['display_upscaled_image'] or not controlnet_sd3_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
-                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            
             if controlnet_sd3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=controlnet_sd3_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNetSD3)
                 image_path = upscaled_path
@@ -42305,7 +43012,10 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
                 #new_file = available_file(output_path, fname, num)
                 #out_path = new_file
                 shutil.copy(image_path, new_file)
-            if controlnet_sd3_prefs['display_upscaled_image']:
+            if not controlnet_sd3_prefs['display_upscaled_image'] or not controlnet_sd3_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            elif controlnet_sd3_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=new_file, data=new_file, width=width * float(controlnet_sd3_prefs["enlarge_scale"]), height=height * float(controlnet_sd3_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -42730,21 +43440,24 @@ def run_controlnet_xs(page, from_list=False):
             for c in controlnet_xs_prefs['multi_controlnets']:
                 original_img.append(prep_image(c['control_task'], c['original_image']))
                 if controlnet_xs_prefs['show_processed_image']:
+                    clear_last()
                     processed_img = available_file(batch_output, f"{filename}-{c['control_task'].partition(' ')[0]}", 0, no_num=True)
                     w, h = original_img[-1].size
                     original_img[-1].save(processed_img)
                     prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(progress)
         elif not controlnet_xs_prefs['use_init_video']:
             original_img = prep_image(controlnet_xs_prefs['control_task'], pr['original_image'])
             if controlnet_xs_prefs['show_processed_image']:
+                clear_last()
                 processed_img = available_file(batch_output, f"{filename}-{controlnet_xs_prefs['control_task'].partition(' ')[0]}", 0, no_num=True)
                 w, h = original_img.size
                 original_img.save(processed_img)
                 prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(progress)
         else:
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
-   
         try:
             random_seed = get_seed(pr['seed'])
             generator = torch.Generator(device="cpu").manual_seed(random_seed)
@@ -42788,9 +43501,6 @@ def run_controlnet_xs(page, from_list=False):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             new_file = available_file(batch_output, fname, num)
-            if not controlnet_xs_prefs['display_upscaled_image'] or not controlnet_xs_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
-                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if controlnet_xs_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=controlnet_xs_prefs["enlarge_scale"], column=page.imageColumn if from_list else page.ControlNetXS)
                 image_path = upscaled_path
@@ -42826,7 +43536,10 @@ def run_controlnet_xs(page, from_list=False):
                 #new_file = available_file(output_path, fname, num)
                 #out_path = new_file
                 shutil.copy(image_path, new_file)
-            if controlnet_xs_prefs['display_upscaled_image']:
+            if not controlnet_xs_prefs['display_upscaled_image'] or not controlnet_xs_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            elif controlnet_xs_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=new_file, data=new_file, width=width * float(controlnet_xs_prefs["enlarge_scale"]), height=height * float(controlnet_xs_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -45078,15 +45791,19 @@ def run_hunyuan(page, from_list=False, with_params=False):
                 for c in hunyuan_dit_prefs['multi_controlnets']:
                     original_img.append(prep_image(c['control_task'], c['original_image']))
                     if hunyuan_dit_prefs['show_processed_image']:
+                        clear_last()
                         w, h = original_img[-1].size
                         src_base64 = pil_to_base64(original_img[-1])
                         prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                        prt(progress)
             else:
                 original_img = prep_image(hunyuan_dit_prefs['control_task'], hunyuan_dit_prefs['original_image'])
                 if hunyuan_dit_prefs['show_processed_image']:
+                    clear_last()
                     w, h = original_img.size
                     src_base64 = pil_to_base64(original_img)
                     prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(progress)
             control_args = {'control_image': original_img, 'controlnet_conditioning_scale': conditioning_scale}
         total_steps = pr['steps']
         random_seed = get_seed(pr['seed'])
@@ -45549,9 +46266,9 @@ def run_flux(page, from_list=False, with_params=False):
                 else:'''
                 pipe_flux.enable_model_cpu_offload()
                 if prefs['vae_slicing']:
-                    pipe_flux.vae.enable_slicing()
+                    pipe_flux.vae.enable_slicing()#enable_vae_slicing()
                 if prefs['vae_tiling']:
-                    pipe_flux.vae.enable_tiling()
+                    pipe_flux.vae.enable_tiling()#enable_vae_tiling()
             else:
                 if mode == "Inpaint":
                     from diffusers import FluxInpaintPipeline
@@ -45599,6 +46316,7 @@ def run_flux(page, from_list=False, with_params=False):
         pipe_flux = get_flux_pipe(mode)
         if pipe_flux == None:
             return
+    prefix = ""
     if len(flux_prefs['lora_map']) > 0:
         adapters = []
         scales = []
@@ -45612,6 +46330,11 @@ def run_flux(page, from_list=False, with_params=False):
                     weight_args['weight_name'] = l['weights']
                 if 'subfolder' in l and bool(l['subfolder']):
                     weight_args['subfolder'] = l['subfolder']
+                if 'prefix' in l:
+                    if bool(l['prefix']):
+                        prefix += l['prefix']
+                        if prefix[-1] != ' ':
+                            prefix += ' '
                 pipe_flux.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
             installer.status(f"...fusing LoRAs")
             pipe_flux.fuse_lora(adapter_names=adapters, lora_scale=scales[0])
@@ -45619,6 +46342,7 @@ def run_flux(page, from_list=False, with_params=False):
             print(f"Error loading LoRAs: {e}")
             pass
     clear_last()
+    from PIL import ImageOps
     n = 0
     for pr in flux_prompts:
         init_img = None
@@ -45671,7 +46395,7 @@ def run_flux(page, from_list=False, with_params=False):
             i_num = f"{i+1} of {pr['num_images']} - " if pr['num_images'] > 1 else ""
             total_steps = pr['steps'] if not schnell and not flux_prefs['flux_model'] == "FLUX.1-merged" else flux_prefs['lightning_steps']
             #prt(f"{f'[{n + 1}/{len(flux_prompts)}]  ' if from_list else ''}{i_num}{pr['prompt']}")
-            pb = Progress(f"{f'[{n + 1}/{len(flux_prompts)}]  ' if from_list else ''}{i_num}{pr['prompt']}", total_steps, abort=True, page=page)
+            pb = Progress(f"{f'[{n + 1}/{len(flux_prompts)}]  ' if from_list else ''}{i_num}{prefix}{pr['prompt']}", total_steps, abort=True, page=page)
             prt(pb)
             #progress.value = None
             #prt(progress)
@@ -45681,7 +46405,7 @@ def run_flux(page, from_list=False, with_params=False):
             generator = torch.Generator(device="cpu").manual_seed(random_seed)
             try:
                 images = pipe_flux(
-                    prompt=pr['prompt'],
+                    prompt=prefix+pr['prompt'],
                     #negative_prompt=pr['negative_prompt'],
                     num_images_per_prompt=pr['batch_size'],
                     width=pr['width'],
@@ -46380,6 +47104,7 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
                     installer.status(f"...loading Flux ControlNet Pipeline")
                     pipe_controlnet = FluxControlNetPipeline(
                         scheduler=scheduler,
+                        controlnet=controlnet,
                         text_encoder=text_encoder,
                         tokenizer=tokenizer,
                         text_encoder_2=None,
@@ -46771,8 +47496,8 @@ def run_kolors(page, from_list=False, with_params=False):
                     width=pr['width'],
                     num_inference_steps=pr['num_inference_steps'],
                     guidance_scale=pr['guidance_scale'],
-                    init_image=init_img,
-                    init_image_strength=pr['init_image_strength'],
+                    image=init_img,
+                    strength=pr['init_image_strength'],
                     **ip_adapter_arg,
                     generator=generator,
                     callback_on_step_end=callback_fnc,
@@ -50910,6 +51635,7 @@ def run_hallo(page):
             installer.status("...cloning fudan-generative-vision/hallo")
             run_process("git clone https://github.com/fudan-generative-vision/hallo.git", cwd=root_dir)
             installer.status("...installing requirements")
+            force_update("hallo")
             #run_process("pip install -r requirements.txt", cwd=hallo_dir)
             pip_install("audio-separator==0.17.2 av==12.1.0 bitsandbytes decord==0.6.0 einops==0.8.0 insightface==0.7.3 librosa==0.10.2.post1 mediapipe[vision]|mediapipe mlflow==2.13.1 moviepy numpy omegaconf onnx2torch==1.5.14 onnx onnxruntime-gpu==1.18.0 opencv-contrib-python==4.9.0.80 opencv-python-headless==4.9.0.80 opencv-python==4.9.0.80 pillow setuptools tqdm xformers==0.0.25.post1 isort pylint==3.2.2 pre-commit==3.7.1 gradio", installer=installer)
             install_ffmpeg(installer)
