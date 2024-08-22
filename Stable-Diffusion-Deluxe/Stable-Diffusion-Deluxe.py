@@ -284,6 +284,7 @@ def load_settings_file():
       'Anthropic_api_key': "",
       'TextSynth_api_key': "",
       'Replicate_api_key': "",
+      'Ideogram_api_key': "",
       'AIHorde_api_key': "0000000000",
       'Perplexity_api_key': "",
       'luma_api_key': "",
@@ -833,6 +834,7 @@ def buildImageAIs(page):
     page.DallE = buildDallE3(page)
     page.DallE2 = buildDallE2(page)
     #page.DallE3 = buildDallE3(page)
+    page.Ideogram = buildIdeogram(page)
     page.Kandinsky = buildKandinsky3(page) if status['kandinsky_version'] == "Kandinsky 3.0" else buildKandinsky(page)
     page.KandinskyFuse = buildKandinskyFuse(page) if status['kandinsky_fuse_2_2'] else buildKandinsky21Fuse(page)
     page.KandinskyControlNet = buildKandinskyControlNet(page)
@@ -853,6 +855,7 @@ def buildImageAIs(page):
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
             Tab(text="DALL•E", content=page.DallE, icon=icons.BLUR_ON),
+            Tab(text="Ideogram", content=page.Ideogram, icon=icons.TIPS_AND_UPDATES),
             Tab(text="Lumina-Next", content=page.Lumina, icon=icons.SYNAGOGUE),
             Tab(text="Hunyuan-DiT", content=page.Hunyuan, icon=icons.TEMPLE_BUDDHIST),
             Tab(text="Stable Cascade", content=page.StableCascade, icon=icons.SPA),
@@ -1166,6 +1169,7 @@ prefs.setdefault('AuraSR_keep_loaded', False)
 prefs.setdefault('use_inpaint_model', False)
 prefs.setdefault('cache_dir', '')
 prefs.setdefault('Replicate_api_key', '')
+prefs.setdefault('Ideogram_api_key', '')
 prefs.setdefault('Perplexity_api_key', '')
 prefs.setdefault('install_dreamfusion', False)
 prefs.setdefault('install_repaint', False)
@@ -5322,7 +5326,7 @@ def buildImage2Text(page):
     if len(page.image2text_list.controls) < 1:
       image2text_list_buttons.visible = False
 
-    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("OpenAI GPT-4o"), dropdown.Option("Anthropic Claude 3 Vision"), dropdown.Option("Anthropic Claude 3.5 Vision"), dropdown.Option("Moondream 2"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
+    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("OpenAI GPT-4o"), dropdown.Option("Anthropic Claude 3 Vision"), dropdown.Option("Anthropic Claude 3.5 Vision"), dropdown.Option("Moondream 2"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced"), dropdown.Option("Ideogram.ai")], value=image2text_prefs['method'], on_change=change_method)
     #use_AIHorde = Switcher(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], on_change=toggle_AIHorde)
     mode = Dropdown(label="Interrogation Mode", width=200, options=[dropdown.Option("Best"), dropdown.Option("Classic"), dropdown.Option("Fast")], value=image2text_prefs['mode'], visible=image2text_prefs['method']=="BLIP-Interrogation", on_change=lambda e: changed(e, 'mode'))
     request_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=image2text_prefs['method']=="AIHorde Crowdsourced", on_change=lambda e: changed(e, 'request_mode'))
@@ -9918,7 +9922,7 @@ def buildControlNetXL(page):
     ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_xl_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
     ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_xl_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_xl_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
-    use_pag = Switcher(label="Use PAG: Perturbed-Attention Guidance (doesn't apply using Image2Image/Inpainting)", value=controlnet_xl_prefs['use_pag'], on_change=toggle_pag, tooltip="Improves sample quality across both unconditional and conditional settings. Progressively enhance the structure of synthesized samples throughout the denoising process by considering the self-attention mechanisms' ability to capture structural information.")
+    use_pag = Switcher(label="Use PAG: Perturbed-Attention Guidance (doesn't apply using Inpainting)", value=controlnet_xl_prefs['use_pag'], on_change=toggle_pag, tooltip="Improves sample quality across both unconditional and conditional settings. Progressively enhance the structure of synthesized samples throughout the denoising process by considering the self-attention mechanisms' ability to capture structural information.")
     pag_scale = SliderRow(label="PAG Guidance Scale", min=0, max=50, divisions=50, pref=controlnet_xl_prefs, key='pag_scale', tooltip="Gain more semantically coherent structures and exhibit fewer artifacts. Large guidance scale can lead to smoother textures and slight saturation in the images.")
     applied_layer_down = Checkbox(label="Down", value=controlnet_xl_prefs['applied_layer_down'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_down'))
     applied_layer_mid = Checkbox(label="Mid", value=controlnet_xl_prefs['applied_layer_mid'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_mid'))
@@ -11486,29 +11490,6 @@ def buildLuminaNext(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
-Flux_LoRA_models = [
-    {"name": "Anime CG", "path": "nyanko7/flux-dev-anime-cg", "weights": "ema_model.safetensors", "prefix": ""},
-    {"name": "Aquarel Watercolor", "path": "SebastianBodza/flux_lora_aquarel_watercolor", "weights": "lora.safetensors", "prefix": "AQUACOLTOK"},
-    {"name": "XLabs Anime", "path": "XLabs-AI/flux-lora-collection", "weights": "anime_lora.safetensors", "prefix": ""},
-    {"name": "XLabs Art", "path": "XLabs-AI/flux-lora-collection", "weights": "art_lora.safetensors", "prefix": ""},
-    {"name": "XLabs Disney", "path": "XLabs-AI/flux-lora-collection", "weights": "disney_lora.safetensors", "prefix": ""},
-    {"name": "XLabs Furry", "path": "XLabs-AI/flux-lora-collection", "weights": "furry_lora.safetensors", "prefix": ""},
-    {"name": "XLabs MJ v6", "path": "XLabs-AI/flux-lora-collection", "weights": "mjv6_lora.safetensors", "prefix": ""},
-    {"name": "XLabs Realism", "path": "XLabs-AI/flux-lora-collection", "weights": "realism_lora.safetensors", "prefix": ""},
-    {"name": "XLabs Scenery", "path": "XLabs-AI/flux-lora-collection", "weights": "scenery_lora.safetensors", "prefix": ""},
-    {"name": "Aesthetic 10k", "path": "advokat/aesthetic-flux-lora-10k", "weights": "aesthetic10k.safetensors", "prefix": ""},
-    {"name": "Gegants", "path": "xaviviro/Flux-Gegants-Lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
-    {"name": "LittleTinies", "path": "pzc163/LittleTinies-FLUX-lora", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
-    {"name": "Monochrome Manga", "path": "dataautogpt3/FLUX-MonochromeManga", "weights": "FLUX-DEV_MonochromeManga.safetensors", "prefix": "monochrome manga"},
-    {"name": "New Emoji Model M", "path": "PTtuts/flux-new-emoji-model-m", "weights": "lora.safetensors", "prefix": "TOK"},
-    {"name": "Plushy World", "path": "alvdansen/plushy-world-flux", "weights": "plushy_world_flux_araminta_k.safetensors", "prefix": "3dcndylnd style"},
-    {"name": "Sanna-Marin", "path": "mikaelh/flux-sanna-marin-lora-v0.1", "weights": "pytorch_lora_weights.safetensors", "subfolder": "checkpoint-1950", "prefix": "sanna marin"},
-    {"name": "SimpleTuner Test", "path": "markury/FLUX-dev-LoRA-test", "weights": "pytorch_lora_weights.safetensors", "prefix": "a photo of man"},
-    {"name": "Simpsons Style", "path": "Norod78/Flux_1_Dev_LoRA_Simpsons-Style", "weights": "Flux_1_Dev_LoRA_Simpsons-Style.safetensors", "prefix": "Simpsons Style"},
-    {"name": "The Point", "path": "alvdansen/the-point-flux", "weights": "thepoint_flux_araminta_k.safetensors", "prefix": "pnt style"},
-    {"name": "unDraw", "path": "AlloReview/flux-lora-undraw", "weights": "lora.safetensors", "prefix": "in the style of UndrawPurple"},
-    {"name": "Victorian Satire", "path": "dvyio/flux-lora-victorian-satire", "weights": "lora.safetensors", "prefix": "in the style of a Victorian-era TOK cartoon illustration"},
-]
 flux_prefs = {
     "prompt": '',
     "negative_prompt": '',
@@ -18887,6 +18868,96 @@ def buildDallE3(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+ideogram_prefs = {
+    'prompt': '',
+    "negative_prompt": '',
+    'size': '1024x1024',
+    "aspect_ratio": "1:1",
+    "model": "V_2",
+    "style_type": "GENERAL",
+    'magic_prompt_option': 'AUTO',
+    'init_image': '',
+    'image_weight': 50,
+    'remix': False,
+    'seed': 0,
+    'num_images': 1,
+    'file_prefix': 'ideogram-',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+    "batch_folder_name": '',
+}
+
+def buildIdeogram(page):
+    global ideogram_prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          ideogram_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def changed_pref(e, pref=None):
+      if pref is not None:
+        prefs[pref] = e.control.value
+        status['changed_prefs'] = True
+    def ideogram_help(e):
+      def close_ideogram_dlg(e):
+        nonlocal ideogram_help_dlg
+        ideogram_help_dlg.open = False
+        page.update()
+      ideogram_help_dlg = AlertDialog(title=Text("🙅   Help with Ideogram API"), content=Column([
+          Text("Ideogram 2.0 is now freely available to all users on ideogram.ai and our new iOS app! Premium features are available via subscription plans. Developers can now build with Ideogram 2.0 using our new beta Ideogram API. We are excited to release Ideogram 2.0, our new frontier text to image model with industry leading capabilities in generating realistic images, graphic design, typography, and more. Trained from scratch like all Ideogram models, Ideogram 2.0 significantly outperforms other text to image models across many quality metrics, including image-text alignment, overall subjective preference, and text rendering accuracy. You can now choose from a number of distinct styles, including Realistic, Design, 3D and Anime. These styles are crafted specifically to render unique genres of images and have significant influence on your creations. You can now generate images in any aspect ratio, including 3:1 and 1:3."),
+          Markdown("[Project Page](https://ideogram.ai/) | [Docs](https://docs.ideogram.ai) | [Blog](https://about.ideogram.ai/2.0) | [API Docs](https://api-docs.ideogram.ai/reference/post_generate_image) | [API Pricing](https://about.ideogram.ai/api-pricing)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("👴  Suprisingly Advanced... ", on_click=close_ideogram_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(ideogram_help_dlg)
+      ideogram_help_dlg.open = True
+      page.update()
+    def toggle_remix(e):
+        ideogram_prefs['remix'] = e.control.value
+        img_block.height = None if ideogram_prefs['remix'] else 0
+        img_block.update()
+    prompt = TextField(label="Prompt Text", value=ideogram_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt Text", value=ideogram_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=ideogram_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=ideogram_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    num_images = NumberPicker(label="Num of Images", min=1, max=10, step=9, value=ideogram_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    #size = Dropdown(label="Image Size", width=130, options=[dropdown.Option("1024x1024"), dropdown.Option("1024x1792"), dropdown.Option("1792x1024")], value=ideogram_prefs['size'], on_change=lambda e:changed(e,'size'))
+    seed = TextField(label="Seed", value=ideogram_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width=120, on_change=lambda e:changed(e,'seed', ptype="int"))
+    param_rows = ResponsiveRow([Row([num_images, seed], col={'lg':6}), Row([batch_folder_name, file_prefix], col={'lg':6})])
+    init_image = FileInput(label="Init Image", pref=ideogram_prefs, key='init_image', page=page, expand=True, col={"md":6})
+    image_weight = SliderRow(label="Image Weight", min=0, max=100, divisions=100, pref=ideogram_prefs, key='image_weight', col={"md":6})
+    image_pickers = Container(content=ResponsiveRow([init_image, image_weight]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    remix = Switcher(label="Remix Image", value=ideogram_prefs['remix'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_remix, tooltip="Provided images synchronously based on a given prompt and optional parameters")
+    img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height = None if ideogram_prefs['remix'] else 0)
+    model = Dropdown(label="Model", width=130, options=[dropdown.Option(s) for s in ["V_2", "V_2_TURBO", "V_1", "V_1_TURBO"]], value=ideogram_prefs['model'], on_change=lambda e: changed(e, 'model'))
+    magic_prompt_option = Dropdown(label="Magic Prompt", width=130, options=[dropdown.Option(s) for s in ["AUTO", "ON", "OFF"]], value=ideogram_prefs['magic_prompt_option'], on_change=lambda e: changed(e, 'magic_prompt_option'))
+    style_type = Dropdown(label="Style Type", width=130, options=[dropdown.Option(s) for s in ["GENERAL", "REALISTIC", "DESIGN", "RENDER_3D", "ANIME"]], value=ideogram_prefs['style_type'], on_change=lambda e: changed(e, 'style_type'))
+    aspect_ratio = Dropdown(label="Aspect Ratio", width=130, options=[dropdown.Option(s) for s in ["1:1", "16:9", "9:16", "16:10", "10:16", "3:2", "1:3", "3:1", "4:3", "3:4", "2:3"]], value=ideogram_prefs['aspect_ratio'], on_change=lambda e: changed(e, 'aspect_ratio'))
+    api_instructions = Markdown("Get **Ideogram API Token** from [https://ideogram.ai/manage-api](https://ideogram.ai/manage-api) after adding Payment Method.", on_tap_link=lambda e: e.page.launch_url(e.data))
+    Ideogram_api = TextField(label="Ideogram API Key", value=prefs['Ideogram_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed_pref(e, 'Ideogram_api_key'))
+    upscaler = UpscaleBlock(ideogram_prefs)
+    page.upscalers.append(upscaler)
+    list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ideogram(page, from_list=True))
+    parameters_button = ElevatedButton(content=Text(value="🔮   Run Ideogram.ai", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ideogram(page))
+
+    parameters_row = Row([parameters_button, list_button], spacing=22)#, alignment=MainAxisAlignment.SPACE_BETWEEN)
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("💡  Ideogram.ai API", "New frontier Text-to-Image Model Trained from Scratch in generating realistic images, graphic design, typography, and more.. Note: Uses 8 - 2 cents per Image...", actions=[save_default(ideogram_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Ideogram Settings", on_click=ideogram_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            Row([model, aspect_ratio, style_type, magic_prompt_option]),
+            remix,
+            img_block,
+            api_instructions,
+            Ideogram_api,
+            upscaler,
+            param_rows,
+            parameters_row,
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
 
 kandinsky_3_prefs = {
     "prompt": '',
@@ -21606,7 +21677,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     lr_scheduler = Dropdown(label="Learning Rate Scheduler", width=250, options=[dropdown.Option("constant"), dropdown.Option("constant_with_warmup"), dropdown.Option("linear"), dropdown.Option("cosine"), dropdown.Option("cosine_with_restarts"), dropdown.Option("polynomial")], value=flux_LoRA_prefs['lr_scheduler'], on_change=lambda e: changed(e, 'lr_scheduler'))
     prior_preservation = Checkbox(label="Prior Preservation", tooltip="If you'd like class of the model (e.g.: toy, dog, painting) is guaranteed to be preserved. This increases the quality and helps with generalization at the cost of training time", value=flux_LoRA_prefs['prior_preservation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'prior_preservation'))
     gradient_checkpointing = Checkbox(label="Gradient Checkpointing   ", tooltip="Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.", value=flux_LoRA_prefs['gradient_checkpointing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'gradient_checkpointing'))
-    train_text_encoder = Switcher(label="Train Text-Encoder", value=flux_LoRA_prefs['train_text_encoder'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_dream, tooltip="Fine-tuning of the **CLIP encoder** is performed. At the moment, T5 fine-tuning is not supported and weights remain frozen when text encoder training is enabled.")
+    train_text_encoder = Switcher(label="Train Text-Encoder", value=flux_LoRA_prefs['train_text_encoder'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_dream, tooltip="Fine-tuning of the `CLIP encoder` is performed. At the moment, T5 fine-tuning is not supported and weights remain frozen when text encoder training is enabled.")
     guidance_scale = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=flux_LoRA_prefs, key='guidance_scale', expand=True)
     #dream_detail_preservation = SliderRow(label="DREAM Detail Preservation", min=0, max=2, divisions=40, round=2, pref=flux_LoRA_prefs, key='dream_detail_preservation', tooltip="Controls the Dream detail preservation variable p.", visible=flux_LoRA_prefs['train_text_encoder'])
     num_class_images = Tooltip(message="Minimal class images for prior preservation loss. If there are not enough images already present in class_data_dir, additional images will be sampled with class_prompt.", content=TextField(label="Number of Class Images", value=flux_LoRA_prefs['num_class_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'num_class_images', ptype='int'), width = 160))
@@ -35321,6 +35392,40 @@ submit_dict:
               prompt = r['result']['*']
               i2t_prompts.append(prompt)
               page.add_to_image2text(prompt)'''
+    elif "Ideogram" in image2text_prefs['method']:
+        if not bool(prefs['Ideogram_api_key']):
+          alert_msg(page, "You must provide your Ideogram API key in the Ideogram.ai tab first")
+          return
+        import requests
+        api_url = "https://api.ideogram.ai/describe"
+        i2t_prompts = []
+        for file in image2text_prefs['images']:
+            prt(f"Interrogating Images to Describe Prompt...")
+            prt(progress)
+            files = {"image_file": (file, open(file, "rb"), "image/jpeg")}
+            headers = {
+                "Accept": "application/json",
+                "content-type": "multipart/form-data",
+                "Api-Key": prefs['Ideogram_api_key']
+            }
+            try:
+                response = requests.post(api_url, headers=headers, files=files)
+                response.raise_for_status()
+                data = response.json()
+            except requests.exceptions.HTTPError as http_err:
+                alert_msg(page, f"HTTP error occurred: {http_err}")
+            except requests.exceptions.ConnectionError as conn_err:
+                alert_msg(page, f"Connection error occurred: {conn_err}")
+            except requests.exceptions.Timeout as timeout_err:
+                alert_msg(page, f"Timeout error occurred: {timeout_err}")
+            except requests.exceptions.RequestException as req_err:
+                alert_msg(page, f"An error occurred: {req_err}")
+            clear_last()
+            clear_last()
+            for d in data['descriptions']:
+                prompt = d['text']
+                i2t_prompts.append(prompt)
+                page.add_to_image2text(prompt)
     play_snd(Snd.ALERT, page)
 
 def run_BLIP2_image2text(page):
@@ -42189,13 +42294,13 @@ def run_controlnet_xl(page, from_list=False):
     else:
         ip_adapter_model = None
     if 'loaded_controlnet_pag' not in status: status['loaded_controlnet_pag'] = False
-    if controlnet_type != status['loaded_controlnet_type'] or (controlnet_xl_prefs['use_pag'] != status['loaded_controlnet_pag'] and not controlnet_xl_prefs['use_image2image']):
+    if controlnet_type != status['loaded_controlnet_type'] or (controlnet_xl_prefs['use_pag'] != status['loaded_controlnet_pag'] and controlnet_type != "inpaint"):
         clear_pipes()
     else:
         clear_pipes('controlnet')
     #model = get_model(prefs['model_ckpt'])
     model_path = "stabilityai/stable-diffusion-xl-base-1.0"
-    if controlnet_xl_prefs['use_pag'] and not controlnet_xl_prefs['use_image2image']:
+    if controlnet_xl_prefs['use_pag'] and controlnet_type != "inpaint":
         pag_applied_layers = []
         if controlnet_xl_prefs['applied_layer_down']: pag_applied_layers.append("down")
         if controlnet_xl_prefs['applied_layer_mid']: pag_applied_layers.append("mid")
@@ -42210,8 +42315,12 @@ def run_controlnet_xl(page, from_list=False):
             else:
                 pipe_controlnet = StableDiffusionXLControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         elif controlnet_type == "image2image":
-            from diffusers import StableDiffusionXLControlNetImg2ImgPipeline
-            pipe_controlnet = StableDiffusionXLControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if controlnet_xl_prefs['use_pag']:
+                from diffusers import StableDiffusionXLControlNetPAGImg2ImgPipeline
+                pipe_controlnet = StableDiffusionXLControlNetPAGImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            else:
+                from diffusers import StableDiffusionXLControlNetPAGImg2ImgPipeline
+                pipe_controlnet = StableDiffusionXLControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         elif controlnet_type == "inpaint":
             from diffusers import StableDiffusionXLControlNetInpaintPipeline
             pipe_controlnet = StableDiffusionXLControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
@@ -42220,7 +42329,7 @@ def run_controlnet_xl(page, from_list=False):
         status['loaded_controlnet'] = loaded_controlnet #controlnet_xl_prefs["control_task"]
         status['loaded_controlnet_type'] = controlnet_type
         status['loaded_controlnet_pag'] = controlnet_xl_prefs['use_pag']
-    elif controlnet_xl_prefs['use_pag'] and not controlnet_xl_prefs['use_image2image']:
+    elif controlnet_xl_prefs['use_pag'] and controlnet_type != "inpaint":
       if pag_applied_layers != status['loaded_pag_layers']:
           pipe_controlnet.set_pag_applied_layers(pag_applied_layers)
           status['loaded_pag_layers'] = pag_applied_layers
@@ -42329,9 +42438,9 @@ def run_controlnet_xl(page, from_list=False):
                     images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args, **pag_img_arg).images
             elif controlnet_type == "image2image":
                 if not controlnet_xl_prefs['use_init_video']:
-                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args, **pag_img_arg).images
                 else:
-                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args, **pag_img_arg).images
             elif controlnet_type == "inpaint":
                 if not controlnet_xl_prefs['use_init_video']:
                     images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, mask=mask_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
@@ -47238,9 +47347,9 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
             if controlnet_type == "text2image":
                 if not controlnet_flux_prefs['use_init_video']:
                     #Main one, everything else not implemented yet
-                    images = pipe_controlnet(pr['prompt'], control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], num_images_per_prompt=controlnet_flux_prefs['batch_size'], generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                    images = pipe_controlnet(pr['prompt'], control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], width=w, height=h, num_images_per_prompt=controlnet_flux_prefs['batch_size'], generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
                 else:
-                    images = pipe_controlnet(pr['prompt'] * len(video_img) * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                    images = pipe_controlnet(pr['prompt'] * len(video_img) * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], width=w, height=h, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
             elif controlnet_type == "image2image":
                 if not controlnet_flux_prefs['use_init_video']:
                     images = pipe_controlnet(pr['prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], num_images_per_prompt=controlnet_flux_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
@@ -60218,6 +60327,134 @@ def run_dall_e_3(page, from_list=False):
             else:
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
             prt(Row([Text(new_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+
+def run_ideogram(page, from_list=False):
+    global ideogram_prefs, prefs, prompts
+    if (not bool(ideogram_prefs['prompt']) and not from_list) or (from_list and (len(prompts) == 0)):
+      alert_msg(page, "You must provide a text prompt to process your image generation...")
+      return
+    if not bool(prefs['Ideogram_api_key']):
+      alert_msg(page, "You must provide your Ideogram API Key to process your Ideogram.ai Creation...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.Ideogram.controls.append(line)
+      page.Ideogram.update()
+    def clear_last(lines=1):
+      clear_line(page.Ideogram, lines=lines)
+    def autoscroll(scroll=True):
+      page.Ideogram.auto_scroll = scroll
+      page.Ideogram.update()
+    def clear_list():
+      page.Ideogram.controls = page.Ideogram.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    import requests
+    from io import BytesIO
+    from PIL import ImageOps
+    init_img = None
+    ideogram_list = []
+    if from_list:
+        if len(prompts) > 0:
+            for p in prompts:
+                ideogram_list.append({'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'init_image': p.arg['init_image']})
+        else:
+            alert_msg(page, f"Your Prompts List is empty. Add to your batch list to use feature.")
+            return
+    else:
+        ideogram_list.append({'prompt': ideogram_prefs['prompt'], 'negative_prompt': ideogram_prefs['negative_prompt'], 'init_image': ideogram_prefs['init_image']})
+    clear_list()
+    autoscroll(True)
+    for pr in ideogram_list:
+        for n in range(ideogram_prefs['num_images']):
+            init_image = pr['init_image']
+            if bool(init_image):
+                fname = init_image.rpartition(slash)[2]
+                init_file = os.path.join(uploads_dir, fname)
+                if init_image.startswith('http'):
+                    init_img = PILImage.open(requests.get(init_image, stream=True).raw)
+                else:
+                    if os.path.isfile(init_image):
+                        init_img = PILImage.open(init_image)
+                    else:
+                        alert_msg(page, f"ERROR: Couldn't find your init_image {init_image}")
+                        return
+                w, h = init_img.size
+                w, h = scale_dimensions(w, h, 1024)
+                init_img = init_img.resize((w, h), resample=PILImage.Resampling.LANCZOS)
+                init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+                init_img.save(init_file)
+            prt("Generating your Ideogram.ai Image...")
+            prt(progress)
+            autoscroll(False)
+            random_seed = get_seed(ideogram_prefs['seed'], max=2147483647)
+            url = "https://api.ideogram.ai/generate" if not ideogram_prefs['remix'] else "https://api.ideogram.ai/remix"
+            image_request = {
+                    "prompt": pr['prompt'],
+                    "negative_prompt": pr['negative_prompt'],
+                    "model": ideogram_prefs['model'],
+                    "magic_prompt_option": ideogram_prefs['magic_prompt_option'],
+                    "aspect_ratio": f"ASPECT_{ideogram_prefs['aspect_ratio'].replace(':', '_')}",
+                    "style_type": ideogram_prefs['style_type'],
+                    "seed": random_seed,
+                }
+            payload = { "image_request": image_request} if not (bool(init_image) and ideogram_prefs['remix']) else image_request
+            headers = {
+                "accept": "application/json",
+                "content-type": "application/json",
+                "Api-Key": prefs['Ideogram_api_key']
+            }
+            try:
+                if bool(init_image) and ideogram_prefs['remix']:
+                    payload['image_weight'] = ideogram_prefs['image_weight']
+                    del headers['content-type']
+                    files = {"image_file": (init_file, open(init_file, "rb"), "image/jpeg")}
+                    response = requests.post(url, json=payload, headers=headers, files=files)
+                else:
+                    response = requests.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                #print(response.text)
+            except Exception as e:
+                clear_last(2)
+                alert_msg(page, f"ERROR: Something went wrong generating image form API...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                print(payload)
+                print(headers)
+                return
+            clear_last(2)
+            autoscroll(True)
+            batch_output = os.path.join(prefs['image_output'], ideogram_prefs['batch_folder_name'])
+            makedir(batch_output)
+            fname = format_filename(pr['prompt'])
+            fname = f'{ideogram_prefs["file_prefix"]}{fname}'
+            #print(str(images))
+            if response is None:
+                prt(f"ERROR: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
+                return
+            #print(str(response))
+            idx = 0
+            for i in data['data']:
+                image = i['url'] #i['url']
+                image_path = available_file(batch_output, fname, idx)
+                img_data = requests.get(image, stream=True)
+                img_data.raise_for_status()
+                img = PILImage.open(BytesIO(img_data.content))
+                w, h = img.size
+                img.save(image_path)
+                seed = i['seed']
+                if not ideogram_prefs['display_upscaled_image'] or not ideogram_prefs['apply_ESRGAN_upscale']:
+                    save_metadata(image_path, ideogram_prefs, "Ideogram.ai", ideogram_prefs['model'], prompt=pr['prompt'], seed=seed, extra=pr)
+                    prt(Row([ImageButton(src=image_path, data=image_path, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                if ideogram_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    upscale_image(image_path, image_path, scale=ideogram_prefs["enlarge_scale"], face_enhance=ideogram_prefs["face_enhance"], column=page.imageColumn if from_list else page.Ideogram)
+                    save_metadata(image_path, ideogram_prefs, "Ideogram.ai", ideogram_prefs['model'], prompt=pr['prompt'], seed=seed, extra=pr)
+                    if ideogram_prefs['display_upscaled_image']:
+                        prt(Row([ImageButton(src=image_path, data=image_path, width=w * float(ideogram_prefs["enlarge_scale"]), height=h * float(ideogram_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                        #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Text(image_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
