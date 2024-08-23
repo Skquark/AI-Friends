@@ -11524,6 +11524,7 @@ flux_prefs = {
     "nf4": False,
     "merge": False,
     "optimization": 'quantize',
+    "fuse_qkv_projections": False,
     "seed": 0,
     "flux_model": "FLUX.1-dev",
     "custom_model": "",
@@ -11645,7 +11646,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
 
     flux_model = Dropdown(label="FLUX.1 Model", width=256, options=[dropdown.Option("Custom"), dropdown.Option("FLUX.1-dev"), dropdown.Option("FLUX.1-schnell"), dropdown.Option("FLUX.1-merged")], value=flux_prefs['flux_model'], on_change=changed_model)
     flux_custom_model = TextField(label="Custom Flux Model (URL or Path)", value=flux_prefs['custom_model'], expand=True, visible=flux_prefs['flux_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
-    lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=2, divisions=20, round=1, expand=True, pref=flux_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     lora_layer = Dropdown(label="LoRA Layer Map", width=256, options=[dropdown.Option("Custom")], value=flux_prefs['lora_layer'], on_change=changed_lora_layer)
     custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=flux_prefs['custom_lora_layer'], expand=True, visible=flux_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
     if len(prefs['custom_Flux_LoRA_models']) > 0:
@@ -11654,13 +11655,14 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
     for m in Flux_LoRA_models:
         lora_layer.options.append(dropdown.Option(m['name']))
     page.Flux_LoRA_model = lora_layer
-    lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=flux_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=2, divisions=20, round=1, expand=True, pref=flux_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
     lora_layer_map = Column([], spacing=0)
     #merge = Switcher(label="Merge Dev & Schnell", value=flux_prefs['merge'], visible=flux_prefs['flux_model']!="Custom", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'merge'), tooltip="Combines the two models together with the Transformer for better results with less steps.")
     quantize = Switcher(label="Quantize", value=flux_prefs['quantize'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'quantize'), tooltip="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision.")
     cpu_offload = Switcher(label="CPU Offload", value=flux_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     nf4 = Switcher(label="NF4 Mode", value=flux_prefs['nf4'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'nf4'), tooltip="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16.")
+    fuse_qkv_projections = Checkbox(label="Fuse QKV Projections", value=flux_prefs['fuse_qkv_projections'], tooltip="For self-attention modules, all projection matrices (i.e., query, key, value) are fused. For cross-attention modules, key and value projection matrices are fused.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'fuse_qkv_projections'))
     def optimization_changed(e):
         o = e.control.value
         flux_prefs['optimization'] = o
@@ -11677,6 +11679,7 @@ To strike a balance between accessibility and model capabilities, FLUX.1 comes i
         Tooltip(content=ft.Radio(value="bf16_cpu", label="BF16 CPU Offload"), message="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory."),
         Tooltip(content=ft.Radio(value="quantize", label="QF8 Quantize"), message="Saves VRAM if you have less than 16GB VRAM. Quantization with Quanto at qfloat8 precision."),
         Tooltip(content=ft.Radio(value="nf4", label="NF4"),  message="Load Dev model in 4-bit Normal Float to run in as little as 6GB VRAM but produces slightly different outputs compared to FP32/BF16."),
+        fuse_qkv_projections,
     ]), value=flux_prefs['optimization'], on_change=optimization_changed)
     #distilled_model = Switcher(label="Use Distilled Model", value=flux_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
     seed = TextField(label="Seed", width=90, value=str(flux_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
@@ -17949,6 +17952,8 @@ cogvideo_x_prefs = {
     'seed': 0,
     'width': 720,
     'height': 480,
+    "cogvideo_x_model": "THUDM/CogVideoX-2b",
+    'custom_model': '',
     'use_dynamic_cfg': False,
     'cpu_offload': True,
     'num_videos': 1,
@@ -17983,6 +17988,10 @@ def buildCogVideoX(page):
       page.overlay.append(cogvideo_x_help_dlg)
       cogvideo_x_help_dlg.open = True
       page.update()
+    def changed_model(e):
+        cogvideo_x_prefs['cogvideo_x_model'] = e.control.value
+        cogvideo_x_custom_model.visible = e.control.value == "Custom"
+        cogvideo_x_custom_model.update()
     prompt = TextField(label="Animation Prompt Text", value=cogvideo_x_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=cogvideo_x_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     num_frames = SliderRow(label="Number of Frames", min=1, max=48, divisions=47, pref=cogvideo_x_prefs, key='num_frames', tooltip="The number of frames must be divisible by fps and less than 48 frames (for now).")
@@ -17994,6 +18003,8 @@ def buildCogVideoX(page):
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=cogvideo_x_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=cogvideo_x_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=cogvideo_x_prefs, key='height')
+    cogvideo_x_model = Dropdown(label="CogVideoX Model", width=280, options=[dropdown.Option("Custom"), dropdown.Option("THUDM/CogVideoX-2b"), dropdown.Option("THUDM/CogVideoX-5b")], value=cogvideo_x_prefs['cogvideo_x_model'], on_change=changed_model)
+    cogvideo_x_custom_model = TextField(label="Custom CogVideoX Model (URL or Path)", value=cogvideo_x_prefs['custom_model'], expand=True, visible=cogvideo_x_prefs['cogvideo_x_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     num_videos = NumberPicker(label="Number of Animations: ", min=1, max=12, value=cogvideo_x_prefs['num_videos'], on_change=lambda e: changed(e, 'num_videos'))
     cpu_offload = Switcher(label="CPU Offload", value=cogvideo_x_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     batch_folder_name = TextField(label="Video Folder Name", value=cogvideo_x_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -18012,6 +18023,7 @@ def buildCogVideoX(page):
         guidance,
         width_slider, height_slider,
         Row([use_dynamic_cfg, cpu_offload]),
+        Row([cogvideo_x_model, cogvideo_x_custom_model]),
         Row([num_videos, seed, batch_folder_name]),
         Row([
             ElevatedButton(content=Text("🎽  Run CogVideoX", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_cogvideo_x(page)),
@@ -43255,7 +43267,7 @@ def run_controlnet_xs(page, from_list=False):
           pass
         from controlnet_aux import MLSDdetector
         from controlnet_aux import OpenposeDetector
-        from diffusers import StableDiffusionXLControlNetXSPipeline, StableDiffusionControlNetXSPipeline, ControlNetXSModel, ControlNetModel, AutoencoderKL
+        from diffusers import StableDiffusionXLControlNetXSPipeline, StableDiffusionControlNetXSPipeline, ControlNetXSAdapter, ControlNetModel, AutoencoderKL
         #run_sp("pip install scikit-image", realtime=False)
     except Exception as e:
         clear_last()
@@ -43282,17 +43294,17 @@ def run_controlnet_xs(page, from_list=False):
         if controlnet_xs_models[task] != None:
             return controlnet_xs_models[task]
         if "Canny Map" in task or task == "Video Canny Edge":
-            controlnet_xs_models[task] = ControlNetXSModel.from_pretrained(canny_SDXL_checkpoint if controlnet_xs_prefs['use_SDXL'] else canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_xs_models[task] = ControlNetXSAdapter.from_pretrained(canny_SDXL_checkpoint if controlnet_xs_prefs['use_SDXL'] else canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
             task = "Canny Map Edge"
         elif "Marigold" in task:
             import diffusers
             depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-lcm-v1-0", torch_dtype=torch.float16, variant="fp16").to(torch_device)
-            controlnet_xs_models[task] = ControlNetXSModel.from_pretrained(depth_SDXL_checkpoint if controlnet_xs_prefs['use_SDXL'] else depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
+            controlnet_xs_models[task] = ControlNetXSAdapter.from_pretrained(depth_SDXL_checkpoint if controlnet_xs_prefs['use_SDXL'] else depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
         elif "Depth" in task:
             from transformers import DPTFeatureExtractor, DPTForDepthEstimation
             depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
             feature_extractor = DPTFeatureExtractor.from_pretrained("Intel/dpt-hybrid-midas")
-            controlnet_xs_models[task] = ControlNetXSModel.from_pretrained(depth_SDXL_checkpoint if controlnet_xs_prefs['use_SDXL'] else depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
+            controlnet_xs_models[task] = ControlNetXSAdapter.from_pretrained(depth_SDXL_checkpoint if controlnet_xs_prefs['use_SDXL'] else depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
         return controlnet_xs_models[task]
     width, height = 0, 0
     def resize_for_condition_image(input_image: PILImage, resolution: int):
@@ -46420,6 +46432,9 @@ def run_flux(page, from_list=False, with_params=False):
                     pipe_flux = pipe_flux.to("cuda")#(torch.float16)
                     #pipe_flux.transformer.enable_forward_chunking(chunk_size=1, dim=1)
             pipe_flux.set_progress_bar_config(disable=True)
+            if flux_prefs['fuse_qkv_projections']:
+                installer.status(f"...Fusing QKV Projections")
+                pipe_flux.transformer.fuse_qkv_projections()
             status['loaded_flux_model'] = model_id
             status['loaded_flux_mode'] = [mode, flux_prefs['optimization']]
         except HTTPError as e:
@@ -56431,10 +56446,14 @@ def run_cogvideo_x(page):
     autoscroll(True)
     installer = Installing("Installing CogVideoX Text-To-Video Pipeline...")
     prt(installer)
-    model_id = "THUDM/CogVideoX-2b"
-    from diffusers import CogVideoXPipeline
+    status.set_default('loaded_cogvideo_x', '')
+    model_id = cogvideo_x_prefs['cogvideo_x_model'] if cogvideo_x_prefs['cogvideo_x_model'] != "Custom" else cogvideo_x_prefs['custom_model']
+    from diffusers import CogVideoXPipeline, CogVideoXDDIMScheduler
     from diffusers.utils import export_to_gif, export_to_video
-    clear_pipes('cogvideo_x')
+    if status['loaded_cogvideo_x'] != model_id:
+        clear_pipes()
+    else:
+        clear_pipes('cogvideo_x')
     if pipe_cogvideo_x == None:
         installer.status(f"...initialize Pipeline")
         try:
@@ -56454,7 +56473,9 @@ def run_cogvideo_x(page):
             if prefs['vae_tiling']:
                 pipe_cogvideo_x.vae.enable_tiling(tile_sample_min_height=96, tile_sample_min_width=96, tile_overlap_factor_height=1 / 12, tile_overlap_factor_width=1 / 12)
             #pipe_cogvideo_x.scheduler = DDIMScheduler.from_config(pipe_cogvideo_x.scheduler.config)
+            pipe_cogvideo_x.scheduler = CogVideoXDDIMScheduler.from_config(pipe_cogvideo_x.scheduler.config, timestep_spacing="trailing")
             pipe_cogvideo_x.set_progress_bar_config(disable=True)
+            status['loaded_cogvideo_x'] = model_id
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing Personalized Image Animator...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -60124,7 +60145,7 @@ def run_dall_e(page, from_list=False):
         except Exception as e:
             clear_last()
             clear_last()
-            alert_msg(page, f"ERROR: Something went wrong generating image form API...", content=Text(str(e)))
+            alert_msg(page, f"ERROR: Something went wrong generating image from API...", content=Text(str(e)))
             return
         clear_last()
         clear_last()
@@ -60290,7 +60311,7 @@ def run_dall_e_3(page, from_list=False):
         except Exception as e:
             clear_last()
             clear_last()
-            alert_msg(page, f"ERROR: Something went wrong generating image form API...", content=Text(str(e)))
+            alert_msg(page, f"ERROR: Something went wrong generating image from API...", content=Text(str(e)))
             return
         clear_last()
         clear_last()
@@ -60343,6 +60364,16 @@ def run_dall_e_3(page, from_list=False):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+mime_types = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.bmp': 'image/bmp',
+    '.tiff': 'image/tiff',
+    '.webp': 'image/webp',
+    '.ico': 'image/vnd.microsoft.icon'
+}
 
 def run_ideogram(page, from_list=False):
     global ideogram_prefs, prefs, prompts
@@ -60385,7 +60416,7 @@ def run_ideogram(page, from_list=False):
         for n in range(ideogram_prefs['num_images']):
             init_image = pr['init_image']
             if bool(init_image):
-                fname = init_image.rpartition(slash)[2]
+                fname = os.path.basename(init_image)
                 init_file = os.path.join(uploads_dir, fname)
                 if init_image.startswith('http'):
                     init_img = PILImage.open(requests.get(init_image, stream=True).raw)
@@ -60402,6 +60433,7 @@ def run_ideogram(page, from_list=False):
                 init_img.save(init_file)
             prt("Generating your Ideogram.ai Image...")
             prt(progress)
+            nudge(page.imageColumn if from_list else page.Ideogram, page)
             autoscroll(False)
             random_seed = get_seed(ideogram_prefs['seed'], max=2147483647)
             url = "https://api.ideogram.ai/generate" if not ideogram_prefs['remix'] else "https://api.ideogram.ai/remix"
@@ -60412,9 +60444,9 @@ def run_ideogram(page, from_list=False):
                     "magic_prompt_option": ideogram_prefs['magic_prompt_option'],
                     "aspect_ratio": f"ASPECT_{ideogram_prefs['aspect_ratio'].replace(':', '_')}",
                     "style_type": ideogram_prefs['style_type'],
-                    "seed": random_seed,
+                    "seed": str(random_seed),
                 }
-            payload = { "image_request": image_request} if not (bool(init_image) and ideogram_prefs['remix']) else image_request
+            payload = { "image_request": image_request} #if not (bool(init_image) and ideogram_prefs['remix']) else image_request
             headers = {
                 "accept": "application/json",
                 "content-type": "application/json",
@@ -60422,10 +60454,14 @@ def run_ideogram(page, from_list=False):
             }
             try:
                 if bool(init_image) and ideogram_prefs['remix']:
-                    payload['image_weight'] = ideogram_prefs['image_weight']
+                    payload['image_request']['image_weight'] = str(ideogram_prefs['image_weight'])
                     del headers['content-type']
-                    files = {"image_file": (init_file, open(init_file, "rb"), "image/jpeg")}
-                    response = requests.post(url, json=payload, headers=headers, files=files)
+                    _, ext = os.path.splitext(init_file)
+                    mime = mime_types.get(ext.lower())
+                    #files = {"image_file": (init_file, open(init_file, "rb"), mime)}
+                    with open(init_file, 'rb') as image_file:
+                        files = {"image_file": (init_file, image_file, mime) }
+                        response = requests.post(url, data=payload, headers=headers, files=files)
                 else:
                     response = requests.post(url, json=payload, headers=headers)
                 response.raise_for_status()
@@ -60433,9 +60469,12 @@ def run_ideogram(page, from_list=False):
                 #print(response.text)
             except Exception as e:
                 clear_last(2)
-                alert_msg(page, f"ERROR: Something went wrong generating image form API...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                alert_msg(page, f"ERROR: Something went wrong generating image from API...", content=Column([Text(str(e), weight=ft.FontWeight.BOLD), Text(str(response.content.decode()['detail']), selectable=True)]))
                 print(payload)
                 print(headers)
+                print(init_file)
+                print(files)
+                print("Response content:", response.content.decode())
                 return
             clear_last(2)
             autoscroll(True)
@@ -60461,13 +60500,14 @@ def run_ideogram(page, from_list=False):
                 if not ideogram_prefs['display_upscaled_image'] or not ideogram_prefs['apply_ESRGAN_upscale']:
                     save_metadata(image_path, ideogram_prefs, "Ideogram.ai", ideogram_prefs['model'], prompt=pr['prompt'], seed=seed, extra=pr)
                     prt(Row([ImageButton(src=image_path, data=image_path, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
-                if ideogram_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                if ideogram_prefs['apply_ESRGAN_upscale']:
                     upscale_image(image_path, image_path, scale=ideogram_prefs["enlarge_scale"], face_enhance=ideogram_prefs["face_enhance"], column=page.imageColumn if from_list else page.Ideogram)
                     save_metadata(image_path, ideogram_prefs, "Ideogram.ai", ideogram_prefs['model'], prompt=pr['prompt'], seed=seed, extra=pr)
                     if ideogram_prefs['display_upscaled_image']:
                         prt(Row([ImageButton(src=image_path, data=image_path, width=w * float(ideogram_prefs["enlarge_scale"]), height=h * float(ideogram_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(image_path)], alignment=MainAxisAlignment.CENTER))
+                nudge(page.imageColumn if from_list else page.Ideogram, page)
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
