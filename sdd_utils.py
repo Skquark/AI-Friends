@@ -534,6 +534,7 @@ Flux_LoRA_models = [
     {"name": "Tarot v1", "path": "multimodalart/flux-tarot-v1", "weights": "flux_tarot_v1_lora.safetensors", "prefix": "in the style of TOK a trtcrd, tarot style"},
     {"name": "Frosting Lane", "path": "alvdansen/frosting_lane_flux", "weights": "flux_dev_frostinglane_araminta_k.safetensors", "prefix": ""},
     {"name": "Animation 2K", "path": "nerijs/animation2k-flux", "weights": "animation2k_v1.safetensors", "prefix": ""},
+    {"name": "Amateur Photography", "path": "ddh0/FLUX-Amateur-Photography-LoRA", "weights": "FLUX-Amateur-Photography-LoRA-v2.safetensors", "prefix": "Amateur Photography of"},
     {"name": "SoftServe Anim", "path": "alvdansen/softserve_anime", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     {"name": "PS1 style", "path": "veryVANYA/ps1-style-flux", "weights": "flux_dev_softstyle_araminta_k.safetensors", "prefix": "ps1 game screenshot"},
     {"name": "Koda", "path": "alvdansen/flux-koda", "weights": "araminta_k_flux_koda.safetensors", "prefix": "flmft style"},

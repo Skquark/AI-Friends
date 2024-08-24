@@ -20,3 +20,4 @@ call .\Scripts\deactivate.bat
 exit /B 1
 :NOPYTHON
 echo "Python for Windows is not installed. Get it from https://www.python.org/downloads/ first."
+pause
