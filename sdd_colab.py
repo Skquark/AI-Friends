@@ -18063,12 +18063,6 @@ def buildKandinskyVideo(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def clear_output(e):
-      play_snd(Snd.DELETE, page)
-      page.kandinsky_video_output.controls = []
-      page.kandinsky_video_output.update()
-      clear_button.visible = False
-      clear_button.update()
     def kandinsky_video_help(e):
       def close_kandinsky_video_dlg(e):
         nonlocal kandinsky_video_help_dlg
@@ -18090,17 +18084,14 @@ def buildKandinskyVideo(page):
     key_frame_guidance_scale = SliderRow(label="Keyframe Guidance", min=0, max=10, divisions=20, round=1, pref=kandinsky_video_prefs, key='key_frame_guidance_scale', col={'lg':6})
     image_guidance_scale = SliderRow(label="Image Guidance", min=0, max=10, divisions=20, round=1, pref=kandinsky_video_prefs, key='image_guidance_scale', col={'lg':6})
     interpolation_guidance_scale = SliderRow(label="Interpolation Guidance", min=0, max=10, divisions=20, round=1, pref=kandinsky_video_prefs, key='interpolation_guidance_scale', col={'lg':6})
-    fps = Dropdown(label="Frames per Second", width=130, options=[dropdown.Option(s) for s in ["Low", "Medium", "High"]], value=kandinsky_video_prefs['fps'], on_change=lambda e: changed(e, 'fps'))
-    motion = Dropdown(label="Motion", width=130, options=[dropdown.Option(s) for s in ["Low", "Medium", "High", "Extreem"]], value=kandinsky_video_prefs['motion'], on_change=lambda e: changed(e, 'motion'))
+    fps = Dropdown(label="Frames per Second", width=145, options=[dropdown.Option(s) for s in ["Low", "Medium", "High"]], value=kandinsky_video_prefs['fps'], on_change=lambda e: changed(e, 'fps'))
+    motion = Dropdown(label="Motion", width=145, options=[dropdown.Option(s) for s in ["Low", "Medium", "High", "Extreem"]], value=kandinsky_video_prefs['motion'], on_change=lambda e: changed(e, 'motion'))
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=kandinsky_video_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=kandinsky_video_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=kandinsky_video_prefs, key='height')
     num_images = NumberPicker(label="Number of Animations: ", min=1, max=12, value=kandinsky_video_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     batch_folder_name = TextField(label="Video Folder Name", value=kandinsky_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     #seed = TextField(label="Seed", width=90, value=str(kandinsky_video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    page.kandinsky_video_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
-    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
-    clear_button.visible = len(page.kandinsky_video_output.controls) > 0
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
@@ -18115,8 +18106,6 @@ def buildKandinskyVideo(page):
         Row([
             ElevatedButton(content=Text("🥁  Run Kandinsky Video", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_video(page)),
         ]),
-        page.kandinsky_video_output,
-        clear_button,
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
@@ -19046,7 +19035,7 @@ def buildIdeogram(page):
     img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height = None if ideogram_prefs['remix'] else 0)
     model = Dropdown(label="Model", width=130, options=[dropdown.Option(s) for s in ["V_2", "V_2_TURBO", "V_1", "V_1_TURBO"]], value=ideogram_prefs['model'], on_change=lambda e: changed(e, 'model'))
     magic_prompt_option = Dropdown(label="Magic Prompt", width=130, options=[dropdown.Option(s) for s in ["AUTO", "ON", "OFF"]], value=ideogram_prefs['magic_prompt_option'], on_change=lambda e: changed(e, 'magic_prompt_option'))
-    style_type = Dropdown(label="Style Type", width=130, options=[dropdown.Option(s) for s in ["GENERAL", "REALISTIC", "DESIGN", "RENDER_3D", "ANIME"]], value=ideogram_prefs['style_type'], on_change=lambda e: changed(e, 'style_type'))
+    style_type = Dropdown(label="Style Type", width=130, options=[dropdown.Option(s) for s in ["AUTO", "GENERAL", "REALISTIC", "DESIGN", "RENDER_3D", "ANIME"]], value=ideogram_prefs['style_type'], on_change=lambda e: changed(e, 'style_type'))
     aspect_ratio = Dropdown(label="Aspect Ratio", width=130, options=[dropdown.Option(s) for s in ["1:1", "16:9", "9:16", "16:10", "10:16", "3:2", "1:3", "3:1", "4:3", "3:4", "2:3"]], value=ideogram_prefs['aspect_ratio'], on_change=lambda e: changed(e, 'aspect_ratio'))
     api_instructions = Markdown("Get **Ideogram API Token** from [https://ideogram.ai/manage-api](https://ideogram.ai/manage-api) after adding Payment Method.", on_tap_link=lambda e: e.page.launch_url(e.data))
     Ideogram_api = TextField(label="Ideogram API Key", value=prefs['Ideogram_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed_pref(e, 'Ideogram_api_key'))
@@ -37814,18 +37803,18 @@ def run_tortoise_tts(page):
     tortoise_dir = os.path.join(root_dir, "tortoise-tts")
     voice_dir = os.path.join(tortoise_dir, 'tortoise', 'voices')
     if not os.path.isdir(tortoise_dir):
-      installer.status("...cloning jnorberg/toroise-tts")
+      installer.status("...cloning neonbjb/toroise-tts")
       os.chdir(root_dir)
-      run_sp("git clone https://github.com/jnordberg/tortoise-tts.git")
+      run_sp("git clone https://github.com/neonbjb/tortoise-tts.git")
     os.chdir(tortoise_dir)
-    pip_install("ffmpeg pydub", installer=installer)
+    pip_install("ffmpeg pydub tqdm rotary_embedding_torch tokenizers inflect progressbar einops==0.4.1 unidecode scipy librosa==0.9.1 numpy numba threadpoolctl llvmlite appdirs nbconvert==5.3.1 tornado==4.2 pydantic==1.9.1 deepspeed==0.8.3 py-cpuinfo hjson psutil sounddevice spacy==3.7.5", installer=installer)
     try:
       from tortoise.api import TextToSpeech
     except Exception:
-      installer.status("...installing all requirements")
       try:
-        run_sp("pip install -r requirements.txt", cwd=tortoise_dir)
-        run_sp("python setup.py install", cwd=tortoise_dir)
+        installer.status("...installing all requirements")
+        #run_sp("pip install -r requirements.txt", cwd=tortoise_dir)
+        #run_sp("python setup.py install", cwd=tortoise_dir)
       except Exception as e:
         clear_last()
         alert_msg(page, "Error Installing Tortoise TextToSpeech requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
@@ -56628,15 +56617,6 @@ def run_kandinsky_video(page):
       page.KandinskyVideo.auto_scroll = scroll
       page.KandinskyVideo.update()
     progress = ProgressBar(bar_height=8)
-    total_steps = kandinsky_video_prefs['num_inference_steps']
-    def callback_fnc(pipe, step, timestep, callback_kwargs):
-      callback_fnc.has_been_called = True
-      nonlocal progress, total_steps
-      #total_steps = len(latents)
-      percent = (step +1)/ total_steps
-      progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
-      progress.update()
     clear_list()
     autoscroll(True)
     installer = Installing("Installing Kandinsky Video Text-To-Video Pipeline...")
@@ -56688,7 +56668,7 @@ def run_kandinsky_video(page):
     batch_output = os.path.join(prefs['image_output'], kandinsky_video_prefs['batch_folder_name'])
     makedir(batch_output)
     for n in range(kandinsky_video_prefs['num_images']):
-        prt("Generating Kandinsky Video from your Prompt...")
+        prt("Generating Kandinsky Video from your Prompt... See console for progress.")
         prt(progress)
         autoscroll(False)
         width = kandinsky_video_prefs['width']
@@ -56715,15 +56695,15 @@ def run_kandinsky_video(page):
         fname = f"{format_filename(kandinsky_video_prefs['prompt'])}"
         gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
         video_file = available_file(batch_output, fname, no_num=True, ext="mp4")
-        video.save(gif_file,
+        video[0].save(gif_file,
             save_all=True, append_images=video[1:], duration=int(5500/len(video)), loop=0
         )
         prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
         fps = switchcase(kandinsky_video_prefs['fps'].lower(), {'low':2, 'medium':8, 'high':30})
-        with open(video_path, "wb") as file:
+        with open(video_file, "wb") as file:
             file.write(frames2video(video, fps=fps))
         autoscroll(True)
-        export_to_video(video, video_file, fps=kandinsky_video_prefs['fps'])
+        #export_to_video(video, video_file, fps=kandinsky_video_prefs['fps'])
         #prt(Row([VideoContainer(video_file)], alignment=MainAxisAlignment.CENTER))
         prt(Markdown(f"Video saved to [{video_file}]({filepath_to_url(video_file)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     #prt(f"Done creating video... Check {batch_output}")
@@ -60658,9 +60638,13 @@ def run_ideogram(page, from_list=False):
                     "model": ideogram_prefs['model'],
                     "magic_prompt_option": ideogram_prefs['magic_prompt_option'],
                     "aspect_ratio": f"ASPECT_{ideogram_prefs['aspect_ratio'].replace(':', '_')}",
-                    "style_type": ideogram_prefs['style_type'],
-                    "seed": str(random_seed),
+                    #"style_type": ideogram_prefs['style_type'],
+                    "seed": random_seed,
                 }
+            if not bool(pr['negative_prompt']):
+                del image_request['negative_prompt']
+            if ideogram_prefs['style_type'] != "AUTO":
+                image_request['style_type'] = ideogram_prefs['style_type']
             payload = { "image_request": image_request} #if not (bool(init_image) and ideogram_prefs['remix']) else image_request
             headers = {
                 "accept": "application/json",
@@ -60689,8 +60673,8 @@ def run_ideogram(page, from_list=False):
                 alert_msg(page, f"ERROR: Something went wrong generating image from API...", content=Column([Text(str(e), weight=ft.FontWeight.BOLD), Text(str(error_detail['detail']), selectable=True)]))
                 print(payload)
                 print(headers)
-                print(init_file)
-                print(files)
+                #print(init_file)
+                #print(files)
                 print("Response content:", error_detail)
                 return
             clear_last(2)
