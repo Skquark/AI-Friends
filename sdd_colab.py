@@ -563,7 +563,7 @@ from typing import Optional
 try:
   import numpy as np
 except ModuleNotFoundError:
-  run_sp("pip install numpy", realtime=False)
+  run_sp("pip install numpy==1.26.4", realtime=False)
   import numpy as np
   pass
 try:
@@ -11841,7 +11841,7 @@ controlnet_flux_prefs = {
     "enlarge_scale": 2.0,
     "display_upscaled_image": False,
 }
-controlnet_flux_control_modes = ["Canny Map Edge", "Tile", "Depth", "Blur", "Pose", "Grey", "LQ"]
+controlnet_flux_control_modes = ["Canny Map Edge", "Tile", "Depth", "Blur", "Pose", "Greyscale", "Low-Quality"]
 def buildControlNetFLUX(page):
     global controlnet_flux_prefs, prefs
     def changed(e, pref=None, ptype="str"):
@@ -12052,7 +12052,7 @@ def buildControlNetFLUX(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🛃  ControlNet FLUX.1 Image+Text-to-Image (Canny only, for now)", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models... Trained at 512x512 & 1024x1024", actions=[save_default(controlnet_flux_prefs, ['original_image', 'init_image', 'mask_image', 'ip_adapter_image', 'multi_controlnets']), IconButton(icon=icons.HELP, tooltip="Help with ControlNet-FLUX Settings", on_click=controlnet_flux_help)]),
-        Row([control_task, original_image, init_video]),#, add_layer_btn
+        Row([control_task, original_image, init_video, add_layer_btn]),
         conditioning_scale,
         #Row([control_guidance_start, control_guidance_end]),
         multi_layers,
@@ -23936,10 +23936,10 @@ pipe_controlnet = None
 controlnet = None
 controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 controlnet_xl_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
-controlnet_sd3_models = {"Canny Map Edge":None, "Tile":None, "Depth":None, "Blur":None, "Pose":None, "Grey":None, "LQ":None}
+controlnet_sd3_models = {"Canny Map Edge":None, "Tile":None, "Depth":None, "Blur":None, "Pose":None, "Greyscale":None, "LQ":None}
 controlnet_xs_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 controlnet_hunyuan_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Marigold Depth":None}
-controlnet_flux_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Tile":None}
+controlnet_flux_models = {"Canny Map Edge":None, "Union":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Tile":None}
 stability_api = None
 safety = {'safety_checker':None, 'requires_safety_checker':False, 'feature_extractor':None} if prefs['disable_nsfw_filter'] else {}
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -32374,7 +32374,7 @@ def run_anytext(page, from_list=False, with_params=False):
         import pytorch_lightning
     except ModuleNotFoundError:
         installer.status("...installing pytorch-lightning")
-        run_sp("pip install -U pytorch-lightning==1.7.7", realtime=False)
+        run_sp("pip install -U pytorch-lightning==1.9.0", realtime=False)#==1.7.7
         pass
     pip_install("omegaconf torchmetrics==0.11.4 sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
     os.chdir(anytext_d)
@@ -46836,6 +46836,7 @@ def run_flux_pro(page, from_list=False):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+
 def run_controlnet_flux(page, from_list=False, with_params=False):
     global controlnet_flux_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_flux_models
     if not check_diffusers(page): return
@@ -46951,7 +46952,7 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
         pip_install("mediapipe controlnet-aux", installer=installer)
         from controlnet_aux import MLSDdetector
         from controlnet_aux import OpenposeDetector
-        from diffusers.models import FluxControlNetModel#, FluxMultiControlNetModel
+        from diffusers.models import FluxControlNetModel, FluxMultiControlNetModel
         #run_sp("pip install scikit-image", realtime=False)
     except Exception as e:
         clear_last()
@@ -46960,7 +46961,8 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
         return
     installer.status("...initializing")
     canny_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Canny"
-    depth_checkpoint = "diffusers/controlnet-depth-sd3-1.0"
+    union_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union"
+    depth_checkpoint = "Shakker-Labs/FLUX.1-dev-ControlNet-Depth"
     seg_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
     softedge_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
     lineart_checkpoint = "InstantX/FLUX.1-dev-Controlnet-Union-alpha"
@@ -46987,12 +46989,14 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
     lineart = None
     shuffle = None
     original_img = None
+    #controlnet_flux_control_modes = ["Canny Map Edge", "Tile", "Depth", "Blur", "Pose", "Greyscale", "LQ"]
     def get_controlnet(task):
         nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
         if controlnet_flux_models[task] != None:
             return controlnet_flux_models[task]
         if "Canny Map" in task or task == "Video Canny Edge":
-            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            if controlnet_flux_models["Union"] is None:
+                controlnet_flux_models["Union"] = FluxControlNetModel.from_pretrained(union_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
             task = "Canny Map Edge"
         elif "Scribble" in task:
             from controlnet_aux import HEDdetector
@@ -47002,16 +47006,19 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
             task = "Pose"
             from controlnet_aux import OpenposeDetector
             openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
-            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            if controlnet_flux_models["Union"] is None:
+                controlnet_flux_models["Union"] = FluxControlNetModel.from_pretrained(union_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Marigold Depth":
             import diffusers
             depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-depth-lcm-v1-0", torch_dtype=torch.float16).to(torch_device)
-            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            if controlnet_flux_models["Union"] is None:
+                controlnet_flux_models["Union"] = FluxControlNetModel.from_pretrained(union_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif "Depth" in task:
             from transformers import DPTFeatureExtractor, DPTForDepthEstimation
             depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
             feature_extractor = DPTFeatureExtractor.from_pretrained("Intel/dpt-hybrid-midas")
-            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            if controlnet_flux_models["Union"] is None:
+                controlnet_flux_models["Union"] = FluxControlNetModel.from_pretrained(union_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Softedge":
             from controlnet_aux import HEDdetector, PidiNetDetector
             hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
@@ -47047,13 +47054,16 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
             shuffle = ContentShuffleDetector()
             controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(shuffle_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Tile":
-            controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(tile_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+            if controlnet_flux_models["Union"] is None:
+                controlnet_flux_models["Union"] = FluxControlNetModel.from_pretrained(union_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
         elif task == "Brightness":
             controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(brightness_checkpoint, torch_dtype=torch.bfloat16)
         elif task == "Instruct Pix2Pix":
             controlnet_flux_models[task] = FluxControlNetModel.from_pretrained(ip2p_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
-
-        return controlnet_flux_models[task]
+        else:
+            if controlnet_flux_models["Union"] is None:
+                controlnet_flux_models["Union"] = FluxControlNetModel.from_pretrained(union_checkpoint, torch_dtype=torch.bfloat16).to(torch_device)
+        return controlnet_flux_models["Union"]
     width, height = 0, 0
     def resize_for_condition_image(input_image: PILImage, resolution: int):
         input_image = input_image.convert("RGB")
@@ -47155,6 +47165,13 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
                 original_img = resize_for_condition_image(original_img, 1024)
             elif task == "Brightness":
                 original_img = PILImage.fromarray(original_img).convert('L')
+            elif task == "Blur":
+                from PIL import ImageFilter
+                original_img = original_img.filter(ImageFilter.GaussianBlur(5))
+            elif task == "Greyscale":
+                original_img = original_img.convert('L')
+            elif task == "Low-Quality":
+                original_img = PILImage.fromarray(original_img)
             return original_img
         except Exception as e:
             alert_msg(page, f"ERROR Preparing ControlNet-FLUX {controlnet_flux_prefs['control_task']} Input Image {img}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -47214,25 +47231,28 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
         clear_last()
         return video
     loaded_controlnet = None
+    control_modes = []
+    def get_control_mode(task):
+        for i, c in enumerate(controlnet_flux_control_modes):
+            if c in task:
+                return i
     if len(controlnet_flux_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_flux_prefs['use_init_video']:
         controlnet = []
         loaded_controlnet = []
         for c in controlnet_flux_prefs['multi_controlnets']:
             controlnet.append(get_controlnet(c['control_task']))
             loaded_controlnet.append(c['control_task'])
+            control_modes.append(get_control_mode(c['control_task']))
         if len(controlnet) == 1:
             controlnet = controlnet[0]
             loaded_controlnet = loaded_controlnet[0]
+            control_modes = control_modes[0]
         else:
             controlnet = FluxMultiControlNetModel(controlnet)
     else:
         controlnet = get_controlnet(controlnet_flux_prefs['control_task'])
         loaded_controlnet = controlnet_flux_prefs['control_task']
-    control_mode = 0
-    for i, c in enumerate(controlnet_flux_control_modes):
-        if c in controlnet_flux_prefs['control_task']:
-            control_mode = i
-            break
+        control_modes = get_control_mode(controlnet_flux_prefs['control_task'])
     for k, v in controlnet_flux_models.items():
       if v != None and k in loaded_controlnet:
         del v
@@ -47460,9 +47480,9 @@ def run_controlnet_flux(page, from_list=False, with_params=False):
             if controlnet_type == "text2image":
                 if not controlnet_flux_prefs['use_init_video']:
                     #Main one, everything else not implemented yet
-                    images = pipe_controlnet(pr['prompt'], control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], width=w, height=h, num_images_per_prompt=controlnet_flux_prefs['batch_size'], generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                    images = pipe_controlnet(pr['prompt'], control_image=original_img, control_mode=control_modes, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], width=w, height=h, num_images_per_prompt=controlnet_flux_prefs['batch_size'], generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
                 else:
-                    images = pipe_controlnet(pr['prompt'] * len(video_img) * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], width=w, height=h, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                    images = pipe_controlnet(pr['prompt'] * len(video_img) * len(video_img), image=video_img, latents=latents, control_mode=control_modes, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], width=w, height=h, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
             elif controlnet_type == "image2image":
                 if not controlnet_flux_prefs['use_init_video']:
                     images = pipe_controlnet(pr['prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_flux_prefs['steps'], guidance_scale=controlnet_flux_prefs['guidance_scale'], num_images_per_prompt=controlnet_flux_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
@@ -52541,10 +52561,11 @@ def run_rave(page):
     if not os.path.exists(rave_dir):
         try:
             installer.status("...cloning rehg-lab/RAVE")
-            run_sp("git clone https://github.com/rehg-lab/RAVE.git", cwd=root_dir, realtime=False)
+            run_sp("git clone https://github.com/RehgLab/RAVE.git", cwd=root_dir, realtime=False)
             installer.status("...installing RAVE requirements")
             #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
-            pip_install("addict==2.4.0 basicsr==1.4.2 beautifulsoup4|bs4 caffe2==0.8.1 cityscapesscripts==2.2.2 dominate==2.9.0 einops external==0.0.1 fairscale==0.4.13 ftfy fvcore==0.1.5.post20221221 hydra-core==1.3.2 imageio imutils iopath==0.1.10 kornia==0.7.0 lmdb==1.4.1 matplotlib mc mediapipe mmdet==3.2.0 mmpose==1.2.0 omegaconf onnx==1.15.0 onnxruntime==1.16.3 opencv_python openvino==2023.2.0 packaging pandas parrots==0.1.7 prettytable==3.9.0 Pygments==2.17.2 pytorch_lightning==2.1.2 PyYAML|yaml regex scipy setuptools Shapely==2.0.2 skimage==0.0 std_msgs==0.0.1 tabulate==0.9.0 tensorboardX==2.6.2.2 tensorflow==2.15.0.post1 termcolor==2.4.0 tifffile==2023.7.10 timm tqdm turbojpeg==0.0.2 yapf==0.40.2 watchdog", installer=installer, upgrade=True)
+            #pip_install("addict==2.4.0 basicsr==1.4.2 beautifulsoup4|bs4 caffe2==0.8.1 cityscapesscripts==2.2.2 dominate==2.9.0 einops external==0.0.1 fairscale==0.4.13 ftfy fvcore==0.1.5.post20221221 hydra-core==1.3.2 imageio imutils iopath==0.1.10 kornia==0.7.0 lmdb==1.4.1 matplotlib mc mediapipe mmdet==3.2.0 mmpose==1.2.0 omegaconf onnx==1.15.0 onnxruntime==1.16.3 opencv_python openvino==2023.2.0 packaging pandas parrots==0.1.7 prettytable==3.9.0 Pygments==2.17.2 pytorch_lightning==2.1.2 PyYAML|yaml regex scipy setuptools Shapely==2.0.2 skimage==0.0 std_msgs==0.0.1 tabulate==0.9.0 tensorboardX==2.6.2.2 tensorflow==2.15.0.post1 termcolor==2.4.0 tifffile==2023.7.10 timm tqdm turbojpeg==0.0.2 yapf==0.40.2 watchdog", installer=installer, upgrade=True)
+            pip_install("basicsr einops gradio imageio matplotlib mmdet==3.2.0 mmpose==1.2.0 omegaconf openvino pandas prettytable pytorch_lightning==1.9.0 PyYAML|yaml safetensors scipy setuptools scikit-image|skimage timm==0.6.7 torch_tb_profiler tqdm timm watchdog", installer=installer, upgrade=True)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing RAVE Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -55830,7 +55851,7 @@ def run_rerender_a_video(page):
             run_sp("git clone https://github.com/williamyang1991/Rerender_A_Video.git --recursive", cwd=root_dir, realtime=False)
             installer.status("...installing Rerender_A_Video requirements")
             #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
-            pip_install("addict==2.4.0 albumentations==1.4.10 basicsr==1.4.2 blendmodes einops gradio imageio imageio-ffmpeg invisible-watermark kornia==0.6 numba omegaconf open_clip_torch prettytable==3.6.0 pytorch-lightning safetensors streamlit==1.12.1 streamlit-drawable-canvas==0.8.0 test-tube==0.7.5 timm torchmetrics transformers webdataset yapf==0.32.0 watchdog", installer=installer, upgrade=True)
+            pip_install("addict==2.4.0 albumentations==1.4.10 basicsr==1.4.2 blendmodes einops gradio imageio imageio-ffmpeg invisible-watermark kornia==0.6 numba omegaconf open_clip_torch prettytable==3.6.0 pytorch-lightning==1.9.0 safetensors streamlit==1.12.1 streamlit-drawable-canvas==0.8.0 test-tube==0.7.5 timm torchmetrics transformers webdataset yapf==0.32.0 watchdog", installer=installer, upgrade=True)
             installer.status("...downloading SD models")
             run_sp("python install.py", cwd=rerender_a_video_dir, realtime=True)
         except Exception as e:
@@ -56626,8 +56647,8 @@ def run_kandinsky_video(page):
         installer.status("...cloning ai-forever/KandinskyVideo")
         run_sp("git clone https://github.com/ai-forever/KandinskyVideo.git", cwd=root_dir)
     if KandinskyVideo_dir not in sys.path:
-        sys.path.append(KandinskyVideo_dir)
-    pip_install("pytorch_lightning==1.7.5 setuptools==59.5.0 omegaconf datasets einops webdataset fsspec s3fs hydra-core scikit-image|skimage matplotlib wandb albumentations bezier av sentencepiece", installer=installer)
+        sys.path.append(KandinskyVideo_dir)#pytorch_lightning==1.7.5
+    pip_install("pytorch_lightning==2.1.2 setuptools==59.5.0 omegaconf datasets einops webdataset fsspec s3fs hydra-core scikit-image|skimage matplotlib wandb albumentations bezier==2023.7.28 av sentencepiece", installer=installer)
     model_id = "https://huggingface.co/ai-forever/KandinskyVideo_1_1"
     device_map = 'cuda:0'
     clear_pipes('kandinsky_video')
@@ -56745,7 +56766,7 @@ def run_open_sora_plan(page):
             run_sp("git clone -b dev https://github.com/PKU-YuanGroup/Open-Sora-Plan", cwd=root_dir, realtime=False)
             installer.status("...installing Open-Sora-Plan requirements")
             #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
-            pip_install("albumentations==1.4.0 av decord==0.6.0 einops fastapi==0.110.0 gdown h5py==3.10.0 idna==3.6 imageio matplotlib numpy omegaconf==2.1.1 opencv-python==4.9.0.80 opencv-python-headless==4.9.0.80 pandas pydub pytorch-lightning==1.4.2 pytorchvideo==0.1.5 PyYAML|yaml regex==2023.12.25 scikit-learn|sklearn scipy six==1.16.0 tensorboard==2.14.0 test-tube==0.7.5 timm torchdiffeq==0.2.3 torchmetrics==0.5.0 tqdm urllib3==2.2.1 uvicorn==0.27.1 scikit-video==1.1.11 triton", installer=installer, upgrade=True, reinstall=True)
+            pip_install("albumentations==1.4.0 av decord==0.6.0 einops fastapi==0.110.0 gdown h5py==3.10.0 idna==3.6 imageio matplotlib numpy omegaconf==2.1.1 opencv-python==4.9.0.80 opencv-python-headless==4.9.0.80 pandas pydub pytorch-lightning==1.9.0 pytorchvideo==0.1.5 PyYAML|yaml regex==2023.12.25 scikit-learn|sklearn scipy six==1.16.0 tensorboard==2.14.0 test-tube==0.7.5 timm torchdiffeq==0.2.3 torchmetrics==0.5.0 tqdm urllib3==2.2.1 uvicorn==0.27.1 scikit-video==1.1.11 triton", installer=installer, upgrade=True, reinstall=True)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing Open-Sora Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -59013,8 +59034,8 @@ def run_instantmesh(page):
         installer.status("...installing FaceBook's Xformers (slow)")
         run_sp(f"pip install -U xformers=={'0.0.25' if upgrade_torch else '0.0.22.post7'} --index-url https://download.pytorch.org/whl/cu121", realtime=False)
         status['installed_xformers'] = True
-        pass
-    pip_install("pytorch-lightning==2.1.2 einops omegaconf torchmetrics webdataset tensorboard PyMCubes|mcubes rembg imageio[ffmpeg]|imageio xatlas plyfile git+https://github.com/NVlabs/nvdiffrast|nvdiffrast jax==0.4.19 jaxlib==0.4.19 ninja trimesh", installer=installer)
+        pass #pytorch-lightning==2.1.2
+    pip_install("pytorch-lightning==1.9.0 einops omegaconf torchmetrics webdataset tensorboard PyMCubes|mcubes rembg imageio[ffmpeg]|imageio xatlas plyfile git+https://github.com/NVlabs/nvdiffrast|nvdiffrast jax==0.4.19 jaxlib==0.4.19 ninja trimesh", installer=installer)
     os.chdir(instantmesh_dir)
     name = instantmesh_prefs['title'] if bool(instantmesh_prefs['title']) else instantmesh_prefs['init_image'].rpartition(slash)[1].rparition('.')[0]
     fname = format_filename(name)
