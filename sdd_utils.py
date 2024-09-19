@@ -258,6 +258,7 @@ SDXL_models = [
     {"name": "RealVis-XL 3", "path": "SG161222/RealVisXL_V3.0", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "RealVis-XL 4", "path": "SG161222/RealVisXL_V4.0", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "RunDiffusion-XL", "path": "RunDiffusion/RunDiffusion-XL-Beta", "prefix": "", "variant": "fp16", "use_safetensors": True},
+    {"name": "SD-XL Inpainting 0.1", "path": "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", "prefix": "", "variant": "fp16"},
     {"name": "SeaArt-Furry-XL", "path": "SeaArtLab/SeaArt-Furry-XL-1.0", "prefix": "", "use_safetensors": True},
     {"name": "Segmind SSD-1B", "path": "segmind/SSD-1B", "prefix": "", "variant": "fp16"},
     {"name": "Segmind SSD-1B Anime", "path": "furusu/SSD-1B-anime", "prefix": "", "variant": "fp16"},
